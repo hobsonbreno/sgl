@@ -10,6 +10,12 @@ export declare class Fornecedor {
     }[];
     categorias: string[];
     origem: string;
+    fornecedor_historico_precos: {
+        descricaoItem: string;
+        precoUnitario: number;
+        data: Date;
+        oportunidadeId: string;
+    }[];
 }
 export declare const FornecedorSchema: import("mongoose").Schema<Fornecedor, import("mongoose").Model<Fornecedor, any, any, any, any, any, Fornecedor>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, Fornecedor, import("mongoose").Document<unknown, {}, Fornecedor, {
     id: string;
@@ -61,6 +67,20 @@ export declare const FornecedorSchema: import("mongoose").Schema<Fornecedor, imp
         id: string;
     }>> | undefined;
     origem?: import("mongoose").SchemaDefinitionProperty<string, Fornecedor, import("mongoose").Document<unknown, {}, Fornecedor, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<Fornecedor & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>> | undefined;
+    fornecedor_historico_precos?: import("mongoose").SchemaDefinitionProperty<{
+        descricaoItem: string;
+        precoUnitario: number;
+        data: Date;
+        oportunidadeId: string;
+    }[], Fornecedor, import("mongoose").Document<unknown, {}, Fornecedor, {
         id: string;
     }, import("mongoose").DefaultSchemaOptions> & Omit<Fornecedor & {
         _id: import("mongoose").Types.ObjectId;

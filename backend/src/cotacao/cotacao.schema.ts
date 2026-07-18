@@ -11,8 +11,11 @@ export class Cotacao {
   @Prop({
     type: [{
       _id: { type: mongoose.Schema.Types.ObjectId, auto: true },
+      produtoId: { type: mongoose.Schema.Types.ObjectId, ref: 'Produto' },
       descricaoItem: String,
       quantidade: Number,
+      unidadeMedida: String,
+      valorUnitarioEstimado: Number,
       precosFornecedores: [{
         fornecedorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Fornecedor' },
         precoUnitario: Number,
@@ -26,8 +29,11 @@ export class Cotacao {
   })
   itens: {
     _id: mongoose.Types.ObjectId;
+    produtoId?: mongoose.Types.ObjectId;
     descricaoItem: string;
     quantidade: number;
+    unidadeMedida?: string;
+    valorUnitarioEstimado?: number;
     precosFornecedores: {
       fornecedorId: mongoose.Types.ObjectId;
       precoUnitario: number;

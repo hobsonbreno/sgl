@@ -21,22 +21,25 @@ const mongoose_2 = require("mongoose");
 const bot_execucao_schema_1 = require("./bot-execucao.schema");
 const perfil_busca_schema_1 = require("../perfil-busca/perfil-busca.schema");
 const oportunidade_schema_1 = require("../oportunidade/oportunidade.schema");
-const fornecedor_schema_1 = require("../fornecedor/fornecedor.schema");
+const orgao_schema_1 = require("../orgao/orgao.schema");
+const produto_schema_1 = require("../produto/produto.schema");
 const pncp_client_service_1 = require("../pncp/services/pncp-client/pncp-client.service");
 const pncp_dto_1 = require("../pncp/dtos/pncp.dto");
 let BotService = BotService_1 = class BotService {
     botExecucaoModel;
     perfilBuscaModel;
     oportunidadeModel;
-    fornecedorModel;
+    orgaoModel;
+    produtoModel;
     pncpClientService;
     logger = new common_1.Logger(BotService_1.name);
     emExecucao = false;
-    constructor(botExecucaoModel, perfilBuscaModel, oportunidadeModel, fornecedorModel, pncpClientService) {
+    constructor(botExecucaoModel, perfilBuscaModel, oportunidadeModel, orgaoModel, produtoModel, pncpClientService) {
         this.botExecucaoModel = botExecucaoModel;
         this.perfilBuscaModel = perfilBuscaModel;
         this.oportunidadeModel = oportunidadeModel;
-        this.fornecedorModel = fornecedorModel;
+        this.orgaoModel = orgaoModel;
+        this.produtoModel = produtoModel;
         this.pncpClientService = pncpClientService;
     }
     async handleCron() {
@@ -69,13 +72,26 @@ let BotService = BotService_1 = class BotService {
                         codigoModalidadeContratacao: modalidade,
                         uf: perfil.ufs && perfil.ufs.length > 0 ? perfil.ufs[0] : undefined,
                     });
-                    totalEncontrados += rawContratacoes.length;
                     for (const raw of rawContratacoes) {
                         const opDto = (0, pncp_dto_1.mapPncpParaOportunidade)(raw);
+                        if (perfil.palavrasChave && perfil.palavrasChave.length > 0) {
+                            const objetoCompra = (opDto.objetoCompra || '').toLowerCase();
+                            const match = perfil.palavrasChave.some(p => objetoCompra.includes(p.toLowerCase()));
+                            if (!match)
+                                continue;
+                        }
+                        totalEncontrados++;
                         const existe = await this.oportunidadeModel.findOne({ numeroControlePNCP: opDto.numeroControlePNCP });
+                        let oportunidadeId = '';
                         if (!existe) {
-                            await this.oportunidadeModel.create(opDto);
+                            const novaOp = await this.oportunidadeModel.create(opDto);
+                            oportunidadeId = novaOp._id.toString();
                             totalNovos++;
+                            await this.produtoModel.create({
+                                descricao: opDto.objetoCompra || 'Produto/Serviço sem descrição',
+                                oportunidadeId: oportunidadeId,
+                                valorEstimado: opDto.valorTotalEstimado || 0,
+                            });
                         }
                         else {
                             await this.oportunidadeModel.updateOne({ numeroControlePNCP: opDto.numeroControlePNCP }, {
@@ -85,15 +101,15 @@ let BotService = BotService_1 = class BotService {
                                     valorTotalEstimado: opDto.valorTotalEstimado
                                 }
                             });
+                            oportunidadeId = existe._id.toString();
                         }
                         if (opDto.orgaoCnpj) {
-                            const fornecedorExiste = await this.fornecedorModel.findOne({ cnpj: opDto.orgaoCnpj });
-                            if (!fornecedorExiste) {
-                                await this.fornecedorModel.create({
+                            const orgaoExiste = await this.orgaoModel.findOne({ cnpj: opDto.orgaoCnpj });
+                            if (!orgaoExiste) {
+                                await this.orgaoModel.create({
                                     cnpj: opDto.orgaoCnpj,
-                                    razaoSocial: opDto.orgaoNome,
-                                    origem: 'bot',
-                                    categorias: []
+                                    nome: opDto.orgaoNome,
+                                    origem: 'bot'
                                 });
                             }
                         }
@@ -128,8 +144,10 @@ exports.BotService = BotService = BotService_1 = __decorate([
     __param(0, (0, mongoose_1.InjectModel)(bot_execucao_schema_1.BotExecucao.name)),
     __param(1, (0, mongoose_1.InjectModel)(perfil_busca_schema_1.PerfilBusca.name)),
     __param(2, (0, mongoose_1.InjectModel)(oportunidade_schema_1.Oportunidade.name)),
-    __param(3, (0, mongoose_1.InjectModel)(fornecedor_schema_1.Fornecedor.name)),
+    __param(3, (0, mongoose_1.InjectModel)(orgao_schema_1.Orgao.name)),
+    __param(4, (0, mongoose_1.InjectModel)(produto_schema_1.Produto.name)),
     __metadata("design:paramtypes", [mongoose_2.Model,
+        mongoose_2.Model,
         mongoose_2.Model,
         mongoose_2.Model,
         mongoose_2.Model,

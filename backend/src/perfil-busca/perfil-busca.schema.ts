@@ -17,6 +17,9 @@ export class PerfilBusca {
   @Prop({ type: [Number], required: true })
   modalidades: number[];
 
+  @Prop([String])
+  palavrasChave: string[];
+
   @Prop({ default: true })
   ativo: boolean;
 }

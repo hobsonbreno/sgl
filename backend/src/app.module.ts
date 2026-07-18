@@ -10,6 +10,10 @@ import { OportunidadeModule } from './oportunidade/oportunidade.module';
 import { BotModule } from './bot/bot.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { CotacaoModule } from './cotacao/cotacao.module';
+import { OrgaoModule } from './orgao/orgao.module';
+import { ProdutoModule } from './produto/produto.module';
+import { PropostaModule } from './proposta/proposta.module';
+import { ConfiguracaoModule } from './configuracao/configuracao.module';
 
 @Module({
   imports: [
@@ -22,6 +26,10 @@ import { CotacaoModule } from './cotacao/cotacao.module';
     BotModule,
     DashboardModule,
     CotacaoModule,
+    OrgaoModule,
+    ProdutoModule,
+    PropostaModule,
+    ConfiguracaoModule,
   ],
   controllers: [AppController],
   providers: [AppService],

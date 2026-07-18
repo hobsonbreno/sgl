@@ -21,6 +21,7 @@ class CreatePerfilDto {
     ufs;
     municipiosIbge;
     modalidades;
+    palavrasChave;
     ativo;
 }
 exports.CreatePerfilDto = CreatePerfilDto;
@@ -40,6 +41,10 @@ __decorate([
     (0, swagger_1.ApiProperty)({ type: [Number] }),
     __metadata("design:type", Array)
 ], CreatePerfilDto.prototype, "modalidades", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false, type: [String] }),
+    __metadata("design:type", Array)
+], CreatePerfilDto.prototype, "palavrasChave", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ required: false, default: true }),
     __metadata("design:type", Boolean)

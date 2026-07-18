@@ -10,6 +10,7 @@ exports.FornecedorModule = void 0;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const fornecedor_service_1 = require("./fornecedor.service");
+const fornecedor_controller_1 = require("./fornecedor.controller");
 const fornecedor_schema_1 = require("./fornecedor.schema");
 let FornecedorModule = class FornecedorModule {
 };
@@ -17,6 +18,7 @@ exports.FornecedorModule = FornecedorModule;
 exports.FornecedorModule = FornecedorModule = __decorate([
     (0, common_1.Module)({
         imports: [mongoose_1.MongooseModule.forFeature([{ name: fornecedor_schema_1.Fornecedor.name, schema: fornecedor_schema_1.FornecedorSchema }])],
+        controllers: [fornecedor_controller_1.FornecedorController],
         providers: [fornecedor_service_1.FornecedorService],
         exports: [mongoose_1.MongooseModule, fornecedor_service_1.FornecedorService],
     })

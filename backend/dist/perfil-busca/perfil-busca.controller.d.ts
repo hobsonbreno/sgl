@@ -4,6 +4,7 @@ export declare class CreatePerfilDto {
     ufs?: string[];
     municipiosIbge?: string[];
     modalidades: number[];
+    palavrasChave?: string[];
     ativo?: boolean;
 }
 export declare class PerfilBuscaController {

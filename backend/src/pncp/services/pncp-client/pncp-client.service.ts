@@ -58,17 +58,36 @@ export class PncpClientService {
       return [];
     }
     
-    // O endpoint exato pode ser /v1/orgaos/{cnpj}/compras/{ano}/{sequencial}/itens (Baseado em documentação comum do PNCP)
-    // Usando a API de consulta (caso exista): /v1/contratacoes/{numeroControlePNCP}/itens
-    // Será necessário confirmar no Swagger, aqui faremos um placeholder chamando um possível endpoint.
-    const url = `/v1/contratacoes/${numeroControlePNCP}/itens`;
+    // numeroControlePNCP no formato: {cnpj}-1-{sequencial}/{ano}
+    // Ex: "00394494000136-1-000616/2024"
+    const [cnpjESeq, ano] = numeroControlePNCP.split('/');
+    if (!ano) return [];
+    
+    const splitDash = cnpjESeq.split('-');
+    if (splitDash.length < 3) return [];
+    
+    const cnpj = splitDash[0];
+    const sequencial = splitDash[2];
+
+    const url = `https://pncp.gov.br/api/pncp/v1/orgaos/${cnpj}/compras/${ano}/${sequencial}/itens`;
     
     try {
-      const response = await this.fazerRequisicaoComRetry(url, {});
+      // Not using baseUrl because the URL is absolute
+      const response = await firstValueFrom(
+        this.httpService.get(url, { timeout: 60000 }).pipe(
+          retry({
+            count: 2,
+            delay: (error: AxiosError, retryCount: number) => {
+              this.logger.warn(`Falha na requisição para ${url}. Tentativa ${retryCount}/2. Erro: ${error.message}`);
+              return timer(2000 * retryCount);
+            }
+          })
+        )
+      );
       return response?.data || [];
     } catch (e) {
       this.logger.error(`Erro ao buscar itens de ${numeroControlePNCP}: ${e.message}`);
-      return [];
+      throw e; // Rethrow to let the caller handle it (e.g. OportunidadeController)
     }
   }
 
@@ -76,7 +95,7 @@ export class PncpClientService {
     const url = `${this.baseUrl}${endpoint}`;
     
     return firstValueFrom(
-      this.httpService.get(url, { params, timeout: 10000 }).pipe(
+      this.httpService.get(url, { params, timeout: 60000 }).pipe(
         retry({
           count: 2,
           delay: (error: AxiosError, retryCount: number) => {

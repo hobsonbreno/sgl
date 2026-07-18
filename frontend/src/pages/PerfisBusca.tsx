@@ -8,6 +8,7 @@ export default function PerfisBusca() {
   const [nome, setNome] = useState('');
   const [ufs, setUfs] = useState('');
   const [modalidades, setModalidades] = useState('');
+  const [palavrasChave, setPalavrasChave] = useState('');
 
   const loadPerfis = async () => {
     try {
@@ -29,11 +30,13 @@ export default function PerfisBusca() {
     try {
       const m = modalidades.split(',').map(v => Number(v.trim())).filter(v => !isNaN(v));
       const u = ufs.split(',').map(v => v.trim()).filter(v => v !== '');
+      const p = palavrasChave.split(',').map(v => v.trim()).filter(v => v !== '');
       
       const payload = {
         nome,
         modalidades: m,
-        ufs: u
+        ufs: u,
+        palavrasChave: p
       };
       
       const res = await fetch('http://localhost:7005/perfis-busca', {
@@ -45,6 +48,7 @@ export default function PerfisBusca() {
         setNome('');
         setUfs('');
         setModalidades('');
+        setPalavrasChave('');
         loadPerfis();
       }
     } catch (e) {
@@ -68,7 +72,7 @@ export default function PerfisBusca() {
     <div>
       <h1 style={{ marginBottom: '1.5rem' }}>Filtros do Robô (Perfis de Busca)</h1>
       <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>
-        Configure quais estados e modalidades de licitação o bot deve rastrear diariamente.
+        Configure quais estados, modalidades e produtos o bot deve rastrear diariamente.
       </p>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem' }}>
@@ -76,7 +80,7 @@ export default function PerfisBusca() {
           <h3 style={{ fontSize: '1rem', color: 'var(--text-main)', marginBottom: '1.5rem' }}>Novo Filtro</h3>
           <form onSubmit={handleCreate}>
             <div className="form-group">
-              <label>Nome (ex: TI Ceará)</label>
+              <label>Nome (ex: Compra de Materiais)</label>
               <input type="text" className="form-control" value={nome} onChange={e => setNome(e.target.value)} required />
             </div>
             <div className="form-group">
@@ -87,6 +91,11 @@ export default function PerfisBusca() {
               <label>Códigos Modalidade (Ex: 6 para Pregão Eletrônico, 8 Dispensa)</label>
               <input type="text" className="form-control" value={modalidades} onChange={e => setModalidades(e.target.value)} required />
               <small style={{ color: 'var(--text-muted)' }}>Separados por vírgula</small>
+            </div>
+            <div className="form-group">
+              <label>Produtos / Palavras Chave</label>
+              <input type="text" className="form-control" value={palavrasChave} onChange={e => setPalavrasChave(e.target.value)} />
+              <small style={{ color: 'var(--text-muted)' }}>Ex: fralda, lençol, detergente (Separados por vírgula)</small>
             </div>
             <button type="submit" className="btn-primary" disabled={loading} style={{ width: '100%' }}>
               <Plus size={18} /> Adicionar Filtro
@@ -101,6 +110,7 @@ export default function PerfisBusca() {
                 <th>Nome</th>
                 <th>UFs</th>
                 <th>Modalidades</th>
+                <th>Produtos</th>
                 <th>Status</th>
                 <th>Ações</th>
               </tr>
@@ -111,6 +121,7 @@ export default function PerfisBusca() {
                   <td><strong>{p.nome}</strong></td>
                   <td>{p.ufs.length > 0 ? p.ufs.join(', ') : 'Nacional'}</td>
                   <td>{p.modalidades.join(', ')}</td>
+                  <td>{p.palavrasChave && p.palavrasChave.length > 0 ? p.palavrasChave.join(', ') : 'Tudo'}</td>
                   <td>
                     {p.ativo ? (
                       <span className="badge-warning" style={{ background: '#dcfce7', color: '#166534' }}><CheckCircle size={12} style={{marginRight:'4px'}}/>Ativo</span>
@@ -131,7 +142,7 @@ export default function PerfisBusca() {
                 </tr>
               ))}
               {perfis.length === 0 && (
-                <tr><td colSpan={5} style={{textAlign:'center'}}>Nenhum filtro cadastrado.</td></tr>
+                <tr><td colSpan={6} style={{textAlign:'center'}}>Nenhum filtro cadastrado.</td></tr>
               )}
             </tbody>
           </table>

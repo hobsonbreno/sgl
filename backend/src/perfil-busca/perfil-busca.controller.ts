@@ -15,6 +15,9 @@ export class CreatePerfilDto {
   @ApiProperty({ type: [Number] })
   modalidades: number[];
 
+  @ApiProperty({ required: false, type: [String] })
+  palavrasChave?: string[];
+
   @ApiProperty({ required: false, default: true })
   ativo?: boolean;
 }

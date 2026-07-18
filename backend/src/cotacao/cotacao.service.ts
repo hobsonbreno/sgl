@@ -13,15 +13,36 @@ export class CotacaoService {
 
   async createOrGet(oportunidadeId: string, initialItems: any[] = []): Promise<Cotacao> {
     const existe = await this.model.findOne({ oportunidadeId }).exec();
-    if (existe) return existe;
+    if (existe) {
+      if (existe.itens.length === 0 && initialItems.length > 0) {
+        const itens = initialItems.map(i => ({
+          produtoId: i._id,
+          descricaoItem: i.descricao,
+          quantidade: i.quantidade || 1,
+          unidadeMedida: i.unidadeMedida || 'UN',
+          valorUnitarioEstimado: i.valorUnitarioEstimado || 0,
+          precosFornecedores: []
+        }));
+        existe.itens = itens as any;
+        await existe.save();
+      }
+      return existe;
+    }
 
     const itens = initialItems.map(i => ({
+      produtoId: i._id,
       descricaoItem: i.descricao,
       quantidade: i.quantidade || 1,
+      unidadeMedida: i.unidadeMedida || 'UN',
+      valorUnitarioEstimado: i.valorUnitarioEstimado || 0,
       precosFornecedores: []
     }));
 
-    return this.model.create({ oportunidadeId, itens, valorTotalMelhorCotacao: 0 });
+    const nova = new this.model({
+      oportunidadeId,
+      itens
+    });
+    return nova.save();
   }
 
   async findOne(id: string): Promise<Cotacao> {
@@ -67,8 +88,8 @@ export class CotacaoService {
 
     // Recalculate valorTotalMelhorCotacao
     doc.valorTotalMelhorCotacao = doc.itens.reduce((total, it) => {
-      if (it.melhorPreco) {
-        return total + (it.melhorPreco.precoUnitario * it.quantidade);
+      if (it.melhorPreco && !isNaN(it.melhorPreco.precoUnitario)) {
+        return total + (it.melhorPreco.precoUnitario * (it.quantidade || 1));
       }
       return total;
     }, 0);

@@ -21,11 +21,9 @@ export class FornecedorController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Listar fornecedores (com busca)' })
-  @ApiQuery({ name: 'categoria', required: false })
-  @ApiQuery({ name: 'busca', required: false })
-  findAll(@Query('categoria') categoria?: string, @Query('busca') busca?: string) {
-    return this.service.findAll(categoria, busca);
+  @ApiOperation({ summary: 'Listar fornecedores (com paginação e busca)' })
+  findAll(@Query() query: any) {
+    return this.service.findAll(query);
   }
 
   @Put(':id')

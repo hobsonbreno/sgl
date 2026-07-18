@@ -16,6 +16,7 @@ let PerfilBusca = class PerfilBusca {
     ufs;
     municipiosIbge;
     modalidades;
+    palavrasChave;
     ativo;
 };
 exports.PerfilBusca = PerfilBusca;
@@ -35,6 +36,10 @@ __decorate([
     (0, mongoose_1.Prop)({ type: [Number], required: true }),
     __metadata("design:type", Array)
 ], PerfilBusca.prototype, "modalidades", void 0);
+__decorate([
+    (0, mongoose_1.Prop)([String]),
+    __metadata("design:type", Array)
+], PerfilBusca.prototype, "palavrasChave", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ default: true }),
     __metadata("design:type", Boolean)

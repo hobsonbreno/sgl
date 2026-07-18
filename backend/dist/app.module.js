@@ -17,6 +17,10 @@ const perfil_busca_module_1 = require("./perfil-busca/perfil-busca.module");
 const fornecedor_module_1 = require("./fornecedor/fornecedor.module");
 const oportunidade_module_1 = require("./oportunidade/oportunidade.module");
 const bot_module_1 = require("./bot/bot.module");
+const dashboard_module_1 = require("./dashboard/dashboard.module");
+const cotacao_module_1 = require("./cotacao/cotacao.module");
+const orgao_module_1 = require("./orgao/orgao.module");
+const produto_module_1 = require("./produto/produto.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -30,6 +34,10 @@ exports.AppModule = AppModule = __decorate([
             fornecedor_module_1.FornecedorModule,
             oportunidade_module_1.OportunidadeModule,
             bot_module_1.BotModule,
+            dashboard_module_1.DashboardModule,
+            cotacao_module_1.CotacaoModule,
+            orgao_module_1.OrgaoModule,
+            produto_module_1.ProdutoModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

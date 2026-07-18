@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param, Query, Body } from '@nestjs/common';
+import { Controller, Get, Patch, Param, Query, Body, Post, Delete } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { OportunidadeService } from './oportunidade.service';
 
@@ -33,5 +33,17 @@ export class OportunidadeController {
   @ApiOperation({ summary: 'Atualizar o status do Kanban' })
   updateStatus(@Param('id') id: string, @Body() body: UpdateStatusDto) {
     return this.service.updateStatus(id, body.kanbanStatus);
+  }
+
+  @Post(':id/sincronizar-itens')
+  @ApiOperation({ summary: 'Sincronizar itens reais do PNCP para a oportunidade' })
+  sincronizarItens(@Param('id') id: string) {
+    return this.service.sincronizarItens(id);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Excluir oportunidade e seus dados vinculados' })
+  remove(@Param('id') id: string) {
+    return this.service.remove(id);
   }
 }

@@ -5,6 +5,7 @@ export declare class PerfilBusca {
     ufs: string[];
     municipiosIbge: string[];
     modalidades: number[];
+    palavrasChave: string[];
     ativo: boolean;
 }
 export declare const PerfilBuscaSchema: import("mongoose").Schema<PerfilBusca, import("mongoose").Model<PerfilBusca, any, any, any, any, any, PerfilBusca>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, PerfilBusca, import("mongoose").Document<unknown, {}, PerfilBusca, {
@@ -44,6 +45,15 @@ export declare const PerfilBuscaSchema: import("mongoose").Schema<PerfilBusca, i
         id: string;
     }>> | undefined;
     modalidades?: import("mongoose").SchemaDefinitionProperty<number[], PerfilBusca, import("mongoose").Document<unknown, {}, PerfilBusca, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<PerfilBusca & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>> | undefined;
+    palavrasChave?: import("mongoose").SchemaDefinitionProperty<string[], PerfilBusca, import("mongoose").Document<unknown, {}, PerfilBusca, {
         id: string;
     }, import("mongoose").DefaultSchemaOptions> & Omit<PerfilBusca & {
         _id: import("mongoose").Types.ObjectId;

@@ -17,6 +17,7 @@ let Fornecedor = class Fornecedor {
     contato;
     categorias;
     origem;
+    fornecedor_historico_precos;
 };
 exports.Fornecedor = Fornecedor;
 __decorate([
@@ -39,6 +40,10 @@ __decorate([
     (0, mongoose_1.Prop)({ required: true, enum: ['manual', 'bot'] }),
     __metadata("design:type", String)
 ], Fornecedor.prototype, "origem", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: [{ descricaoItem: String, precoUnitario: Number, data: Date, oportunidadeId: String }] }),
+    __metadata("design:type", Array)
+], Fornecedor.prototype, "fornecedor_historico_precos", void 0);
 exports.Fornecedor = Fornecedor = __decorate([
     (0, mongoose_1.Schema)({ timestamps: true })
 ], Fornecedor);

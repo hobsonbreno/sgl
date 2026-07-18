@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { BotService } from './bot.service';
 import { BotController } from './bot.controller';
@@ -7,6 +7,9 @@ import { PncpModule } from '../pncp/pncp.module';
 import { PerfilBuscaModule } from '../perfil-busca/perfil-busca.module';
 import { FornecedorModule } from '../fornecedor/fornecedor.module';
 import { OportunidadeModule } from '../oportunidade/oportunidade.module';
+import { OrgaoModule } from '../orgao/orgao.module';
+import { ProdutoModule } from '../produto/produto.module';
+import { ConfiguracaoModule } from '../configuracao/configuracao.module';
 
 @Module({
   imports: [
@@ -15,8 +18,12 @@ import { OportunidadeModule } from '../oportunidade/oportunidade.module';
     PerfilBuscaModule,
     FornecedorModule,
     OportunidadeModule,
+    OrgaoModule,
+    ProdutoModule,
+    forwardRef(() => ConfiguracaoModule)
   ],
   providers: [BotService],
-  controllers: [BotController]
+  controllers: [BotController],
+  exports: [BotService]
 })
 export class BotModule {}

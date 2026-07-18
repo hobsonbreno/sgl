@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Play } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export default function Dashboard() {
   const [resumo, setResumo] = useState<any>(null);
@@ -56,9 +57,19 @@ export default function Dashboard() {
               const diasRestantes = Math.ceil((new Date(op.dataEncerramentoProposta).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
               const cor = diasRestantes <= 2 ? '#ef4444' : '#eab308';
               return (
-                <li key={op._id} style={{ padding: '0.5rem 0', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between' }}>
-                  <span>{op.orgaoNome}</span>
-                  <span style={{ color: cor, fontWeight: 'bold' }}>{diasRestantes} dias</span>
+                <li key={op._id} style={{ padding: '0.75rem 0', borderBottom: '1px solid #e2e8f0' }}>
+                  <Link to={`/oportunidades/${op._id}`} style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', gap: '0.25rem', color: 'inherit' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+                      <span style={{ fontWeight: 600, color: '#0ea5e9', lineHeight: 1.2 }}>{op.orgaoNome}</span>
+                      <span style={{ color: cor, fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap', background: `${cor}15`, padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
+                        Faltam {diasRestantes} {diasRestantes === 1 ? 'dia' : 'dias'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: '#64748b', display: 'flex', justifyContent: 'space-between', marginTop: '0.2rem' }}>
+                      <span>Prazo final para envio:</span>
+                      <strong>{new Date(op.dataEncerramentoProposta).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</strong>
+                    </div>
+                  </Link>
                 </li>
               );
             })}
