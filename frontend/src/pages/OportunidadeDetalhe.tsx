@@ -1,12 +1,30 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Check, AlertCircle, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Check, AlertCircle, Trash2, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur }: any) {
+function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, handleRemovePreco }: any) {
   const [open, setOpen] = useState(false);
+  // fator de embalagem por fornecedor: quantas unidades tem cada embalagem/caixa cotada
+  const [fatores, setFatores] = useState<Record<string, number>>({});
   const isSigiloso = !item.valorUnitarioEstimado || item.valorUnitarioEstimado <= 0;
-  
+
+  const getFator = (fornecedorId: string) => fatores[fornecedorId] || 1;
+
+  const handleFatorChange = (fornecedorId: string, value: string) => {
+    const n = Math.max(1, Number(value) || 1);
+    setFatores(prev => ({ ...prev, [fornecedorId]: n }));
+  };
+
+  // precoUnitario real = precoEmbalagem / fator
+  const handlePrecoComFator = (itemId: string, fornecedorId: string, precoEmbalagem: string) => {
+    const fator = getFator(fornecedorId);
+    const embalagem = parseFloat(precoEmbalagem.replace(',', '.'));
+    if (isNaN(embalagem)) return;
+    const unitario = parseFloat((embalagem / fator).toFixed(6));
+    handlePrecoBlur(itemId, fornecedorId, String(unitario));
+  };
+
   return (
     <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', background: '#fff', overflow: 'hidden' }}>
       <div 
@@ -128,26 +146,94 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur }: an
               {columnsFornecedores.map((f: any) => {
                 const pf = item.precosFornecedores?.find((p:any) => p.fornecedorId?._id === f.id);
                 const isMelhor = item.melhorPreco && pf && item.melhorPreco.fornecedorId === f.id;
-                
+                const fator = getFator(f.id);
+                // precoEmbalagem = precoUnitario * fator (para mostrar de volta o valor da embalagem quando já cotado)
+                const precoEmbalagemSalvo = pf ? parseFloat((pf.precoUnitario * fator).toFixed(6)) : undefined;
+                const precoUnitCalc = pf ? pf.precoUnitario : null;
+
                 return (
                   <div key={f.id} style={{ 
                     padding: '1rem', border: '1px solid', borderColor: isMelhor ? '#10b981' : '#e2e8f0', 
-                    borderRadius: '6px', background: isMelhor ? '#f0fdf4' : '#f8fafc', width: '220px'
+                    borderRadius: '6px', background: isMelhor ? '#f0fdf4' : '#f8fafc', minWidth: '200px', maxWidth: '260px', flex: '1 1 200px'
                   }}>
-                    <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={f.razaoSocial}>
-                      {f.razaoSocial}
+                    {/* Header */}
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.75rem', gap: '0.25rem' }}>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#475569', lineHeight: 1.3, wordBreak: 'break-word' }}>
+                        {f.razaoSocial}
+                      </div>
+                      {pf && (
+                        <button
+                          title="Remover cotação deste fornecedor"
+                          onClick={() => handleRemovePreco(item._id, f.id)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px', flexShrink: 0 }}
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+
+                    {/* Fator de embalagem */}
+                    <div style={{ marginBottom: '0.5rem' }}>
+                      <label style={{ fontSize: '0.7rem', color: '#94a3b8', display: 'block', marginBottom: '0.2rem' }}>
+                        Unid. por embalagem
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        className="form-control"
+                        placeholder="1"
+                        defaultValue={1}
+                        onChange={(e) => handleFatorChange(f.id, e.target.value)}
+                        style={{ width: '100%', fontSize: '0.8rem' }}
+                        title="Quantas unidades tem cada embalagem/caixa cotada (ex: 100 para pacote com 100 folhas)"
+                      />
+                    </div>
+
+                    {/* Preço da embalagem */}
+                    <div style={{ marginBottom: '0.5rem' }}>
+                      <label style={{ fontSize: '0.7rem', color: '#94a3b8', display: 'block', marginBottom: '0.2rem' }}>
+                        {fator > 1 ? `Preço da embalagem (${fator} un.)` : 'Preço unitário'}
+                      </label>
                       <input 
-                        type="number" 
+                        key={`${f.id}-${pf?.precoUnitario}`}
+                        type="number"
+                        step="0.0001"
                         className="form-control" 
                         placeholder="0,00"
-                        defaultValue={pf ? pf.precoUnitario : ''}
-                        onBlur={(e) => handlePrecoBlur(item._id, f.id, e.target.value)}
+                        defaultValue={precoEmbalagemSalvo ?? ''}
+                        onBlur={(e) => handlePrecoComFator(item._id, f.id, e.target.value)}
                         style={{ width: '100%' }}
                       />
-                      {isMelhor && <span style={{ fontSize: '0.75rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 'bold' }}><Check size={14}/> Vencedor do Item</span>}
                     </div>
+
+                    {/* Preço unitário calculado */}
+                    {fator > 1 && (
+                      <div style={{ padding: '0.4rem 0.5rem', background: '#eff6ff', borderRadius: '4px', marginBottom: '0.4rem', fontSize: '0.72rem' }}>
+                        <span style={{ color: '#64748b' }}>Preço unit.: </span>
+                        <strong style={{ color: '#1d4ed8' }}>
+                          {precoEmbalagemSalvo !== undefined
+                            ? `R$ ${(precoEmbalagemSalvo / fator).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
+                            : '—'}
+                        </strong>
+                      </div>
+                    )}
+
+                    {/* Preço unitário salvo */}
+                    {precoUnitCalc !== null && (
+                      <div style={{ padding: '0.4rem 0.5rem', background: isMelhor ? '#dcfce7' : '#f1f5f9', borderRadius: '4px', marginBottom: '0.4rem', fontSize: '0.72rem' }}>
+                        <span style={{ color: '#64748b' }}>Unit. salvo: </span>
+                        <strong style={{ color: isMelhor ? '#166534' : '#334155' }}>
+                          R$ {Number(precoUnitCalc).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                        </strong>
+                        {item.valorUnitarioEstimado > 0 && (
+                          <span style={{ color: '#64748b', marginLeft: '0.5rem' }}>
+                            (lucro: R$ {Number(item.valorUnitarioEstimado - precoUnitCalc).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}/un.)
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {isMelhor && <span style={{ fontSize: '0.75rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 'bold' }}><Check size={14}/> Vencedor do Item</span>}
                   </div>
                 );
               })}
@@ -161,6 +247,7 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur }: an
     </div>
   );
 }
+
 
 export default function OportunidadeDetalhe() {
   const { id } = useParams();
@@ -264,6 +351,20 @@ export default function OportunidadeDetalhe() {
     }
   };
 
+  const handleRemovePreco = async (itemId: string, fornecedorId: string) => {
+    try {
+      await fetch(`http://localhost:7005/cotacoes/${cotacao._id}/itens/${itemId}/preco/${fornecedorId}`, {
+        method: 'DELETE'
+      });
+      // Recarrega cotação para atualizar o melhor preço
+      const resCotFull = await fetch(`http://localhost:7005/cotacoes/${cotacao._id}`);
+      setCotacao(await resCotFull.json());
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao remover preço.');
+    }
+  };
+
   if (loading || !oportunidade) return <div style={{ padding: '2rem' }}>Carregando dados da negociação...</div>;
 
   // Montar as colunas (fornecedores distintos que já cotaram algo nesta oportunidade)
@@ -350,7 +451,7 @@ export default function OportunidadeDetalhe() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
             <h3 style={{ margin: 0, fontSize: '1.25rem' }}>Matriz de Preços e Melhores Ofertas</h3>
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-              <select className="form-control" value="" onChange={e => setNovoFornecedorId(e.target.value)} style={{ width: '250px' }}>
+              <select className="form-control" value="" onChange={e => setNovoFornecedorId(e.target.value)} style={{ minWidth: '300px' }}>
                 <option value="" disabled>+ Adicionar Fornecedor à disputa...</option>
                 {fornecedoresDisponiveis.map(f => (
                   <option key={f._id} value={f._id}>{f.razaoSocial} ({f.cnpj})</option>
@@ -372,18 +473,44 @@ export default function OportunidadeDetalhe() {
                   index={index} 
                   columnsFornecedores={columnsFornecedores}
                   handlePrecoBlur={handlePrecoBlur}
+                  handleRemovePreco={handleRemovePreco}
+                  cotacaoId={cotacao._id}
                 />
               ))
             )}
           </div>
 
-          <div style={{ marginTop: '2rem', padding: '1.5rem', background: '#1e293b', borderRadius: '8px', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <h3 style={{ margin: 0, color: '#94a3b8', fontSize: '1rem' }}>Estimativa Total Vencedora (Soma dos melhores)</h3>
-              <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>Cálculo automático de Unitário x Quantidade</p>
+          <div style={{ marginTop: '2rem', padding: '1.5rem', background: '#1e293b', borderRadius: '8px', color: '#fff' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div>
+                <h3 style={{ margin: 0, color: '#94a3b8', fontSize: '1rem' }}>Estimativa Total Vencedora (Soma dos melhores)</h3>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>Cálculo automático de Unitário × Quantidade para cada item</p>
+              </div>
+              <div style={{ fontSize: '2rem', fontWeight: 700, color: '#10b981' }}>
+                R$ {Number(cotacao.valorTotalMelhorCotacao || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
             </div>
-            <div style={{ fontSize: '2rem', fontWeight: 700, color: '#10b981' }}>
-              R$ {cotacao.valorTotalMelhorCotacao?.toLocaleString('pt-BR')}
+
+            {/* Breakdown por item */}
+            <div style={{ borderTop: '1px solid #334155', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              {cotacao.itens.filter((it: any) => it.melhorPreco).map((it: any) => {
+                const subtotal = Number(it.melhorPreco.precoUnitario) * Number(it.quantidade || 1);
+                const economiaPorUnid = Number(it.valorUnitarioEstimado || 0) > 0 ? Number(it.valorUnitarioEstimado) - Number(it.melhorPreco.precoUnitario) : null;
+                const economiaTotal = economiaPorUnid !== null ? economiaPorUnid * Number(it.quantidade || 1) : null;
+                return (
+                  <div key={it._id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: '#94a3b8' }}>
+                    <span style={{ flex: 1 }}>{it.descricaoItem} ({it.quantidade} un.)</span>
+                    <span style={{ color: '#e2e8f0', fontWeight: 600, marginLeft: '1rem' }}>
+                      R$ {Number(it.melhorPreco.precoUnitario).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })} × {it.quantidade} = R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                    {economiaTotal !== null && economiaTotal > 0 && (
+                      <span style={{ color: '#4ade80', fontWeight: 700, marginLeft: '1rem' }}>
+                        ↓ R$ {economiaTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} economizado
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { CotacaoService } from './cotacao.service';
 
@@ -43,5 +43,15 @@ export class CotacaoController {
     @Body() data: UpdatePrecoDto
   ) {
     return this.cotacaoService.updatePreco(id, itemId, data);
+  }
+
+  @Delete('cotacoes/:id/itens/:itemId/preco/:fornecedorId')
+  @ApiOperation({ summary: 'Remover preço de um fornecedor para um item' })
+  removePreco(
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+    @Param('fornecedorId') fornecedorId: string,
+  ) {
+    return this.cotacaoService.removePreco(id, itemId, fornecedorId);
   }
 }

@@ -87,12 +87,12 @@ export class CotacaoService {
     item.melhorPreco = melhor;
 
     // Recalculate valorTotalMelhorCotacao
-    doc.valorTotalMelhorCotacao = doc.itens.reduce((total, it) => {
+    doc.valorTotalMelhorCotacao = parseFloat(doc.itens.reduce((total, it) => {
       if (it.melhorPreco && !isNaN(it.melhorPreco.precoUnitario)) {
         return total + (it.melhorPreco.precoUnitario * (it.quantidade || 1));
       }
       return total;
-    }, 0);
+    }, 0).toFixed(2));
 
     await doc.save();
 
@@ -103,6 +103,39 @@ export class CotacaoService {
       oportunidadeId: doc.oportunidadeId.toString()
     });
 
+    return this.findOne(cotacaoId);
+  }
+
+  async removePreco(cotacaoId: string, itemId: string, fornecedorId: string) {
+    const doc = await this.model.findById(cotacaoId).exec();
+    if (!doc) throw new NotFoundException('Cotação não encontrada');
+
+    const item = doc.itens.find(i => i._id.toString() === itemId);
+    if (!item) throw new NotFoundException('Item não encontrado na cotação');
+
+    // Remove supplier price entry
+    item.precosFornecedores = item.precosFornecedores.filter(
+      p => p.fornecedorId.toString() !== fornecedorId
+    ) as any;
+
+    // Recalculate melhorPreco for this item
+    let melhor: { fornecedorId: mongoose.Types.ObjectId, precoUnitario: number } | undefined;
+    for (const p of item.precosFornecedores) {
+      if (!melhor || p.precoUnitario < melhor.precoUnitario) {
+        melhor = { fornecedorId: p.fornecedorId, precoUnitario: p.precoUnitario };
+      }
+    }
+    item.melhorPreco = melhor;
+
+    // Recalculate valorTotalMelhorCotacao
+    doc.valorTotalMelhorCotacao = doc.itens.reduce((total, it) => {
+      if (it.melhorPreco && !isNaN(it.melhorPreco.precoUnitario)) {
+        return total + (it.melhorPreco.precoUnitario * (it.quantidade || 1));
+      }
+      return total;
+    }, 0);
+
+    await doc.save();
     return this.findOne(cotacaoId);
   }
 }
