@@ -5,6 +5,7 @@ import { catchError, firstValueFrom, retry, timer, throwError, of } from 'rxjs';
 import { AxiosError } from 'axios';
 
 export interface FiltroBuscaDto {
+  dataInicial: string; // AAAAMMDD
   dataFinal: string; // AAAAMMDD
   codigoModalidadeContratacao: number;
   uf?: string;

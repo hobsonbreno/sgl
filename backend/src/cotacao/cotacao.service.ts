@@ -57,7 +57,7 @@ export class CotacaoService {
     return doc;
   }
 
-  async updatePreco(cotacaoId: string, itemId: string, precoData: { fornecedorId: string, precoUnitario: number, observacao?: string }) {
+  async updatePreco(cotacaoId: string, itemId: string, precoData: { fornecedorId: string, precoUnitario: number, fatorEmbalagem?: number, precoEmbalagem?: number, nomeEmbalagem?: string, freteIncluso?: boolean, prazoPagamento?: number, permiteParcelamento?: boolean, observacao?: string }) {
     const doc = await this.model.findById(cotacaoId).exec();
     if (!doc) throw new NotFoundException('Cotação não encontrada');
 
@@ -68,23 +68,55 @@ export class CotacaoService {
     const fIdx = item.precosFornecedores.findIndex(p => p.fornecedorId.toString() === precoData.fornecedorId);
     if (fIdx >= 0) {
       item.precosFornecedores[fIdx].precoUnitario = precoData.precoUnitario;
+      item.precosFornecedores[fIdx].fatorEmbalagem = precoData.fatorEmbalagem;
+      item.precosFornecedores[fIdx].precoEmbalagem = precoData.precoEmbalagem;
+      item.precosFornecedores[fIdx].nomeEmbalagem = precoData.nomeEmbalagem;
+      item.precosFornecedores[fIdx].freteIncluso = precoData.freteIncluso;
+      item.precosFornecedores[fIdx].prazoPagamento = precoData.prazoPagamento;
+      item.precosFornecedores[fIdx].permiteParcelamento = precoData.permiteParcelamento;
       item.precosFornecedores[fIdx].observacao = precoData.observacao;
     } else {
       item.precosFornecedores.push({
         fornecedorId: new mongoose.Types.ObjectId(precoData.fornecedorId),
         precoUnitario: precoData.precoUnitario,
+        fatorEmbalagem: precoData.fatorEmbalagem,
+        precoEmbalagem: precoData.precoEmbalagem,
+        nomeEmbalagem: precoData.nomeEmbalagem,
+        freteIncluso: precoData.freteIncluso,
+        prazoPagamento: precoData.prazoPagamento,
+        permiteParcelamento: precoData.permiteParcelamento,
         observacao: precoData.observacao
       });
     }
 
     // Recalculate melhorPreco for this item
-    let melhor: { fornecedorId: mongoose.Types.ObjectId, precoUnitario: number } | undefined;
+    let melhor: any;
     for (const p of item.precosFornecedores) {
-      if (!melhor || p.precoUnitario < melhor.precoUnitario) {
-        melhor = { fornecedorId: p.fornecedorId, precoUnitario: p.precoUnitario };
+      if (!melhor) {
+        melhor = p;
+        continue;
+      }
+      if (p.precoUnitario < melhor.precoUnitario) {
+        melhor = p;
+      } else if (p.precoUnitario === melhor.precoUnitario) {
+         // Crivo de Desempate (Tiebreaker)
+         let pScore = 0;
+         let melhorScore = 0;
+         if (p.freteIncluso) pScore += 10;
+         if (melhor.freteIncluso) melhorScore += 10;
+         
+         if (p.permiteParcelamento) pScore += 5;
+         if (melhor.permiteParcelamento) melhorScore += 5;
+
+         pScore += (p.prazoPagamento || 0) * 0.1;
+         melhorScore += (melhor.prazoPagamento || 0) * 0.1;
+
+         if (pScore > melhorScore) {
+             melhor = p;
+         }
       }
     }
-    item.melhorPreco = melhor;
+    item.melhorPreco = melhor ? { fornecedorId: melhor.fornecedorId, precoUnitario: melhor.precoUnitario } : undefined;
 
     // Recalculate valorTotalMelhorCotacao
     doc.valorTotalMelhorCotacao = parseFloat(doc.itens.reduce((total, it) => {
@@ -119,13 +151,33 @@ export class CotacaoService {
     ) as any;
 
     // Recalculate melhorPreco for this item
-    let melhor: { fornecedorId: mongoose.Types.ObjectId, precoUnitario: number } | undefined;
+    let melhor: any;
     for (const p of item.precosFornecedores) {
-      if (!melhor || p.precoUnitario < melhor.precoUnitario) {
-        melhor = { fornecedorId: p.fornecedorId, precoUnitario: p.precoUnitario };
+      if (!melhor) {
+        melhor = p;
+        continue;
+      }
+      if (p.precoUnitario < melhor.precoUnitario) {
+        melhor = p;
+      } else if (p.precoUnitario === melhor.precoUnitario) {
+         // Crivo de Desempate (Tiebreaker)
+         let pScore = 0;
+         let melhorScore = 0;
+         if (p.freteIncluso) pScore += 10;
+         if (melhor.freteIncluso) melhorScore += 10;
+         
+         if (p.permiteParcelamento) pScore += 5;
+         if (melhor.permiteParcelamento) melhorScore += 5;
+
+         pScore += (p.prazoPagamento || 0) * 0.1;
+         melhorScore += (melhor.prazoPagamento || 0) * 0.1;
+
+         if (pScore > melhorScore) {
+             melhor = p;
+         }
       }
     }
-    item.melhorPreco = melhor;
+    item.melhorPreco = melhor ? { fornecedorId: melhor.fornecedorId, precoUnitario: melhor.precoUnitario } : undefined;
 
     // Recalculate valorTotalMelhorCotacao
     doc.valorTotalMelhorCotacao = doc.itens.reduce((total, it) => {

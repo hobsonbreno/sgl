@@ -3,12 +3,15 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Oportunidade, OportunidadeDocument } from '../oportunidade/oportunidade.schema';
 import { BotExecucao, BotExecucaoDocument } from '../bot/bot-execucao.schema';
+import { BotService } from '../bot/bot.service';
+import { forwardRef, Inject } from '@nestjs/common';
 
 @Injectable()
 export class DashboardService {
   constructor(
     @InjectModel(Oportunidade.name) private oportunidadeModel: Model<OportunidadeDocument>,
     @InjectModel(BotExecucao.name) private botExecucaoModel: Model<BotExecucaoDocument>,
+    @Inject(forwardRef(() => BotService)) private botService: BotService,
   ) {}
 
   async getResumo() {
@@ -40,7 +43,7 @@ export class DashboardService {
 
     const hoje = new Date();
     const prazosCriticos = await this.oportunidadeModel.find({
-      kanbanStatus: { $nin: ['FEITO', 'AGUARDANDO_RESPOSTA'] },
+      kanbanStatus: { $in: ['FAZENDO', 'FEITO', 'AGUARDANDO_RESPOSTA'] },
       dataEncerramentoProposta: { $gte: hoje }
     })
     .sort({ dataEncerramentoProposta: 1 })
@@ -54,7 +57,8 @@ export class DashboardService {
       porStatus,
       valorTotalPorStatus,
       prazosCriticos,
-      ultimaExecucaoBot
+      ultimaExecucaoBot,
+      botEmExecucao: this.botService.isExecucao()
     };
   }
 }

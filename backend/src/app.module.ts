@@ -14,6 +14,8 @@ import { OrgaoModule } from './orgao/orgao.module';
 import { ProdutoModule } from './produto/produto.module';
 import { PropostaModule } from './proposta/proposta.module';
 import { ConfiguracaoModule } from './configuracao/configuracao.module';
+import { EventsModule } from './events/events.module';
+import { FinanceiroModule } from './financeiro/financeiro.module';
 
 @Module({
   imports: [
@@ -30,6 +32,8 @@ import { ConfiguracaoModule } from './configuracao/configuracao.module';
     ProdutoModule,
     PropostaModule,
     ConfiguracaoModule,
+    EventsModule,
+    FinanceiroModule,
   ],
   controllers: [AppController],
   providers: [AppService],

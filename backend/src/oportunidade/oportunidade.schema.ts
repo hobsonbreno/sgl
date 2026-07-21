@@ -47,7 +47,7 @@ export class Oportunidade {
   @Prop()
   situacaoCompraNome: string;
 
-  @Prop({ required: true, enum: ['A_FAZER', 'FAZENDO', 'FEITO', 'AGUARDANDO_RESPOSTA'], default: 'A_FAZER' })
+  @Prop({ required: true, enum: ['A_FAZER', 'FAZENDO', 'FEITO', 'AGUARDANDO_RESPOSTA', 'EXCLUIDA'], default: 'A_FAZER' })
   kanbanStatus: string;
 
   @Prop()

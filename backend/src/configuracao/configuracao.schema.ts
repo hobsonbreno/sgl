@@ -6,9 +6,10 @@ export type ConfiguracaoDocument = HydratedDocument<Configuracao>;
 @Schema({ timestamps: true })
 export class Configuracao {
   @Prop({ default: '06:00' })
-  horarioBuscaBot: string;
+  horarioBuscaBot: string; // Deprecated, kept for backward compatibility
 
-  @Prop({ default: '' })
+  @Prop({ type: [String], default: ['08:00', '12:00', '18:00'] })
+  horariosBuscaBot: string[];
   ultimaExecucaoAutomaticaData: string;
 }
 

@@ -1,28 +1,148 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Check, AlertCircle, Trash2, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { ArrowLeft, Check, AlertCircle, Trash2, ChevronDown, ChevronUp, X, ExternalLink, Copy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+function CopyRow({ label, value }: { label: string, value: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
+      <div style={{ flex: 1, overflow: 'hidden' }}>
+        <div style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.25rem' }}>{label}</div>
+        <div style={{ fontSize: '0.9rem', color: '#0f172a', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={value || ''}>{value || 'N/A'}</div>
+      </div>
+      <button 
+        onClick={() => {
+          if(value) {
+            navigator.clipboard.writeText(value);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          }
+        }}
+        title={copied ? "Copiado!" : "Copiar para área de transferência"}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: copied ? '#10b981' : '#3b82f6', padding: '0.5rem', transition: 'color 0.2s' }}
+      >
+        {copied ? <Check size={18} /> : <Copy size={18} />}
+      </button>
+    </div>
+  );
+}
 
-function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, handleRemovePreco }: any) {
+function FornecedorPrecoInput({ item, f, pf, precoEmbalagemSalvo, handlePrecoComFator }: any) {
+  const [precoStr, setPrecoStr] = useState(() => {
+    const val = pf?.precoEmbalagem ?? precoEmbalagemSalvo;
+    if (val === undefined || val === null) return '';
+    return Number(val).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+  });
+
+  useEffect(() => {
+    const val = pf?.precoEmbalagem ?? precoEmbalagemSalvo;
+    if (val !== undefined && val !== null) {
+      setPrecoStr(Number(val).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 }));
+    } else {
+      setPrecoStr('');
+    }
+  }, [pf?.precoEmbalagem, precoEmbalagemSalvo]);
+
+  const onBlurHandler = () => {
+    handlePrecoComFator(item._id, f.id, precoStr);
+    const parsed = parseFloat(precoStr.replace(/\./g, '').replace(',', '.'));
+    if (!isNaN(parsed)) {
+      setPrecoStr(Number(parsed).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 }));
+    }
+  };
+
+  return (
+    <input 
+      type="text"
+      className="form-control" 
+      placeholder="0,0000"
+      value={precoStr}
+      onChange={(e) => setPrecoStr(e.target.value)}
+      onBlur={onBlurHandler}
+      style={{ width: '100%' }}
+    />
+  );
+}
+
+function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, handleRemovePreco, novoFornecedorId, setNovoFornecedorId }: any) {
   const [open, setOpen] = useState(false);
   // fator de embalagem por fornecedor: quantas unidades tem cada embalagem/caixa cotada
   const [fatores, setFatores] = useState<Record<string, number>>({});
+  const [nomesEmbalagem, setNomesEmbalagem] = useState<Record<string, string>>({});
+  
+  // Condições comerciais para desempate
+  const [fretes, setFretes] = useState<Record<string, boolean>>({});
+  const [parcelamentos, setParcelamentos] = useState<Record<string, boolean>>({});
+  const [prazos, setPrazos] = useState<Record<string, number>>({});
+
+  const [cenarios, setCenarios] = useState({ a: 30, b: 20, c: 10 });
   const isSigiloso = !item.valorUnitarioEstimado || item.valorUnitarioEstimado <= 0;
 
-  const getFator = (fornecedorId: string) => fatores[fornecedorId] || 1;
+  const getFator = (fornecedorId: string) => {
+    if (fatores[fornecedorId]) return fatores[fornecedorId];
+    const pf = item.precosFornecedores?.find((p:any) => p.fornecedorId?._id === fornecedorId || p.fornecedorId === fornecedorId);
+    return pf?.fatorEmbalagem || 1;
+  };
+
+  const getNomeEmbalagem = (fornecedorId: string) => {
+    if (nomesEmbalagem[fornecedorId] !== undefined) return nomesEmbalagem[fornecedorId];
+    const pf = item.precosFornecedores?.find((p:any) => p.fornecedorId?._id === fornecedorId || p.fornecedorId === fornecedorId);
+    return pf?.nomeEmbalagem || 'pacote';
+  };
+
+  const getFrete = (fornecedorId: string) => {
+    if (fretes[fornecedorId] !== undefined) return fretes[fornecedorId];
+    const pf = item.precosFornecedores?.find((p:any) => p.fornecedorId?._id === fornecedorId || p.fornecedorId === fornecedorId);
+    return pf?.freteIncluso || false;
+  };
+
+  const getParcelamento = (fornecedorId: string) => {
+    if (parcelamentos[fornecedorId] !== undefined) return parcelamentos[fornecedorId];
+    const pf = item.precosFornecedores?.find((p:any) => p.fornecedorId?._id === fornecedorId || p.fornecedorId === fornecedorId);
+    return pf?.permiteParcelamento || false;
+  };
+
+  const getPrazo = (fornecedorId: string) => {
+    if (prazos[fornecedorId] !== undefined) return prazos[fornecedorId];
+    const pf = item.precosFornecedores?.find((p:any) => p.fornecedorId?._id === fornecedorId || p.fornecedorId === fornecedorId);
+    return pf?.prazoPagamento || 0;
+  };
 
   const handleFatorChange = (fornecedorId: string, value: string) => {
     const n = Math.max(1, Number(value) || 1);
     setFatores(prev => ({ ...prev, [fornecedorId]: n }));
   };
 
+  const handleNomeEmbalagemChange = (fornecedorId: string, value: string) => {
+    setNomesEmbalagem(prev => ({ ...prev, [fornecedorId]: value }));
+  };
+
+  const handleCondicaoChange = (fornecedorId: string, field: 'frete' | 'parcelamento' | 'prazo', value: any) => {
+    if (field === 'frete') setFretes(prev => ({ ...prev, [fornecedorId]: value }));
+    if (field === 'parcelamento') setParcelamentos(prev => ({ ...prev, [fornecedorId]: value }));
+    if (field === 'prazo') setPrazos(prev => ({ ...prev, [fornecedorId]: value }));
+    setTimeout(() => handleSaveMetadados(fornecedorId, item._id), 50);
+  };
+
   // precoUnitario real = precoEmbalagem / fator
   const handlePrecoComFator = (itemId: string, fornecedorId: string, precoEmbalagem: string) => {
     const fator = getFator(fornecedorId);
-    const embalagem = parseFloat(precoEmbalagem.replace(',', '.'));
+    const nomeEmba = getNomeEmbalagem(fornecedorId);
+    const embalagem = parseFloat(precoEmbalagem.replace(/\./g, '').replace(',', '.'));
     if (isNaN(embalagem)) return;
     const unitario = parseFloat((embalagem / fator).toFixed(6));
-    handlePrecoBlur(itemId, fornecedorId, String(unitario));
+    handlePrecoBlur(itemId, fornecedorId, String(unitario), fator, embalagem, nomeEmba, getFrete(fornecedorId), getParcelamento(fornecedorId), getPrazo(fornecedorId));
+  };
+
+  const handleSaveMetadados = (fornecedorId: string, itemId: string) => {
+    const pf = item.precosFornecedores?.find((p:any) => p.fornecedorId?._id === fornecedorId || p.fornecedorId === fornecedorId);
+    const precoEmba = pf?.precoEmbalagem ?? pf?.precoUnitario;
+    if (precoEmba !== undefined) {
+      const fator = getFator(fornecedorId);
+      const nomeEmba = getNomeEmbalagem(fornecedorId);
+      const unitario = parseFloat((precoEmba / fator).toFixed(6));
+      handlePrecoBlur(itemId, fornecedorId, String(unitario), fator, precoEmba, nomeEmba, getFrete(fornecedorId), getParcelamento(fornecedorId), getPrazo(fornecedorId));
+    }
   };
 
   return (
@@ -143,8 +263,13 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
           <div style={{ borderTop: '1px dashed #cbd5e1', paddingTop: '1.5rem' }}>
             <h4 style={{ marginBottom: '1rem', color: '#0f172a', fontSize: '0.95rem' }}>Valores Ofertados pelos Fornecedores</h4>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-              {columnsFornecedores.map((f: any) => {
-                const pf = item.precosFornecedores?.find((p:any) => p.fornecedorId?._id === f.id);
+              {columnsFornecedores
+                .filter((f: any) => {
+                  const pf = item.precosFornecedores?.find((p:any) => p.fornecedorId?._id === f.id || p.fornecedorId === f.id);
+                  return pf || f.id === novoFornecedorId;
+                })
+                .map((f: any) => {
+                const pf = item.precosFornecedores?.find((p:any) => p.fornecedorId?._id === f.id || p.fornecedorId === f.id);
                 const isMelhor = item.melhorPreco && pf && item.melhorPreco.fornecedorId === f.id;
                 const fator = getFator(f.id);
                 // precoEmbalagem = precoUnitario * fator (para mostrar de volta o valor da embalagem quando já cotado)
@@ -161,60 +286,136 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                       <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#475569', lineHeight: 1.3, wordBreak: 'break-word' }}>
                         {f.razaoSocial}
                       </div>
-                      {pf && (
-                        <button
-                          title="Remover cotação deste fornecedor"
-                          onClick={() => handleRemovePreco(item._id, f.id)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px', flexShrink: 0 }}
-                        >
-                          <X size={14} />
-                        </button>
-                      )}
+                      <button
+                        title={pf ? "Remover cotação deste fornecedor" : "Cancelar adição"}
+                        onClick={() => {
+                          if (pf) {
+                            handleRemovePreco(item._id, f.id);
+                          } else if (setNovoFornecedorId) {
+                            setNovoFornecedorId('');
+                          }
+                        }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px', flexShrink: 0 }}
+                      >
+                        <X size={14} />
+                      </button>
                     </div>
 
                     {/* Fator de embalagem */}
-                    <div style={{ marginBottom: '0.5rem' }}>
-                      <label style={{ fontSize: '0.7rem', color: '#94a3b8', display: 'block', marginBottom: '0.2rem' }}>
-                        Unid. por embalagem
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        className="form-control"
-                        placeholder="1"
-                        defaultValue={1}
-                        onChange={(e) => handleFatorChange(f.id, e.target.value)}
-                        style={{ width: '100%', fontSize: '0.8rem' }}
-                        title="Quantas unidades tem cada embalagem/caixa cotada (ex: 100 para pacote com 100 folhas)"
-                      />
+                    <div style={{ marginBottom: '0.5rem', display: 'flex', gap: '0.5rem' }}>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ fontSize: '0.7rem', color: '#94a3b8', display: 'block', marginBottom: '0.2rem' }}>
+                          Embalagem Cotada
+                        </label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          list="unidades-medida"
+                          placeholder="Ex: pacote"
+                          defaultValue={getNomeEmbalagem(f.id)}
+                          onChange={(e) => handleNomeEmbalagemChange(f.id, e.target.value)}
+                          onBlur={() => handleSaveMetadados(f.id, item._id)}
+                          style={{ width: '100%', fontSize: '0.8rem' }}
+                          title="Qual é a unidade de medida fechada fornecida (ex: pacote, fardo, caixa, unidade)"
+                        />
+                        <datalist id="unidades-medida">
+                          <option value="pacote" />
+                          <option value="caixa" />
+                          <option value="fardo" />
+                          <option value="tira" />
+                          <option value="rolo" />
+                          <option value="galão" />
+                          <option value="litro" />
+                          <option value="kg" />
+                          <option value="unidade" />
+                          <option value="kit" />
+                          <option value="peça" />
+                        </datalist>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ fontSize: '0.7rem', color: '#94a3b8', display: 'block', marginBottom: '0.2rem', whiteSpace: 'nowrap' }} title="Não é a quantidade total! É quantos itens vêm dentro de 1 embalagem.">
+                          Itens por Embalagem
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          className="form-control"
+                          placeholder="1"
+                          value={getFator(f.id) || 1}
+                          onChange={(e) => handleFatorChange(f.id, e.target.value)}
+                          onBlur={() => handleSaveMetadados(f.id, item._id)}
+                          style={{ width: '100%', fontSize: '0.8rem' }}
+                          title="Atenção: NÃO é a quantidade total do edital. É apenas quantos itens vêm dentro de 1 embalagem."
+                        />
+                      </div>
                     </div>
 
                     {/* Preço da embalagem */}
                     <div style={{ marginBottom: '0.5rem' }}>
-                      <label style={{ fontSize: '0.7rem', color: '#94a3b8', display: 'block', marginBottom: '0.2rem' }}>
-                        {fator > 1 ? `Preço da embalagem (${fator} un.)` : 'Preço unitário'}
+                      <label style={{ fontSize: '0.7rem', color: '#94a3b8', display: 'block', marginBottom: '0.2rem', fontWeight: 600 }}>
+                        {fator > 1 ? `Preço Custo de 1 ${getNomeEmbalagem(f.id)} (${fator} un.)` : `Preço Custo de 1 ${getNomeEmbalagem(f.id)}`}
                       </label>
-                      <input 
-                        key={`${f.id}-${pf?.precoUnitario}`}
-                        type="number"
-                        step="0.0001"
-                        className="form-control" 
-                        placeholder="0,00"
-                        defaultValue={precoEmbalagemSalvo ?? ''}
-                        onBlur={(e) => handlePrecoComFator(item._id, f.id, e.target.value)}
-                        style={{ width: '100%' }}
+                      <FornecedorPrecoInput 
+                        item={item}
+                        f={f}
+                        pf={pf}
+                        precoEmbalagemSalvo={precoEmbalagemSalvo}
+                        handlePrecoComFator={handlePrecoComFator}
                       />
                     </div>
 
-                    {/* Preço unitário calculado */}
+                    {/* Condições Comerciais (Desempate) */}
+                    <div style={{ marginBottom: '0.75rem', padding: '0.5rem', background: '#e2e8f0', borderRadius: '4px', border: '1px dashed #cbd5e1' }}>
+                      <p style={{ fontSize: '0.65rem', fontWeight: 600, color: '#475569', marginBottom: '0.4rem', textTransform: 'uppercase' }}>Vantagens Comerciais (Desempate)</p>
+                      
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', color: '#334155', cursor: 'pointer' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={getFrete(f.id)} 
+                            onChange={(e) => handleCondicaoChange(f.id, 'frete', e.target.checked)} 
+                          />
+                          Frete Grátis Incluso
+                        </label>
+                        
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', color: '#334155', cursor: 'pointer' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={getParcelamento(f.id)} 
+                            onChange={(e) => handleCondicaoChange(f.id, 'parcelamento', e.target.checked)} 
+                          />
+                          Permite Parcelamento
+                        </label>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.2rem' }}>
+                          <span style={{ fontSize: '0.75rem', color: '#334155' }}>Carência (dias):</span>
+                          <input 
+                            type="number" 
+                            min="0"
+                            style={{ width: '60px', padding: '0.2rem', fontSize: '0.75rem', border: '1px solid #cbd5e1', borderRadius: '4px' }}
+                            value={getPrazo(f.id)}
+                            onChange={(e) => handleCondicaoChange(f.id, 'prazo', Number(e.target.value))}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Preço unitário calculado e Necessidade de compra */}
                     {fator > 1 && (
                       <div style={{ padding: '0.4rem 0.5rem', background: '#eff6ff', borderRadius: '4px', marginBottom: '0.4rem', fontSize: '0.72rem' }}>
-                        <span style={{ color: '#64748b' }}>Preço unit.: </span>
-                        <strong style={{ color: '#1d4ed8' }}>
-                          {precoEmbalagemSalvo !== undefined
-                            ? `R$ ${(precoEmbalagemSalvo / fator).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
-                            : '—'}
-                        </strong>
+                        <div style={{ marginBottom: '0.3rem' }}>
+                          <span style={{ color: '#64748b' }}>Preço unit.: </span>
+                          <strong style={{ color: '#1d4ed8' }}>
+                            {precoEmbalagemSalvo !== undefined || pf?.precoEmbalagem !== undefined
+                              ? `R$ ${((pf?.precoEmbalagem || precoEmbalagemSalvo) / fator).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
+                              : '—'}
+                          </strong>
+                        </div>
+                        <div style={{ borderTop: '1px solid #bfdbfe', paddingTop: '0.3rem' }}>
+                          <span style={{ color: '#3b82f6', display: 'block', lineHeight: 1.2 }}>
+                            Serão necessários <strong>{Math.ceil((item.quantidade || 1) / fator)} {getNomeEmbalagem(f.id)}s</strong> para suprir a demanda de {item.quantidade || 1} un.
+                          </span>
+                        </div>
                       </div>
                     )}
 
@@ -242,6 +443,86 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
               )}
             </div>
           </div>
+
+          {/* SIMULADOR DE LANCES */}
+          {item.melhorPreco && (
+            <div style={{ marginTop: '2rem', padding: '1.5rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              <h4 style={{ marginBottom: '1rem', color: '#0f172a', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                🎯 Simulador de Estratégia de Lances
+              </h4>
+              <div style={{ fontSize: '0.85rem', color: '#475569', marginBottom: '1rem', display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+                <div><strong>Custo Unit. Vencedor:</strong> R$ {item.melhorPreco.precoUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</div>
+                <div><strong>Qtd Total:</strong> {item.quantidade || 1} un.</div>
+                <div><strong>Custo Total:</strong> R$ {(item.melhorPreco.precoUnitario * (item.quantidade || 1)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                {item.valorUnitarioEstimado > 0 && <div><strong>Teto Órgão (Unitário):</strong> R$ {item.valorUnitarioEstimado.toLocaleString('pt-BR', { minimumFractionDigits: 4 })}</div>}
+              </div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                {['a', 'b', 'c'].map((cId) => {
+                  const margem = cenarios[cId as keyof typeof cenarios];
+                  // Arredondar para 4 casas decimais para bater exatamente com a multiplicação exibida
+                  const lanceUnitarioCru = item.melhorPreco.precoUnitario * (1 + (margem / 100));
+                  const lanceUnitario = Number(lanceUnitarioCru.toFixed(4));
+                  
+                  const lanceTotal = lanceUnitario * (item.quantidade || 1);
+                  const lucroUnitario = lanceUnitario - item.melhorPreco.precoUnitario;
+                  const lucroTotal = lucroUnitario * (item.quantidade || 1);
+                  const margemReal = lanceUnitario > 0 ? (lucroUnitario / lanceUnitario) * 100 : 0;
+                  const isAcimaDoTeto = item.valorUnitarioEstimado > 0 && lanceUnitario > item.valorUnitarioEstimado;
+
+                  const title = cId === 'a' ? 'Cenário A (Conservador)' : cId === 'b' ? 'Cenário B (Moderado)' : 'Cenário C (Agressivo)';
+
+                  return (
+                    <div key={cId} style={{ padding: '1rem', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
+                      <div style={{ fontWeight: 600, color: '#334155', marginBottom: '0.75rem' }}>{title}</div>
+                      <div style={{ marginBottom: '0.75rem' }}>
+                        <label style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', marginBottom: '0.2rem' }}>Margem (Markup %) sobre o Custo</label>
+                        <input 
+                          type="number" 
+                          className="form-control" 
+                          value={margem}
+                          onChange={e => setCenarios(prev => ({ ...prev, [cId]: Number(e.target.value) }))}
+                          style={{ width: '100%', padding: '0.25rem 0.5rem' }}
+                        />
+                      </div>
+                      <div style={{ fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: '#64748b' }}>Lance Unitário:</span>
+                          <strong style={{ color: isAcimaDoTeto ? '#ef4444' : '#0f172a' }}>
+                            R$ {lanceUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                          </strong>
+                        </div>
+                        {isAcimaDoTeto && <div style={{ color: '#ef4444', fontSize: '0.7rem', textAlign: 'right', marginTop: '-4px' }}>(Acima do Teto!)</div>}
+                        
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: '#64748b' }}>Lance Total:</span>
+                          <strong style={{ color: '#334155' }}>
+                            R$ {lanceTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed #e2e8f0', paddingTop: '0.4rem', marginTop: '0.2rem' }}>
+                          <span style={{ color: '#64748b' }}>Lucro Unitário (Lance - Custo):</span>
+                          <strong style={{ color: '#10b981' }}>
+                            R$ {lucroUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                          </strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: '#64748b' }}>Lucro Total:</span>
+                          <strong style={{ color: '#10b981' }}>
+                            R$ {lucroTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: '#64748b' }}>Margem Real (Lucro/Lance):</span>
+                          <strong>{margemReal.toFixed(2)}%</strong>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -253,7 +534,7 @@ export default function OportunidadeDetalhe() {
   const { id } = useParams();
   const [oportunidade, setOportunidade] = useState<any>(null);
   const [cotacao, setCotacao] = useState<any>(null);
-  const [aba, setAba] = useState<'edital' | 'cotacao'>('edital');
+  const [aba, setAba] = useState<'edital' | 'cotacao' | 'portal'>('edital');
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -317,7 +598,17 @@ export default function OportunidadeDetalhe() {
     loadData();
   }, [id]);
 
-  const handlePrecoBlur = async (itemId: string, fornecedorId: string, value: string) => {
+  const handlePrecoBlur = async (
+    itemId: string, 
+    fornecedorId: string, 
+    value: string, 
+    fatorEmbalagem: number = 1, 
+    precoEmbalagem: number = 0, 
+    nomeEmbalagem: string = 'pacote',
+    freteIncluso?: boolean,
+    permiteParcelamento?: boolean,
+    prazoPagamento?: number
+  ) => {
     const numValue = Number(value.replace(',', '.'));
     if (isNaN(numValue)) return;
 
@@ -325,7 +616,16 @@ export default function OportunidadeDetalhe() {
       await fetch(`http://localhost:7005/cotacoes/${cotacao._id}/itens/${itemId}/preco`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fornecedorId, precoUnitario: numValue })
+        body: JSON.stringify({ 
+          fornecedorId, 
+          precoUnitario: numValue, 
+          fatorEmbalagem, 
+          precoEmbalagem: precoEmbalagem || numValue, 
+          nomeEmbalagem,
+          freteIncluso,
+          permiteParcelamento,
+          prazoPagamento
+        })
       });
       // Recarrega cotação para refletir os novos totais e melhor preço
       const resCotFull = await fetch(`http://localhost:7005/cotacoes/${cotacao._id}`);
@@ -420,6 +720,12 @@ export default function OportunidadeDetalhe() {
         >
           Painel de Cotação
         </button>
+        <button 
+          onClick={() => setAba('portal')}
+          style={{ padding: '0.75rem 1.5rem', background: 'none', border: 'none', borderBottom: aba === 'portal' ? '2px solid var(--primary)' : '2px solid transparent', color: aba === 'portal' ? 'var(--primary)' : 'var(--text-muted)', fontWeight: 600, cursor: 'pointer' }}
+        >
+          Portal de Compras
+        </button>
       </div>
 
       {aba === 'edital' && (
@@ -431,13 +737,24 @@ export default function OportunidadeDetalhe() {
             <p style={{ marginBottom: '0.5rem' }}><strong>UASG / Órgão:</strong> {oportunidade.orgaoCnpj} - {oportunidade.orgaoNome}</p>
             <p style={{ marginBottom: '0.5rem' }}><strong>Local:</strong> {oportunidade.municipio} - {oportunidade.uf}</p>
             <p style={{ marginBottom: '0.5rem' }}><strong>Valor Estimado:</strong> R$ {oportunidade.valorTotalEstimado?.toLocaleString('pt-BR')}</p>
-            {oportunidade.linkSistemaOrigem && (
-              <div style={{ marginTop: '1rem' }}>
-                <a href={oportunidade.linkSistemaOrigem} target="_blank" rel="noreferrer" className="btn-primary" style={{ display: 'inline-block', padding: '0.5rem 1rem', textDecoration: 'none' }}>
-                  📄 Abrir edital completo no PNCP
+            <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+              {oportunidade.linkSistemaOrigem && (
+                <a href={oportunidade.linkSistemaOrigem} target="_blank" rel="noreferrer" className="btn-primary" style={{ display: 'inline-block', padding: '0.5rem 1rem', textDecoration: 'none', fontSize: '0.9rem' }}>
+                  📄 Sistema de Origem
                 </a>
-              </div>
-            )}
+              )}
+              {oportunidade.numeroControlePNCP && (
+                <a 
+                  href={`https://pncp.gov.br/app/editais/${oportunidade.numeroControlePNCP.split('-')[0]}/${oportunidade.numeroControlePNCP.split('/')[1]}/${parseInt(oportunidade.numeroControlePNCP.split('-')[2]?.split('/')[0] || '0')}`}
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="btn-primary" 
+                  style={{ display: 'inline-block', padding: '0.5rem 1rem', textDecoration: 'none', background: '#0ea5e9', fontSize: '0.9rem' }}
+                >
+                  📄 Portal PNCP (Baixar Edital)
+                </a>
+              )}
+            </div>
             <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
               <AlertCircle size={18} color="#4f46e5" />
               <span>Status atual: <strong>{oportunidade.kanbanStatus.replace('_', ' ')}</strong></span>
@@ -475,6 +792,8 @@ export default function OportunidadeDetalhe() {
                   handlePrecoBlur={handlePrecoBlur}
                   handleRemovePreco={handleRemovePreco}
                   cotacaoId={cotacao._id}
+                  novoFornecedorId={novoFornecedorId}
+                  setNovoFornecedorId={setNovoFornecedorId}
                 />
               ))
             )}
@@ -483,8 +802,8 @@ export default function OportunidadeDetalhe() {
           <div style={{ marginTop: '2rem', padding: '1.5rem', background: '#1e293b', borderRadius: '8px', color: '#fff' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <div>
-                <h3 style={{ margin: 0, color: '#94a3b8', fontSize: '1rem' }}>Estimativa Total Vencedora (Soma dos melhores)</h3>
-                <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>Cálculo automático de Unitário × Quantidade para cada item</p>
+                <h3 style={{ margin: 0, color: '#94a3b8', fontSize: '1rem' }}>Custo Total Vencedor (Custo com Fornecedores)</h3>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>Cálculo automático de Custo Unitário × Quantidade para cada item</p>
               </div>
               <div style={{ fontSize: '2rem', fontWeight: 700, color: '#10b981' }}>
                 R$ {Number(cotacao.valorTotalMelhorCotacao || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -501,16 +820,60 @@ export default function OportunidadeDetalhe() {
                   <div key={it._id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: '#94a3b8' }}>
                     <span style={{ flex: 1 }}>{it.descricaoItem} ({it.quantidade} un.)</span>
                     <span style={{ color: '#e2e8f0', fontWeight: 600, marginLeft: '1rem' }}>
-                      R$ {Number(it.melhorPreco.precoUnitario).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })} × {it.quantidade} = R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      Custo: R$ {Number(it.melhorPreco.precoUnitario).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })} × {it.quantidade} = R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                     {economiaTotal !== null && economiaTotal > 0 && (
                       <span style={{ color: '#4ade80', fontWeight: 700, marginLeft: '1rem' }}>
-                        ↓ R$ {economiaTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} economizado
+                        ↓ R$ {economiaTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} de margem máxima
                       </span>
                     )}
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {aba === 'portal' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+          <div className="stat-card" style={{ height: 'fit-content' }}>
+            <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-main)', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <ExternalLink size={20} /> Acesso Rápido ao Portal
+            </h3>
+            
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+              Use os botões abaixo para acessar rapidamente o sistema oficial e lançar sua proposta. Use os ícones de cópia ao lado das informações para agilizar o preenchimento no site do governo.
+            </p>
+
+            <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
+              <a href="https://www.gov.br/compras" target="_blank" rel="noreferrer" className="btn-primary" style={{ background: '#005b9f', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <ExternalLink size={16} /> Portal Compras.gov
+              </a>
+              <a href="https://www.comprasnet.gov.br/seguro/loginPortal.asp" target="_blank" rel="noreferrer" className="btn-primary" style={{ background: '#16a34a', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <ExternalLink size={16} /> Comprasnet (Área do Fornecedor)
+              </a>
+            </div>
+
+            <h4 style={{ marginBottom: '1rem', color: '#334155', fontSize: '0.95rem' }}>Dados Rápidos para Copiar</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {[
+                { label: 'UASG / Órgão', value: oportunidade.numeroControlePNCP?.split('-')[0] || oportunidade.orgaoCnpj },
+                { label: 'Número da Compra', value: oportunidade.numeroControlePNCP ? oportunidade.numeroControlePNCP.split('/')[1] + '/' + (oportunidade.numeroControlePNCP.split('-')[2]?.split('/')[0] || '') : oportunidade.numeroControlePNCP },
+                { label: 'Objeto', value: oportunidade.objetoCompra }
+              ].map((info, i) => {
+                // Estado local injetado via closure para feedback
+                return <CopyRow key={i} label={info.label} value={info.value} />
+              })}
+            </div>
+            
+            <div style={{ marginTop: '2rem', padding: '1rem', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '6px' }}>
+              <h4 style={{ color: '#92400e', fontSize: '0.85rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <AlertCircle size={14} /> Dica Importante
+              </h4>
+              <p style={{ color: '#92400e', fontSize: '0.75rem', lineHeight: 1.5, margin: 0 }}>
+                Certifique-se de preencher todos os valores na aba "Painel de Cotação" e verificar as simulações de margem antes de lançar a proposta oficial.
+              </p>
             </div>
           </div>
         </div>

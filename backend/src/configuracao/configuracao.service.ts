@@ -14,7 +14,10 @@ export class ConfiguracaoService implements OnModuleInit {
   async onModuleInit() {
     let config = await this.configModel.findOne().exec();
     if (!config) {
-      config = await this.configModel.create({ horarioBuscaBot: '06:00', ultimaExecucaoAutomaticaData: '' });
+      config = await this.configModel.create({ horarioBuscaBot: '08:00', horariosBuscaBot: ['08:00', '12:00', '18:00'], ultimaExecucaoAutomaticaData: '' });
+    } else if (!config.horariosBuscaBot || config.horariosBuscaBot.length === 0) {
+      config.horariosBuscaBot = config.horarioBuscaBot ? [config.horarioBuscaBot] : ['08:00', '12:00', '18:00'];
+      await config.save();
     }
   }
 
@@ -22,10 +25,11 @@ export class ConfiguracaoService implements OnModuleInit {
     return this.configModel.findOne().exec();
   }
 
-  async setHorario(horario: string) {
-    const config = await this.configModel.findOneAndUpdate({}, { horarioBuscaBot: horario }, { new: true }).exec();
+  async setHorarios(horarios: string[]) {
+    const horarioBuscaBot = horarios.length > 0 ? horarios[0] : '06:00';
+    const config = await this.configModel.findOneAndUpdate({}, { horarioBuscaBot, horariosBuscaBot: horarios }, { new: true }).exec();
     if (config) {
-      await this.botService.registrarCronDinamico(horario);
+      await this.botService.registrarCronDinamicoMultiplos(horarios);
     }
     return config;
   }

@@ -27,6 +27,15 @@ export class OportunidadeService {
       filters.dataEncerramentoProposta = { $lte: hoje, $gte: new Date() };
     }
 
+    // Regra de tempo de vida para EXCLUIDA: ocultar se a data de encerramento já passou
+    const agora = new Date();
+    filters.$or = [
+      { kanbanStatus: { $ne: 'EXCLUIDA' } },
+      { kanbanStatus: 'EXCLUIDA', dataEncerramentoProposta: { $gte: agora } },
+      { kanbanStatus: 'EXCLUIDA', dataEncerramentoProposta: null },
+      { kanbanStatus: 'EXCLUIDA', dataEncerramentoProposta: { $exists: false } }
+    ];
+
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 50;
     const skip = (page - 1) * limit;
@@ -45,7 +54,7 @@ export class OportunidadeService {
   }
 
   async updateStatus(id: string, kanbanStatus: string): Promise<Oportunidade> {
-    const statusValidos = ['A_FAZER', 'FAZENDO', 'FEITO', 'AGUARDANDO_RESPOSTA'];
+    const statusValidos = ['A_FAZER', 'FAZENDO', 'FEITO', 'AGUARDANDO_RESPOSTA', 'EXCLUIDA'];
     if (!statusValidos.includes(kanbanStatus)) {
       throw new BadRequestException('Status inválido');
     }
@@ -57,6 +66,12 @@ export class OportunidadeService {
     ).exec();
 
     if (!doc) throw new NotFoundException('Oportunidade não encontrada');
+
+    if (kanbanStatus === 'EXCLUIDA') {
+      await this.produtoModel.deleteMany({ oportunidadeId: id }).exec();
+      this.logger.log(`Produtos da oportunidade ${id} removidos (movida para lixeira)`);
+    }
+
     return doc;
   }
 
@@ -114,16 +129,15 @@ export class OportunidadeService {
     if (!doc) throw new NotFoundException('Oportunidade não encontrada');
 
     try {
-      // 1. Proposta
-      await this.model.db.collection('propostas').deleteMany({ oportunidadeId: doc._id });
-      // 2. Cotacao
-      await this.model.db.collection('cotacaos').deleteMany({ oportunidadeId: doc._id });
-      // 3. Produtos
-      await this.produtoModel.deleteMany({ oportunidadeId: id });
-      // 4. Oportunidade
-      await this.model.deleteOne({ _id: doc._id });
+      await this.model.updateOne(
+        { _id: doc._id }, 
+        { $set: { kanbanStatus: 'EXCLUIDA', dataMudancaStatus: new Date() } }
+      );
 
-      this.logger.log(`Oportunidade ${id} e dados vinculados removidos com sucesso`);
+      // Excluir produtos associados
+      await this.produtoModel.deleteMany({ oportunidadeId: id }).exec();
+
+      this.logger.log(`Oportunidade ${id} enviada para lixeira e produtos removidos`);
       return { message: 'Oportunidade excluída com sucesso' };
     } catch (error) {
       this.logger.error(`Erro ao excluir oportunidade ${id}: ${error.message}`);

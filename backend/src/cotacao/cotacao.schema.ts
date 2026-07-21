@@ -19,6 +19,12 @@ export class Cotacao {
       precosFornecedores: [{
         fornecedorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Fornecedor' },
         precoUnitario: Number,
+        fatorEmbalagem: Number,
+        precoEmbalagem: Number,
+        nomeEmbalagem: String,
+        freteIncluso: { type: Boolean, default: false },
+        prazoPagamento: { type: Number, default: 0 },
+        permiteParcelamento: { type: Boolean, default: false },
         observacao: String
       }],
       melhorPreco: {
@@ -37,6 +43,12 @@ export class Cotacao {
     precosFornecedores: {
       fornecedorId: mongoose.Types.ObjectId;
       precoUnitario: number;
+      fatorEmbalagem?: number;
+      precoEmbalagem?: number;
+      nomeEmbalagem?: string;
+      freteIncluso?: boolean;
+      prazoPagamento?: number;
+      permiteParcelamento?: boolean;
       observacao?: string;
     }[];
     melhorPreco?: {

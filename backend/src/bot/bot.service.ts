@@ -11,6 +11,7 @@ import { Produto, ProdutoDocument } from '../produto/produto.schema';
 import { PncpClientService } from '../pncp/services/pncp-client/pncp-client.service';
 import { mapPncpParaOportunidade } from '../pncp/dtos/pncp.dto';
 import { ConfiguracaoService } from '../configuracao/configuracao.service';
+import { EventsService } from '../events/events.service';
 
 @Injectable()
 export class BotService implements OnApplicationBootstrap {
@@ -25,15 +26,16 @@ export class BotService implements OnApplicationBootstrap {
     @InjectModel(Produto.name) private produtoModel: Model<ProdutoDocument>,
     private readonly pncpClientService: PncpClientService,
     private schedulerRegistry: SchedulerRegistry,
-    @Inject(forwardRef(() => ConfiguracaoService)) private configService: ConfiguracaoService
+    @Inject(forwardRef(() => ConfiguracaoService)) private configService: ConfiguracaoService,
+    private eventsService: EventsService
   ) {}
 
   async onApplicationBootstrap() {
     const config = await this.configService.getConfiguracao();
-    const horario = config?.horarioBuscaBot || '06:00';
+    const horarios = config?.horariosBuscaBot && config.horariosBuscaBot.length > 0 ? config.horariosBuscaBot : ['08:00', '12:00', '18:00'];
     
     // Registrar Cron Job
-    await this.registrarCronDinamico(horario);
+    await this.registrarCronDinamicoMultiplos(horarios);
 
     // Lógica de recuperação ao iniciar o sistema
     setTimeout(async () => {
@@ -54,28 +56,34 @@ export class BotService implements OnApplicationBootstrap {
     }, 15000); // 15s de delay
   }
 
-  async registrarCronDinamico(horario: string) {
-    const nomeJob = 'botBuscaDiaria';
-    
-    try {
-      if (this.schedulerRegistry.doesExist('cron', nomeJob)) {
-        this.schedulerRegistry.deleteCronJob(nomeJob);
-      }
-    } catch (e) {
-      // ignore Se não existir
+  async registrarCronDinamicoMultiplos(horarios: string[]) {
+    // Remove o job antigo (single)
+    if (this.schedulerRegistry.doesExist('cron', 'botBuscaDiaria')) {
+      this.schedulerRegistry.deleteCronJob('botBuscaDiaria');
     }
 
-    const [hora, minuto] = horario.split(':');
-    const cronExpression = `${minuto} ${hora} * * *`;
-
-    const job = new CronJob(cronExpression, async () => {
-      this.logger.log(`Cron disparado às ${horario}...`);
-      await this.executarBuscaDiaria(true);
+    // Remove os jobs multi antigos
+    const jobs = this.schedulerRegistry.getCronJobs();
+    jobs.forEach((value, key) => {
+      if (key.startsWith('botBuscaDiaria_')) {
+        this.schedulerRegistry.deleteCronJob(key);
+      }
     });
 
-    this.schedulerRegistry.addCronJob(nomeJob, job);
-    job.start();
-    this.logger.log(`Cron dinâmico registrado para: ${horario} (expressão: ${cronExpression})`);
+    horarios.forEach((horario, index) => {
+      const nomeJob = `botBuscaDiaria_${index}`;
+      const [hora, minuto] = horario.split(':');
+      const cronExpression = `${minuto} ${hora} * * *`;
+
+      const job = new CronJob(cronExpression, async () => {
+        this.logger.log(`Cron disparado às ${horario}...`);
+        await this.executarBuscaDiaria(true);
+      });
+
+      this.schedulerRegistry.addCronJob(nomeJob, job);
+      job.start();
+      this.logger.log(`Cron dinâmico registrado para: ${horario} (expressão: ${cronExpression})`);
+    });
   }
 
   async executarBuscaDiaria(isAutomatic = false) {
@@ -85,6 +93,7 @@ export class BotService implements OnApplicationBootstrap {
     }
     
     this.emExecucao = true;
+    this.eventsService.emitDashboardUpdate();
     const perfis = await this.perfilBuscaModel.find({ ativo: true });
     
     const resultados = [];
@@ -95,16 +104,25 @@ export class BotService implements OnApplicationBootstrap {
       let totalNovos = 0;
       const erros = [];
       
-      const hoje = new Date();
-      hoje.setDate(hoje.getDate() + 30); // 30 dias pra frente como default
-      const yyyy = hoje.getFullYear();
-      const mm = String(hoje.getMonth() + 1).padStart(2, '0');
-      const dd = String(hoje.getDate()).padStart(2, '0');
-      const dataFinal = `${yyyy}${mm}${dd}`;
+      const dataFinalDate = new Date();
+      dataFinalDate.setDate(dataFinalDate.getDate() + 30); // 30 dias pra frente como limite final
+      const yyyyF = dataFinalDate.getFullYear();
+      const mmF = String(dataFinalDate.getMonth() + 1).padStart(2, '0');
+      const ddF = String(dataFinalDate.getDate()).padStart(2, '0');
+      const dataFinal = `${yyyyF}${mmF}${ddF}`;
+
+      // PNCP API exige dataInicial. Vamos buscar editais publicados nos últimos 30 dias
+      const dataInicialDate = new Date();
+      dataInicialDate.setDate(dataInicialDate.getDate() - 30);
+      const yyyyI = dataInicialDate.getFullYear();
+      const mmI = String(dataInicialDate.getMonth() + 1).padStart(2, '0');
+      const ddI = String(dataInicialDate.getDate()).padStart(2, '0');
+      const dataInicial = `${yyyyI}${mmI}${ddI}`;
 
       for (const modalidade of perfil.modalidades) {
         try {
           const rawContratacoes = await this.pncpClientService.buscarContratacoesComPropostaAberta({
+            dataInicial,
             dataFinal,
             codigoModalidadeContratacao: modalidade,
             uf: perfil.ufs && perfil.ufs.length > 0 ? perfil.ufs[0] : undefined,
@@ -185,6 +203,11 @@ export class BotService implements OnApplicationBootstrap {
     }
 
     this.emExecucao = false;
+    this.eventsService.emitDashboardUpdate();
     return resultados;
+  }
+
+  isExecucao(): boolean {
+    return this.emExecucao;
   }
 }

@@ -18,6 +18,18 @@ export default function Dashboard() {
 
   useEffect(() => {
     carregarResumo();
+    const eventSource = new EventSource('http://localhost:7005/dashboard/stream');
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'update') {
+          carregarResumo();
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    return () => eventSource.close();
   }, []);
 
   const rodarBot = async () => {
@@ -37,6 +49,13 @@ export default function Dashboard() {
   return (
     <div>
       <h1>Dashboard</h1>
+      
+      {resumo.botEmExecucao && (
+        <div style={{ background: '#3b82f6', color: '#fff', padding: '0.75rem 1rem', borderRadius: '8px', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold' }}>
+          <Play size={18} className="spin-animation" /> 
+          O bot está sincronizando novas propostas neste momento...
+        </div>
+      )}
       
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginTop: '1rem' }}>
         {Object.entries(resumo.porStatus).map(([status, count]: [string, any]) => (
@@ -89,10 +108,10 @@ export default function Dashboard() {
           )}
           <button 
             onClick={rodarBot} 
-            disabled={loadingBot}
-            style={{ marginTop: '1rem', width: '100%', padding: '0.5rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+            disabled={loadingBot || resumo.botEmExecucao}
+            style={{ marginTop: '1rem', width: '100%', padding: '0.5rem', background: (loadingBot || resumo.botEmExecucao) ? '#94a3b8' : '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', cursor: (loadingBot || resumo.botEmExecucao) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
           >
-            <Play size={16} /> {loadingBot ? 'Rodando...' : 'Rodar Agora'}
+            <Play size={16} /> {(loadingBot || resumo.botEmExecucao) ? 'Sincronizando...' : 'Rodar Agora'}
           </button>
         </div>
       </div>

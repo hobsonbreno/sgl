@@ -4,7 +4,7 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import type { DropResult } from '@hello-pangea/dnd';
 import { Clock, Trash2, Trophy } from 'lucide-react';
 
-const COLUNAS = ['A_FAZER', 'FAZENDO', 'FEITO', 'AGUARDANDO_RESPOSTA'];
+const COLUNAS = ['A_FAZER', 'FAZENDO', 'FEITO', 'AGUARDANDO_RESPOSTA', 'EXCLUIDA'];
 
 export default function Kanban() {
   const [oportunidades, setOportunidades] = useState<any[]>([]);
@@ -198,6 +198,12 @@ export default function Kanban() {
                               </Link>
                               <p className="desc" title={item.objetoCompra}>{item.objetoCompra}</p>
                               
+                              {colId === 'EXCLUIDA' && (
+                                <div style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fca5a5', padding: '0.5rem', borderRadius: '4px', marginBottom: '1rem', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                                  ⚠️ Você já excluiu esta proposta antes
+                                </div>
+                              )}
+                              
                               {prods.length > 0 && !bestOffer && (
                                 <div style={{ background: '#f1f5f9', padding: '0.5rem', borderRadius: '4px', marginBottom: '1rem', fontSize: '0.75rem', border: '1px solid #e2e8f0' }}>
                                   <strong style={{ color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.25rem' }}>Produtos/Serviços:</strong>
@@ -292,13 +298,15 @@ export default function Kanban() {
                                 >
                                   {COLUNAS.map(c => <option key={c} value={c}>{c.replace('_', ' ')}</option>)}
                                 </select>
-                                <button 
-                                  onClick={() => handleDelete(item._id)} 
-                                  aria-label="Excluir Oportunidade" 
-                                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '0.25rem' }}
-                                >
-                                  <Trash2 size={16} />
-                                </button>
+                                {colId !== 'EXCLUIDA' && (
+                                  <button 
+                                    onClick={() => handleDelete(item._id)} 
+                                    aria-label="Excluir Oportunidade" 
+                                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '0.25rem' }}
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                )}
                               </div>
                             </div>
                           )}

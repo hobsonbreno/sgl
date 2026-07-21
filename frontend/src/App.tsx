@@ -7,9 +7,10 @@ import Orgaos from './pages/Orgaos';
 import Produtos from './pages/Produtos';
 import Relatorios from './pages/Relatorios';
 import MarketIntelligence from './pages/MarketIntelligence';
+import Financeiro from './pages/Financeiro';
 import Configuracoes from './pages/Configuracoes';
 import OportunidadeDetalhe from './pages/OportunidadeDetalhe';
-import { LayoutDashboard, KanbanSquare, Settings, Users, Building, Package, PieChart, BrainCircuit, Wrench } from 'lucide-react';
+import { LayoutDashboard, KanbanSquare, Settings, Users, Building, Package, PieChart, BrainCircuit, Wrench, Wallet } from 'lucide-react';
 import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
 
@@ -39,6 +40,7 @@ function App() {
               <NavItem to="/produtos" icon={Package}>Produtos</NavItem>
               <NavItem to="/relatorios" icon={PieChart}>Relatório Final</NavItem>
               <NavItem to="/market-intelligence" icon={BrainCircuit}>Inteligência de Mercado</NavItem>
+              <NavItem to="/financeiro" icon={Wallet}>Financeiro (Caixa)</NavItem>
               <NavItem to="/perfis-busca" icon={Settings}>Filtros (Perfis)</NavItem>
               <NavItem to="/configuracoes" icon={Wrench}>Config. do Robô</NavItem>
             </nav>
@@ -53,6 +55,7 @@ function App() {
               <Route path="/produtos" element={<Produtos />} />
               <Route path="/relatorios" element={<Relatorios />} />
               <Route path="/market-intelligence" element={<MarketIntelligence />} />
+              <Route path="/financeiro" element={<Financeiro />} />
               <Route path="/configuracoes" element={<Configuracoes />} />
               <Route path="/oportunidades/:id" element={<OportunidadeDetalhe />} />
             </Routes>

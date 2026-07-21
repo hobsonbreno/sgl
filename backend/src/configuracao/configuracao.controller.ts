@@ -11,10 +11,10 @@ export class ConfiguracaoController {
   }
 
   @Patch()
-  async update(@Body('horarioBuscaBot') horario: string) {
-    if (!horario || !/^\d{2}:\d{2}$/.test(horario)) {
-      throw new BadRequestException('Formato de horário inválido. Use HH:mm');
+  async update(@Body('horariosBuscaBot') horarios: string[]) {
+    if (!horarios || !Array.isArray(horarios) || horarios.some(h => !/^\d{2}:\d{2}$/.test(h))) {
+      throw new BadRequestException('Formato de horários inválido. Use um array de strings HH:mm');
     }
-    return this.configuracaoService.setHorario(horario);
+    return this.configuracaoService.setHorarios(horarios);
   }
 }
