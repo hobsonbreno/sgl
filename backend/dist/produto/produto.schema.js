@@ -12,13 +12,21 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ProdutoSchema = exports.Produto = void 0;
 const mongoose_1 = require("@nestjs/mongoose");
 let Produto = class Produto {
+    numeroItem;
     descricao;
     quantidade;
     unidadeMedida;
+    valorUnitarioEstimado;
+    valorTotalEstimado;
     valorEstimado;
+    valorNossoLance;
     oportunidadeId;
 };
 exports.Produto = Produto;
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", Number)
+], Produto.prototype, "numeroItem", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ required: true }),
     __metadata("design:type", String)
@@ -34,7 +42,19 @@ __decorate([
 __decorate([
     (0, mongoose_1.Prop)(),
     __metadata("design:type", Number)
+], Produto.prototype, "valorUnitarioEstimado", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", Number)
+], Produto.prototype, "valorTotalEstimado", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", Number)
 ], Produto.prototype, "valorEstimado", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", Number)
+], Produto.prototype, "valorNossoLance", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ required: true }),
     __metadata("design:type", String)

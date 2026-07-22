@@ -3,8 +3,10 @@ import { Wallet, TrendingUp, TrendingDown, DollarSign, Plus, Check, Trash2 } fro
 
 export default function Financeiro() {
   const [transacoes, setTransacoes] = useState<any[]>([]);
+  const [negociosFechados, setNegociosFechados] = useState<any[]>([]);
+  const [negociosArquivados, setNegociosArquivados] = useState<any[]>([]);
   const [resumo, setResumo] = useState<any>({
-    receitasPendentes: 0, receitasPagas: 0, despesasPendentes: 0, despesasPagas: 0, saldoAtual: 0, saldoProjetado: 0
+    receitasPendentes: 0, receitasPagas: 0, despesasPendentes: 0, despesasPagas: 0, saldoAtual: 0, saldoProjetado: 0, valorNovasOportunidades: 0
   });
 
   const [form, setForm] = useState({
@@ -20,14 +22,46 @@ export default function Financeiro() {
 
   const carregarDados = async () => {
     try {
-      const [resTrans, resResumo] = await Promise.all([
+      const [resTrans, resResumo, resNegocios, resArquivados] = await Promise.all([
         fetch('http://localhost:7005/financeiro'),
-        fetch('http://localhost:7005/financeiro/resumo')
+        fetch('http://localhost:7005/financeiro/resumo'),
+        fetch('http://localhost:7005/financeiro/negocios-fechados'),
+        fetch('http://localhost:7005/financeiro/arquivados')
       ]);
       setTransacoes(await resTrans.json());
       setResumo(await resResumo.json());
+      
+      const negocios = await resNegocios.json();
+      setNegociosFechados(Array.isArray(negocios) ? negocios : []);
+      
+      const arquivados = await resArquivados.json();
+      setNegociosArquivados(Array.isArray(arquivados) ? arquivados : []);
     } catch (e) {
       console.error(e);
+      setNegociosFechados([]);
+      setNegociosArquivados([]);
+    }
+  };
+
+  const darBaixaNegocio = async (id: string) => {
+    if(!window.confirm('Confirmar o recebimento deste negócio? Ele será movido para Arquivados e o valor entrará no Caixa Atual.')) return;
+    try {
+      await fetch(`http://localhost:7005/financeiro/receber-negocio/${id}`, { method: 'POST' });
+      carregarDados();
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao dar baixa. Verifique se você preencheu o "Nosso Lance Vencedor" nos itens da oportunidade.');
+    }
+  };
+
+  const estornarNegocio = async (id: string) => {
+    if(!window.confirm('Tem certeza que deseja desarquivar e voltar este negócio para Negócios Fechados? O recebimento será excluído do Caixa Atual.')) return;
+    try {
+      await fetch(`http://localhost:7005/financeiro/estornar-negocio/${id}`, { method: 'POST' });
+      carregarDados();
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao estornar negócio.');
     }
   };
 
@@ -101,6 +135,17 @@ export default function Financeiro() {
           <div style={{ fontSize: '1.8rem', fontWeight: 'bold', marginTop: '0.5rem', color: resumo.saldoAtual >= 0 ? '#10b981' : '#ef4444' }}>
             {formataMoeda(resumo.saldoAtual)}
           </div>
+        </div>
+
+        <div className="card" style={{ padding: '1.5rem', background: '#f8fafc', borderLeft: '4px solid #8b5cf6' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: '#64748b', fontSize: '0.9rem', fontWeight: 600 }}>NOVAS OP. (A FAZER)</span>
+            <TrendingUp size={20} color="#8b5cf6" />
+          </div>
+          <div style={{ fontSize: '1.8rem', fontWeight: 'bold', marginTop: '0.5rem', color: '#8b5cf6' }}>
+            {formataMoeda(resumo.valorNovasOportunidades)}
+          </div>
+          <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.2rem' }}>Total Estimado</div>
         </div>
 
         <div className="card" style={{ padding: '1.5rem', background: '#fff', borderLeft: '4px solid #3b82f6' }}>
@@ -249,6 +294,95 @@ export default function Financeiro() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Lista de Negócios Fechados (Kanban) */}
+      <div className="card" style={{ padding: '1.5rem', background: '#fff', marginTop: '2rem' }}>
+        <h3 style={{ marginTop: 0, marginBottom: '1.5rem', fontSize: '1.1rem', color: '#166534', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <Check size={20} color="#166534" /> Negócios Fechados (Aguardando Pagamento)
+        </h3>
+        {negociosFechados.length === 0 ? (
+          <p style={{ color: '#64748b' }}>Nenhum negócio aguardando recebimento no momento.</p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left', color: '#64748b' }}>
+                  <th style={{ padding: '0.75rem 0.5rem' }}>Órgão</th>
+                  <th style={{ padding: '0.75rem 0.5rem' }}>Nº PNCP</th>
+                  <th style={{ padding: '0.75rem 0.5rem' }}>Objeto</th>
+                  <th style={{ padding: '0.75rem 0.5rem' }}>Faturamento Esperado</th>
+                  <th style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>Ação</th>
+                </tr>
+              </thead>
+              <tbody>
+                {negociosFechados.map((nf: any) => (
+                  <tr key={nf._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '0.75rem 0.5rem', fontWeight: 600, color: '#334155' }}>{nf.orgaoNome}</td>
+                    <td style={{ padding: '0.75rem 0.5rem', color: '#64748b' }}>{nf.numeroControlePNCP}</td>
+                    <td style={{ padding: '0.75rem 0.5rem', color: '#64748b', maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nf.objetoCompra}</td>
+                    <td style={{ padding: '0.75rem 0.5rem', fontWeight: 600, color: '#10b981' }}>
+                      {formataMoeda(nf.valorTotalLancado)}
+                    </td>
+                    <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>
+                      <button 
+                        onClick={() => darBaixaNegocio(nf._id)}
+                        disabled={nf.valorTotalLancado <= 0}
+                        style={{ background: nf.valorTotalLancado > 0 ? '#10b981' : '#cbd5e1', color: '#fff', border: 'none', padding: '0.5rem 1rem', borderRadius: '4px', cursor: nf.valorTotalLancado > 0 ? 'pointer' : 'not-allowed', fontWeight: 600, fontSize: '0.8rem' }}
+                      >
+                        Dar Baixa (Recebido)
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Lista de Negócios Arquivados */}
+      <div className="card" style={{ padding: '1.5rem', background: '#fff', marginTop: '2rem' }}>
+        <h3 style={{ marginTop: 0, marginBottom: '1.5rem', fontSize: '1.1rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <Wallet size={20} color="#64748b" /> Histórico de Negócios Arquivados
+        </h3>
+        {negociosArquivados.length === 0 ? (
+          <p style={{ color: '#64748b' }}>Nenhum negócio arquivado no histórico.</p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left', color: '#64748b' }}>
+                  <th style={{ padding: '0.75rem 0.5rem' }}>Órgão</th>
+                  <th style={{ padding: '0.75rem 0.5rem' }}>Nº PNCP</th>
+                  <th style={{ padding: '0.75rem 0.5rem' }}>Objeto</th>
+                  <th style={{ padding: '0.75rem 0.5rem' }}>Faturamento Registrado</th>
+                  <th style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>Ação</th>
+                </tr>
+              </thead>
+              <tbody>
+                {negociosArquivados.map((na: any) => (
+                  <tr key={na._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '0.75rem 0.5rem', fontWeight: 600, color: '#334155' }}>{na.orgaoNome}</td>
+                    <td style={{ padding: '0.75rem 0.5rem', color: '#64748b' }}>{na.numeroControlePNCP}</td>
+                    <td style={{ padding: '0.75rem 0.5rem', color: '#64748b', maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{na.objetoCompra}</td>
+                    <td style={{ padding: '0.75rem 0.5rem', fontWeight: 600, color: '#64748b' }}>
+                      {formataMoeda(na.valorTotalLancado)}
+                    </td>
+                    <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>
+                      <button 
+                        onClick={() => estornarNegocio(na._id)}
+                        style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', padding: '0.5rem 1rem', borderRadius: '4px', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}
+                      >
+                        Restaurar (Desarquivar)
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

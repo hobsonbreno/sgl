@@ -15,6 +15,8 @@ let PerfilBusca = class PerfilBusca {
     nome;
     ufs;
     municipiosIbge;
+    orgaosCnpj;
+    unidadesUasg;
     modalidades;
     palavrasChave;
     ativo;
@@ -32,6 +34,14 @@ __decorate([
     (0, mongoose_1.Prop)([String]),
     __metadata("design:type", Array)
 ], PerfilBusca.prototype, "municipiosIbge", void 0);
+__decorate([
+    (0, mongoose_1.Prop)([String]),
+    __metadata("design:type", Array)
+], PerfilBusca.prototype, "orgaosCnpj", void 0);
+__decorate([
+    (0, mongoose_1.Prop)([String]),
+    __metadata("design:type", Array)
+], PerfilBusca.prototype, "unidadesUasg", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ type: [Number], required: true }),
     __metadata("design:type", Array)

@@ -46,13 +46,19 @@ export class CotacaoService {
   }
 
   async findOne(id: string): Promise<Cotacao> {
-    const doc = await this.model.findById(id).populate('itens.precosFornecedores.fornecedorId').exec();
+    const doc = await this.model.findById(id)
+      .populate('itens.precosFornecedores.fornecedorId')
+      .populate('itens.produtoId')
+      .exec();
     if (!doc) throw new NotFoundException('Cotação não encontrada');
     return doc;
   }
 
   async findByOportunidade(oportunidadeId: string): Promise<Cotacao> {
-    const doc = await this.model.findOne({ oportunidadeId }).populate('itens.precosFornecedores.fornecedorId').exec();
+    const doc = await this.model.findOne({ oportunidadeId })
+      .populate('itens.precosFornecedores.fornecedorId')
+      .populate('itens.produtoId')
+      .exec();
     if (!doc) throw new NotFoundException('Cotação não encontrada para esta oportunidade');
     return doc;
   }

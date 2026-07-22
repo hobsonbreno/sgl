@@ -31,7 +31,10 @@ function App() {
       <BrowserRouter>
         <div className="app-container">
           <aside className="sidebar">
-            <h2>SGL PNCP</h2>
+            <h2 style={{ textAlign: 'center', marginBottom: '1rem' }}>SGL PNCP</h2>
+            <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
+              <img src="/logo1.png" alt="GIN Soluções" style={{ maxWidth: '110px', borderRadius: '50%', border: '2px solid #334155', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }} />
+            </div>
             <nav className="nav-menu">
               <NavItem to="/" icon={LayoutDashboard}>Dashboard</NavItem>
               <NavItem to="/kanban" icon={KanbanSquare}>Kanban</NavItem>

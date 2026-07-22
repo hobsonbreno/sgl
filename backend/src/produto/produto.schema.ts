@@ -26,6 +26,12 @@ export class Produto {
   @Prop()
   valorEstimado: number; // mantido por compatibilidade
 
+  @Prop()
+  valorNossoLance: number; // o valor final que a empresa deu de lance
+
+  @Prop()
+  valorConcorrente: number; // o menor lance do concorrente atual
+
   @Prop({ required: true })
   oportunidadeId: string; // PNCP id ou Oportunidade reference
 }

@@ -5,7 +5,12 @@ export declare class FornecedorService {
     constructor(model: Model<FornecedorDocument>);
     private validarCNPJ;
     create(data: any): Promise<Fornecedor>;
-    findAll(categoria?: string, busca?: string): Promise<Fornecedor[]>;
+    findAll(query: any): Promise<{
+        data: Fornecedor[];
+        total: number;
+        totalPages: number;
+        currentPage: number;
+    }>;
     findOne(id: string): Promise<Fornecedor>;
     update(id: string, data: any): Promise<Fornecedor>;
     registrarHistoricoPreco(fornecedorId: string, itemData: {

@@ -28,6 +28,7 @@ __decorate([
 class UnidadeOrgaoRawDto {
     ufSigla;
     municipioNome;
+    codigoUnidade;
 }
 exports.UnidadeOrgaoRawDto = UnidadeOrgaoRawDto;
 __decorate([
@@ -38,11 +39,17 @@ __decorate([
     (0, swagger_1.ApiProperty)(),
     __metadata("design:type", String)
 ], UnidadeOrgaoRawDto.prototype, "municipioNome", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false }),
+    __metadata("design:type", String)
+], UnidadeOrgaoRawDto.prototype, "codigoUnidade", void 0);
 class PncpContratacaoRawDto {
     numeroControlePNCP;
     dataEncerramentoProposta;
     dataAberturaProposta;
     valorTotalEstimado;
+    numeroCompra;
+    anoCompra;
     orgaoEntidade;
     unidadeOrgao;
     modalidadeId;
@@ -68,6 +75,14 @@ __decorate([
     (0, swagger_1.ApiProperty)({ required: false }),
     __metadata("design:type", Number)
 ], PncpContratacaoRawDto.prototype, "valorTotalEstimado", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false }),
+    __metadata("design:type", String)
+], PncpContratacaoRawDto.prototype, "numeroCompra", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false }),
+    __metadata("design:type", Number)
+], PncpContratacaoRawDto.prototype, "anoCompra", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ type: OrgaoEntidadeRawDto, required: false }),
     __metadata("design:type", OrgaoEntidadeRawDto)
@@ -106,6 +121,9 @@ class OportunidadeDto {
     uf;
     municipio;
     objetoCompra;
+    unidadeCompradora;
+    numeroCompraOrigem;
+    anoCompraOrigem;
     valorTotalEstimado;
     dataAberturaProposta;
     dataEncerramentoProposta;
@@ -151,6 +169,18 @@ __decorate([
     __metadata("design:type", String)
 ], OportunidadeDto.prototype, "objetoCompra", void 0);
 __decorate([
+    (0, swagger_1.ApiProperty)({ required: false }),
+    __metadata("design:type", String)
+], OportunidadeDto.prototype, "unidadeCompradora", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false }),
+    __metadata("design:type", String)
+], OportunidadeDto.prototype, "numeroCompraOrigem", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false }),
+    __metadata("design:type", Number)
+], OportunidadeDto.prototype, "anoCompraOrigem", void 0);
+__decorate([
     (0, swagger_1.ApiProperty)(),
     __metadata("design:type", Number)
 ], OportunidadeDto.prototype, "valorTotalEstimado", void 0);
@@ -185,6 +215,9 @@ function mapPncpParaOportunidade(raw) {
         orgaoNome: raw.orgaoEntidade?.razaoSocial || '',
         uf: raw.unidadeOrgao?.ufSigla || '',
         municipio: raw.unidadeOrgao?.municipioNome || '',
+        unidadeCompradora: raw.unidadeOrgao?.codigoUnidade || '',
+        numeroCompraOrigem: raw.numeroCompra || '',
+        anoCompraOrigem: raw.anoCompra || 0,
         objetoCompra: raw.objetoCompra || '',
         valorTotalEstimado: raw.valorTotalEstimado || 0,
         dataAberturaProposta: raw.dataAberturaProposta ? new Date(raw.dataAberturaProposta) : undefined,

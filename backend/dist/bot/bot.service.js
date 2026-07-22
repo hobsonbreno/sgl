@@ -16,6 +16,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BotService = void 0;
 const common_1 = require("@nestjs/common");
 const schedule_1 = require("@nestjs/schedule");
+const cron_1 = require("cron");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const bot_execucao_schema_1 = require("./bot-execucao.schema");
@@ -25,6 +26,8 @@ const orgao_schema_1 = require("../orgao/orgao.schema");
 const produto_schema_1 = require("../produto/produto.schema");
 const pncp_client_service_1 = require("../pncp/services/pncp-client/pncp-client.service");
 const pncp_dto_1 = require("../pncp/dtos/pncp.dto");
+const configuracao_service_1 = require("../configuracao/configuracao.service");
+const events_service_1 = require("../events/events.service");
 let BotService = BotService_1 = class BotService {
     botExecucaoModel;
     perfilBuscaModel;
@@ -32,26 +35,74 @@ let BotService = BotService_1 = class BotService {
     orgaoModel;
     produtoModel;
     pncpClientService;
+    schedulerRegistry;
+    configService;
+    eventsService;
     logger = new common_1.Logger(BotService_1.name);
     emExecucao = false;
-    constructor(botExecucaoModel, perfilBuscaModel, oportunidadeModel, orgaoModel, produtoModel, pncpClientService) {
+    constructor(botExecucaoModel, perfilBuscaModel, oportunidadeModel, orgaoModel, produtoModel, pncpClientService, schedulerRegistry, configService, eventsService) {
         this.botExecucaoModel = botExecucaoModel;
         this.perfilBuscaModel = perfilBuscaModel;
         this.oportunidadeModel = oportunidadeModel;
         this.orgaoModel = orgaoModel;
         this.produtoModel = produtoModel;
         this.pncpClientService = pncpClientService;
+        this.schedulerRegistry = schedulerRegistry;
+        this.configService = configService;
+        this.eventsService = eventsService;
     }
-    async handleCron() {
-        this.logger.log('Iniciando execução diária via CRON...');
-        await this.executarBuscaDiaria();
+    async onApplicationBootstrap() {
+        const config = await this.configService.getConfiguracao();
+        const horarios = config?.horariosBuscaBot && config.horariosBuscaBot.length > 0 ? config.horariosBuscaBot : ['08:00', '12:00', '18:00'];
+        await this.registrarCronDinamicoMultiplos(horarios);
+        setTimeout(async () => {
+            try {
+                const hojeDate = new Date();
+                const dataHoje = `${hojeDate.getFullYear()}-${String(hojeDate.getMonth() + 1).padStart(2, '0')}-${String(hojeDate.getDate()).padStart(2, '0')}`;
+                const currentConfig = await this.configService.getConfiguracao();
+                if (currentConfig && currentConfig.ultimaExecucaoAutomaticaData !== dataHoje) {
+                    this.logger.log(`Recuperação pós-boot: Bot não rodou hoje (${dataHoje}). Iniciando busca diária...`);
+                    await this.executarBuscaDiaria(true);
+                }
+                else {
+                    this.logger.log(`Boot verificado: Bot já rodou hoje (${dataHoje}).`);
+                }
+            }
+            catch (err) {
+                this.logger.error('Erro na recuperação de boot: ' + err.message);
+            }
+        }, 15000);
     }
-    async executarBuscaDiaria() {
+    async registrarCronDinamicoMultiplos(horarios) {
+        if (this.schedulerRegistry.doesExist('cron', 'botBuscaDiaria')) {
+            this.schedulerRegistry.deleteCronJob('botBuscaDiaria');
+        }
+        const jobs = this.schedulerRegistry.getCronJobs();
+        jobs.forEach((value, key) => {
+            if (key.startsWith('botBuscaDiaria_')) {
+                this.schedulerRegistry.deleteCronJob(key);
+            }
+        });
+        horarios.forEach((horario, index) => {
+            const nomeJob = `botBuscaDiaria_${index}`;
+            const [hora, minuto] = horario.split(':');
+            const cronExpression = `${minuto} ${hora} * * *`;
+            const job = new cron_1.CronJob(cronExpression, async () => {
+                this.logger.log(`Cron disparado às ${horario}...`);
+                await this.executarBuscaDiaria(true);
+            });
+            this.schedulerRegistry.addCronJob(nomeJob, job);
+            job.start();
+            this.logger.log(`Cron dinâmico registrado para: ${horario} (expressão: ${cronExpression})`);
+        });
+    }
+    async executarBuscaDiaria(isAutomatic = false) {
         if (this.emExecucao) {
             this.logger.warn('Bot já está em execução. Ignorando nova requisição.');
             return { message: 'Bot já está em execução.' };
         }
         this.emExecucao = true;
+        this.eventsService.emitDashboardUpdate();
         const perfis = await this.perfilBuscaModel.find({ ativo: true });
         const resultados = [];
         for (const perfil of perfis) {
@@ -59,24 +110,54 @@ let BotService = BotService_1 = class BotService {
             let totalEncontrados = 0;
             let totalNovos = 0;
             const erros = [];
-            const hoje = new Date();
-            hoje.setDate(hoje.getDate() + 30);
-            const yyyy = hoje.getFullYear();
-            const mm = String(hoje.getMonth() + 1).padStart(2, '0');
-            const dd = String(hoje.getDate()).padStart(2, '0');
-            const dataFinal = `${yyyy}${mm}${dd}`;
+            const dataFinalDate = new Date();
+            dataFinalDate.setDate(dataFinalDate.getDate() + 30);
+            const yyyyF = dataFinalDate.getFullYear();
+            const mmF = String(dataFinalDate.getMonth() + 1).padStart(2, '0');
+            const ddF = String(dataFinalDate.getDate()).padStart(2, '0');
+            const dataFinal = `${yyyyF}${mmF}${ddF}`;
+            const dataInicialDate = new Date();
+            dataInicialDate.setDate(dataInicialDate.getDate() - 30);
+            const yyyyI = dataInicialDate.getFullYear();
+            const mmI = String(dataInicialDate.getMonth() + 1).padStart(2, '0');
+            const ddI = String(dataInicialDate.getDate()).padStart(2, '0');
+            const dataInicial = `${yyyyI}${mmI}${ddI}`;
             for (const modalidade of perfil.modalidades) {
                 try {
                     const rawContratacoes = await this.pncpClientService.buscarContratacoesComPropostaAberta({
+                        dataInicial,
                         dataFinal,
                         codigoModalidadeContratacao: modalidade,
                         uf: perfil.ufs && perfil.ufs.length > 0 ? perfil.ufs[0] : undefined,
+                        codigoMunicipioIbge: perfil.municipiosIbge && perfil.municipiosIbge.length > 0 ? perfil.municipiosIbge[0] : undefined,
+                        cnpj: perfil.orgaosCnpj && perfil.orgaosCnpj.length > 0 ? perfil.orgaosCnpj[0] : undefined,
+                        codigoUnidadeAdministrativa: perfil.unidadesUasg && perfil.unidadesUasg.length > 0 ? perfil.unidadesUasg[0] : undefined,
                     });
                     for (const raw of rawContratacoes) {
                         const opDto = (0, pncp_dto_1.mapPncpParaOportunidade)(raw);
                         if (perfil.palavrasChave && perfil.palavrasChave.length > 0) {
-                            const objetoCompra = (opDto.objetoCompra || '').toLowerCase();
-                            const match = perfil.palavrasChave.some(p => objetoCompra.includes(p.toLowerCase()));
+                            const normalizar = (t) => (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+                            const objetoCompra = normalizar(opDto.objetoCompra);
+                            let match = perfil.palavrasChave.some(p => {
+                                const keyword = normalizar(p);
+                                return keyword.length > 0 && objetoCompra.includes(keyword);
+                            });
+                            if (!match) {
+                                try {
+                                    const itensDaCompra = await this.pncpClientService.buscarItensDaContratacao(opDto.numeroControlePNCP);
+                                    match = itensDaCompra.some(item => {
+                                        const descItem = normalizar(item.descricao);
+                                        return perfil.palavrasChave.some(p => {
+                                            const keyword = normalizar(p);
+                                            return keyword.length > 0 && descItem.includes(keyword);
+                                        });
+                                    });
+                                    await new Promise(r => setTimeout(r, 600));
+                                }
+                                catch (err) {
+                                    this.logger.warn(`Erro na Deep Search de Itens para ${opDto.numeroControlePNCP}: ${err.message}`);
+                                }
+                            }
                             if (!match)
                                 continue;
                         }
@@ -87,11 +168,6 @@ let BotService = BotService_1 = class BotService {
                             const novaOp = await this.oportunidadeModel.create(opDto);
                             oportunidadeId = novaOp._id.toString();
                             totalNovos++;
-                            await this.produtoModel.create({
-                                descricao: opDto.objetoCompra || 'Produto/Serviço sem descrição',
-                                oportunidadeId: oportunidadeId,
-                                valorEstimado: opDto.valorTotalEstimado || 0,
-                            });
                         }
                         else {
                             await this.oportunidadeModel.updateOne({ numeroControlePNCP: opDto.numeroControlePNCP }, {
@@ -128,17 +204,21 @@ let BotService = BotService_1 = class BotService {
             });
             resultados.push(execucao);
         }
+        if (isAutomatic) {
+            const hojeDate = new Date();
+            const dataHoje = `${hojeDate.getFullYear()}-${String(hojeDate.getMonth() + 1).padStart(2, '0')}-${String(hojeDate.getDate()).padStart(2, '0')}`;
+            await this.configService.setUltimaExecucao(dataHoje);
+            this.logger.log(`Busca automática concluída. Data registrada: ${dataHoje}`);
+        }
         this.emExecucao = false;
+        this.eventsService.emitDashboardUpdate();
         return resultados;
+    }
+    isExecucao() {
+        return this.emExecucao;
     }
 };
 exports.BotService = BotService;
-__decorate([
-    (0, schedule_1.Cron)(process.env.BOT_CRON_EXPRESSION || schedule_1.CronExpression.EVERY_DAY_AT_6AM),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", Promise)
-], BotService.prototype, "handleCron", null);
 exports.BotService = BotService = BotService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(bot_execucao_schema_1.BotExecucao.name)),
@@ -146,11 +226,15 @@ exports.BotService = BotService = BotService_1 = __decorate([
     __param(2, (0, mongoose_1.InjectModel)(oportunidade_schema_1.Oportunidade.name)),
     __param(3, (0, mongoose_1.InjectModel)(orgao_schema_1.Orgao.name)),
     __param(4, (0, mongoose_1.InjectModel)(produto_schema_1.Produto.name)),
+    __param(7, (0, common_1.Inject)((0, common_1.forwardRef)(() => configuracao_service_1.ConfiguracaoService))),
     __metadata("design:paramtypes", [mongoose_2.Model,
         mongoose_2.Model,
         mongoose_2.Model,
         mongoose_2.Model,
         mongoose_2.Model,
-        pncp_client_service_1.PncpClientService])
+        pncp_client_service_1.PncpClientService,
+        schedule_1.SchedulerRegistry,
+        configuracao_service_1.ConfiguracaoService,
+        events_service_1.EventsService])
 ], BotService);
 //# sourceMappingURL=bot.service.js.map

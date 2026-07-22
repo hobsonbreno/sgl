@@ -20,6 +20,8 @@ class CreatePerfilDto {
     nome;
     ufs;
     municipiosIbge;
+    orgaosCnpj;
+    unidadesUasg;
     modalidades;
     palavrasChave;
     ativo;
@@ -37,6 +39,14 @@ __decorate([
     (0, swagger_1.ApiProperty)({ required: false, type: [String] }),
     __metadata("design:type", Array)
 ], CreatePerfilDto.prototype, "municipiosIbge", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false, type: [String] }),
+    __metadata("design:type", Array)
+], CreatePerfilDto.prototype, "orgaosCnpj", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false, type: [String] }),
+    __metadata("design:type", Array)
+], CreatePerfilDto.prototype, "unidadesUasg", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ type: [Number] }),
     __metadata("design:type", Array)

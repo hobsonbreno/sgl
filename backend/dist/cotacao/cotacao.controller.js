@@ -43,6 +43,9 @@ let CotacaoController = class CotacaoController {
     updatePreco(id, itemId, data) {
         return this.cotacaoService.updatePreco(id, itemId, data);
     }
+    removePreco(id, itemId, fornecedorId) {
+        return this.cotacaoService.removePreco(id, itemId, fornecedorId);
+    }
 };
 exports.CotacaoController = CotacaoController;
 __decorate([
@@ -80,6 +83,16 @@ __decorate([
     __metadata("design:paramtypes", [String, String, UpdatePrecoDto]),
     __metadata("design:returntype", void 0)
 ], CotacaoController.prototype, "updatePreco", null);
+__decorate([
+    (0, common_1.Delete)('cotacoes/:id/itens/:itemId/preco/:fornecedorId'),
+    (0, swagger_1.ApiOperation)({ summary: 'Remover preço de um fornecedor para um item' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('itemId')),
+    __param(2, (0, common_1.Param)('fornecedorId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", void 0)
+], CotacaoController.prototype, "removePreco", null);
 exports.CotacaoController = CotacaoController = __decorate([
     (0, swagger_1.ApiTags)('Cotações'),
     (0, common_1.Controller)(),

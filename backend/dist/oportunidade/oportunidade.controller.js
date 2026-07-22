@@ -34,6 +34,12 @@ let OportunidadeController = class OportunidadeController {
     updateStatus(id, body) {
         return this.service.updateStatus(id, body.kanbanStatus);
     }
+    sincronizarItens(id) {
+        return this.service.sincronizarItens(id);
+    }
+    remove(id) {
+        return this.service.remove(id);
+    }
 };
 exports.OportunidadeController = OportunidadeController;
 __decorate([
@@ -67,6 +73,22 @@ __decorate([
     __metadata("design:paramtypes", [String, UpdateStatusDto]),
     __metadata("design:returntype", void 0)
 ], OportunidadeController.prototype, "updateStatus", null);
+__decorate([
+    (0, common_1.Post)(':id/sincronizar-itens'),
+    (0, swagger_1.ApiOperation)({ summary: 'Sincronizar itens reais do PNCP para a oportunidade' }),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], OportunidadeController.prototype, "sincronizarItens", null);
+__decorate([
+    (0, common_1.Delete)(':id'),
+    (0, swagger_1.ApiOperation)({ summary: 'Excluir oportunidade e seus dados vinculados' }),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], OportunidadeController.prototype, "remove", null);
 exports.OportunidadeController = OportunidadeController = __decorate([
     (0, swagger_1.ApiTags)('Oportunidades'),
     (0, common_1.Controller)('oportunidades'),

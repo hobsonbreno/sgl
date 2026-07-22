@@ -126,6 +126,9 @@ export class BotService implements OnApplicationBootstrap {
             dataFinal,
             codigoModalidadeContratacao: modalidade,
             uf: perfil.ufs && perfil.ufs.length > 0 ? perfil.ufs[0] : undefined,
+            codigoMunicipioIbge: perfil.municipiosIbge && perfil.municipiosIbge.length > 0 ? perfil.municipiosIbge[0] : undefined,
+            cnpj: perfil.orgaosCnpj && perfil.orgaosCnpj.length > 0 ? perfil.orgaosCnpj[0] : undefined,
+            codigoUnidadeAdministrativa: perfil.unidadesUasg && perfil.unidadesUasg.length > 0 ? perfil.unidadesUasg[0] : undefined,
           });
           
           for (const raw of rawContratacoes) {
@@ -136,12 +139,30 @@ export class BotService implements OnApplicationBootstrap {
               const normalizar = (t: string) => (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
               const objetoCompra = normalizar(opDto.objetoCompra);
               
-              const match = perfil.palavrasChave.some(p => {
+              let match = perfil.palavrasChave.some(p => {
                 const keyword = normalizar(p);
                 return keyword.length > 0 && objetoCompra.includes(keyword);
               });
               
-              if (!match) continue; // Pula se não bater a palavra chave
+              // DEEP SEARCH: Se não achou no título genérico, vasculha a lista de itens reais do edital
+              if (!match) {
+                try {
+                  const itensDaCompra = await this.pncpClientService.buscarItensDaContratacao(opDto.numeroControlePNCP);
+                  match = itensDaCompra.some(item => {
+                    const descItem = normalizar(item.descricao);
+                    return perfil.palavrasChave.some(p => {
+                       const keyword = normalizar(p);
+                       return keyword.length > 0 && descItem.includes(keyword);
+                    });
+                  });
+                  // Aguarda um pouco para não estourar o limite de requisições do PNCP na busca de itens
+                  await new Promise(r => setTimeout(r, 600));
+                } catch (err) {
+                  this.logger.warn(`Erro na Deep Search de Itens para ${opDto.numeroControlePNCP}: ${err.message}`);
+                }
+              }
+              
+              if (!match) continue; // Pula se não bater a palavra chave nem no objeto e nem nos itens
             }
 
             totalEncontrados++;

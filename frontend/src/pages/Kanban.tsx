@@ -1,25 +1,86 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import type { MouseEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import type { DropResult } from '@hello-pangea/dnd';
-import { Clock, Trash2, Trophy } from 'lucide-react';
+import { Clock, Trash2, Trophy, Settings, Plus, ArrowUp, ArrowDown } from 'lucide-react';
 
-const COLUNAS = ['A_FAZER', 'FAZENDO', 'FEITO', 'AGUARDANDO_RESPOSTA', 'EXCLUIDA'];
+const generateId = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/\s+/g, '_');
 
 export default function Kanban() {
   const [oportunidades, setOportunidades] = useState<any[]>([]);
   const [produtos, setProdutos] = useState<any[]>([]);
   const [scores, setScores] = useState<Record<string, any>>({});
   const [cotacoes, setCotacoes] = useState<Record<string, any>>({});
+  const [collapsedCols, setCollapsedCols] = useState<Record<string, boolean>>({});
+
+  const [colunas, setColunas] = useState<{ id: string, nome: string }[]>([]);
+  const [modalConfigColsOpen, setModalConfigColsOpen] = useState(false);
+
+  // Estados para o Drag-to-Scroll
+  const boardRef = useRef<HTMLDivElement>(null);
+  const [isDraggingBoard, setIsDraggingBoard] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+
+  const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
+    // Só ativa o drag do board se clicar na área livre (não no card)
+    const target = e.target as HTMLElement;
+    if (target.closest('.kanban-card') || target.closest('button')) {
+      return;
+    }
+    setIsDraggingBoard(true);
+    if (boardRef.current) {
+      setStartX(e.pageX - boardRef.current.offsetLeft);
+      setScrollLeft(boardRef.current.scrollLeft);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setIsDraggingBoard(false);
+  };
+
+  const handleMouseUp = () => {
+    setIsDraggingBoard(false);
+  };
+
+  const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
+    if (!isDraggingBoard) return;
+    if (boardRef.current) {
+      e.preventDefault();
+      const x = e.pageX - boardRef.current.offsetLeft;
+      const walk = (x - startX) * 2; // velocidade do scroll
+      boardRef.current.scrollLeft = scrollLeft - walk;
+    }
+  };
+
+  const toggleCollapse = (colId: string) => {
+    setCollapsedCols(prev => ({ ...prev, [colId]: !prev[colId] }));
+  };
 
   const carregarOportunidadesEProdutos = async () => {
     try {
-      const [resOp, resProd] = await Promise.all([
+      const [resOp, resProd, resConfig] = await Promise.all([
         fetch('http://localhost:7005/oportunidades?limit=100'),
-        fetch('http://localhost:7005/produto?limit=1000')
+        fetch('http://localhost:7005/produto?limit=1000'),
+        fetch('http://localhost:7005/configuracoes')
       ]);
       const dataOp = await resOp.json();
       const dataProd = await resProd.json();
+      const dataConfig = await resConfig.json();
+      
+      if (dataConfig && dataConfig.colunasKanban) {
+        setColunas(dataConfig.colunasKanban);
+      } else {
+        setColunas([
+          { id: 'A_FAZER', nome: 'A FAZER' },
+          { id: 'FAZENDO', nome: 'FAZENDO' },
+          { id: 'FEITO', nome: 'FEITO' },
+          { id: 'AGUARDANDO_RESPOSTA', nome: 'AGUARDANDO RESPOSTA' },
+          { id: 'EXCLUIDA', nome: 'EXCLUÍDA' }
+        ]);
+      }
+
       const ops = dataOp.data || [];
       setOportunidades(ops);
       setProdutos(dataProd.data || []);
@@ -61,10 +122,20 @@ export default function Kanban() {
 
   const onDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
+    const { source, destination, draggableId } = result;
+
+    if (source.droppableId !== destination.droppableId) {
+      // Reset the collapsed state for the source and destination columns so they auto-adjust
+      setCollapsedCols(prev => ({
+        ...prev,
+        [source.droppableId]: undefined as any,
+        [destination.droppableId]: undefined as any
+      }));
+    }
     
-    const sourceId = result.source.droppableId;
-    const destId = result.destination.droppableId;
-    const itemId = result.draggableId;
+    const sourceId = source.droppableId;
+    const destId = destination.droppableId;
+    const itemId = draggableId;
 
     if (sourceId === destId) return;
 
@@ -166,24 +237,57 @@ export default function Kanban() {
 
   return (
     <div>
-      <h1 style={{ marginBottom: '0.5rem' }}>Kanban de Oportunidades</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+        <h1 style={{ margin: 0 }}>Kanban de Oportunidades</h1>
+        <button onClick={() => setModalConfigColsOpen(true)} className="btn-primary" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <Settings size={18} /> Configurar Colunas
+        </button>
+      </div>
       <p style={{ color: 'var(--text-muted)' }}>Arraste os cards ou utilize o menu seletor para organizar as cotações.</p>
       
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="kanban-board">
-          {COLUNAS.map(colId => {
+        <div 
+          className="kanban-board" 
+          ref={boardRef}
+          onMouseDown={handleMouseDown}
+          onMouseLeave={handleMouseLeave}
+          onMouseUp={handleMouseUp}
+          onMouseMove={handleMouseMove}
+          style={{ 
+            cursor: isDraggingBoard ? 'grabbing' : 'grab',
+            overflowX: 'auto',
+            display: 'flex',
+            gap: '1rem',
+            padding: '1rem 0',
+            alignItems: 'flex-start'
+          }}
+        >
+          {colunas.map(col => {
+            const colId = col.id;
             const itensDaColuna = oportunidades.filter(op => op.kanbanStatus === colId);
+
+            const isCollapsed = collapsedCols[colId] !== undefined ? collapsedCols[colId] : (itensDaColuna.length === 0);
 
             return (
               <Droppable key={colId} droppableId={colId}>
                 {(provided) => (
-                  <div className="kanban-col" ref={provided.innerRef} {...provided.droppableProps}>
-                    <div className="kanban-col-header">
-                      <span>{colId.replace('_', ' ')}</span>
-                      <span className="badge">{itensDaColuna.length}</span>
+                  <div className="kanban-col" ref={provided.innerRef} {...provided.droppableProps} style={{ width: isCollapsed ? 'min-content' : 'min-content', minWidth: isCollapsed ? 'min-content' : '320px', flex: isCollapsed ? '0 0 min-content' : '0 0 auto', transition: 'all 0.2s ease', overflow: 'hidden' }}>
+                    <div className="kanban-col-header" style={{ padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'nowrap', gap: '0.5rem', width: '100%', boxSizing: 'border-box' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
+                        <span style={{ fontWeight: 'bold', whiteSpace: 'nowrap', fontSize: '1rem', color: '#1e293b' }} title={col.nome}>
+                          {col.nome}
+                        </span>
+                        <span className="badge" style={{ flexShrink: 0 }}>{itensDaColuna.length}</span>
+                      </div>
+                      <button onClick={() => toggleCollapse(colId)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '0.5rem', margin: '-0.5rem', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title={isCollapsed ? "Expandir Coluna" : "Recolher Coluna"}>
+                        {isCollapsed ? '▶' : '◀'}
+                      </button>
                     </div>
                     
-                    <div className="kanban-list">
+                    {isCollapsed ? (
+                      <div style={{ flex: 1 }}></div>
+                    ) : (
+                      <div className="kanban-list" style={{ flex: 1, minHeight: '100px' }}>
                       {itensDaColuna.map((item, index) => {
                         const diasRestantes = item.dataEncerramentoProposta ? Math.ceil((new Date(item.dataEncerramentoProposta).getTime() - new Date().getTime()) / (1000 * 3600 * 24)) : null;
                         const prods = produtos.filter(p => p.oportunidadeId === item._id);
@@ -291,12 +395,19 @@ export default function Kanban() {
                                 </span>
                                 <select 
                                   value={colId} 
-                                  onChange={(e) => moverPorMenu(item._id, e.target.value)}
+                                  onChange={(e) => {
+                                    moverPorMenu(item._id, e.target.value);
+                                    setCollapsedCols(prev => ({
+                                      ...prev,
+                                      [colId]: undefined as any,
+                                      [e.target.value]: undefined as any
+                                    }));
+                                  }}
                                   className="form-control"
                                   style={{ width: 'auto', padding: '0.25rem', fontSize: '0.75rem', cursor: 'pointer' }}
                                   aria-label={`Alterar status da oportunidade ${item.orgaoNome}`}
                                 >
-                                  {COLUNAS.map(c => <option key={c} value={c}>{c.replace('_', ' ')}</option>)}
+                                  {colunas.map((c: any) => <option key={c.id} value={c.id}>{c.nome}</option>)}
                                 </select>
                                 {colId !== 'EXCLUIDA' && (
                                   <button 
@@ -312,8 +423,9 @@ export default function Kanban() {
                           )}
                         </Draggable>
                       )})}
-                      {provided.placeholder}
-                    </div>
+                        {provided.placeholder}
+                      </div>
+                    )}
                   </div>
                 )}
               </Droppable>
@@ -321,6 +433,90 @@ export default function Kanban() {
           })}
         </div>
       </DragDropContext>
+
+      {/* Modal de Configuração de Colunas */}
+      {modalConfigColsOpen && (
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setModalConfigColsOpen(false); }}>
+          <div className="modal-content" style={{ maxWidth: '500px', width: '100%', padding: '2rem' }}>
+            <h2>Gerenciar Colunas do Kanban</h2>
+            <p style={{ color: '#64748b', marginBottom: '1.5rem', fontSize: '0.9rem' }}>Adicione, edite, exclua e reordene as colunas.</p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
+              {colunas.map((c, idx) => (
+                <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#f8fafc', padding: '0.5rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                  <input 
+                    type="text" 
+                    value={c.nome} 
+                    onChange={(e) => {
+                      const newCols = [...colunas];
+                      newCols[idx].nome = e.target.value;
+                      setColunas(newCols);
+                    }}
+                    className="form-control"
+                    style={{ flex: 1, margin: 0 }}
+                  />
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <button type="button" disabled={idx === 0} onClick={() => {
+                      const newCols = [...colunas];
+                      const temp = newCols[idx - 1];
+                      newCols[idx - 1] = newCols[idx];
+                      newCols[idx] = temp;
+                      setColunas(newCols);
+                    }} style={{ background: 'none', border: 'none', cursor: idx === 0 ? 'not-allowed' : 'pointer', color: idx === 0 ? '#cbd5e1' : '#475569' }}>
+                      <ArrowUp size={16} />
+                    </button>
+                    <button type="button" disabled={idx === colunas.length - 1} onClick={() => {
+                      const newCols = [...colunas];
+                      const temp = newCols[idx + 1];
+                      newCols[idx + 1] = newCols[idx];
+                      newCols[idx] = temp;
+                      setColunas(newCols);
+                    }} style={{ background: 'none', border: 'none', cursor: idx === colunas.length - 1 ? 'not-allowed' : 'pointer', color: idx === colunas.length - 1 ? '#cbd5e1' : '#475569' }}>
+                      <ArrowDown size={16} />
+                    </button>
+                  </div>
+                  <button type="button" onClick={() => {
+                    if (window.confirm(`Tem certeza que deseja excluir a coluna "${c.nome}"? Os cards nela não serão apagados, mas ficarão sem coluna até que você mude o status deles.`)) {
+                      setColunas(colunas.filter((_, i) => i !== idx));
+                    }
+                  }} style={{ background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '4px', padding: '0.4rem', cursor: 'pointer' }}>
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+              
+              <button type="button" onClick={() => {
+                const nome = window.prompt("Nome da nova coluna:");
+                if (nome) {
+                  setColunas([...colunas, { id: generateId(nome), nome }]);
+                }
+              }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: '#e0e7ff', color: '#4f46e5', border: '1px dashed #a5b4fc', borderRadius: '8px', padding: '0.75rem', cursor: 'pointer', fontWeight: 'bold', marginTop: '0.5rem' }}>
+                <Plus size={18} /> Adicionar Nova Coluna
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+              <button onClick={() => setModalConfigColsOpen(false)} className="btn-primary" style={{ background: '#e2e8f0', color: '#475569' }}>Cancelar</button>
+              <button onClick={async () => {
+                try {
+                  const res = await fetch('http://localhost:7005/configuracoes', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ colunasKanban: colunas })
+                  });
+                  if (res.ok) {
+                    setModalConfigColsOpen(false);
+                  } else {
+                    alert('Erro ao salvar colunas');
+                  }
+                } catch (e) {
+                  alert('Erro de conexão ao salvar colunas');
+                }
+              }} className="btn-primary">Salvar Colunas</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

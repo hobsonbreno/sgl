@@ -4,11 +4,20 @@ export declare class Cotacao {
     oportunidadeId: mongoose.Types.ObjectId;
     itens: {
         _id: mongoose.Types.ObjectId;
+        produtoId?: mongoose.Types.ObjectId;
         descricaoItem: string;
         quantidade: number;
+        unidadeMedida?: string;
+        valorUnitarioEstimado?: number;
         precosFornecedores: {
             fornecedorId: mongoose.Types.ObjectId;
             precoUnitario: number;
+            fatorEmbalagem?: number;
+            precoEmbalagem?: number;
+            nomeEmbalagem?: string;
+            freteIncluso?: boolean;
+            prazoPagamento?: number;
+            permiteParcelamento?: boolean;
             observacao?: string;
         }[];
         melhorPreco?: {
@@ -38,11 +47,20 @@ export declare const CotacaoSchema: mongoose.Schema<Cotacao, mongoose.Model<Cota
     }>> | undefined;
     itens?: mongoose.SchemaDefinitionProperty<{
         _id: mongoose.Types.ObjectId;
+        produtoId?: mongoose.Types.ObjectId;
         descricaoItem: string;
         quantidade: number;
+        unidadeMedida?: string;
+        valorUnitarioEstimado?: number;
         precosFornecedores: {
             fornecedorId: mongoose.Types.ObjectId;
             precoUnitario: number;
+            fatorEmbalagem?: number;
+            precoEmbalagem?: number;
+            nomeEmbalagem?: string;
+            freteIncluso?: boolean;
+            prazoPagamento?: number;
+            permiteParcelamento?: boolean;
             observacao?: string;
         }[];
         melhorPreco?: {

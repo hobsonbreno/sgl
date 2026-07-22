@@ -9,6 +9,39 @@ export default function PerfisBusca() {
   const [ufs, setUfs] = useState('');
   const [modalidades, setModalidades] = useState('');
   const [palavrasChave, setPalavrasChave] = useState('');
+  const [municipiosIbge, setMunicipiosIbge] = useState('');
+  const [orgaosCnpj, setOrgaosCnpj] = useState('');
+  const [unidadesUasg, setUnidadesUasg] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [municipiosList, setMunicipiosList] = useState<{ id: string; nome: string; uf: string }[]>([]);
+
+  useEffect(() => {
+    const fetchMunicipios = async () => {
+      const u = ufs.split(',').map(v => v.trim().toUpperCase()).filter(v => v.length === 2);
+      if (u.length === 0) {
+        setMunicipiosList([]);
+        return;
+      }
+      try {
+        const ufsParam = u.join('|');
+        const res = await fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${ufsParam}/municipios`);
+        if (res.ok) {
+          const data = await res.json();
+          const formatted = data.map((m: any) => ({
+            id: m.id.toString(),
+            nome: m.nome,
+            uf: m.microrregiao.mesorregiao.UF.sigla
+          }));
+          setMunicipiosList(formatted);
+        }
+      } catch(e) {
+        console.error('Erro ao buscar municípios', e);
+      }
+    };
+    
+    const timeout = setTimeout(fetchMunicipios, 500);
+    return () => clearTimeout(timeout);
+  }, [ufs]);
 
   const loadPerfis = async () => {
     try {
@@ -24,37 +57,71 @@ export default function PerfisBusca() {
     loadPerfis();
   }, []);
 
-  const handleCreate = async (e: any) => {
+  const handleSubmit = async (e: any) => {
     e.preventDefault();
     setLoading(true);
     try {
       const m = modalidades.split(',').map(v => Number(v.trim())).filter(v => !isNaN(v));
       const u = ufs.split(',').map(v => v.trim()).filter(v => v !== '');
       const p = palavrasChave.split(',').map(v => v.trim()).filter(v => v !== '');
+      const mun = municipiosIbge.split(',').map(v => v.trim()).filter(v => v !== '');
+      const org = orgaosCnpj.split(',').map(v => v.trim().replace(/\D/g, '')).filter(v => v !== '');
+      const uasg = unidadesUasg.split(',').map(v => v.trim()).filter(v => v !== '');
       
       const payload = {
         nome,
         modalidades: m,
         ufs: u,
-        palavrasChave: p
+        palavrasChave: p,
+        municipiosIbge: mun,
+        orgaosCnpj: org,
+        unidadesUasg: uasg
       };
       
-      const res = await fetch('http://localhost:7005/perfis-busca', {
-        method: 'POST',
+      const url = editingId ? `http://localhost:7005/perfis-busca/${editingId}` : 'http://localhost:7005/perfis-busca';
+      const method = editingId ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
       if (res.ok) {
-        setNome('');
-        setUfs('');
-        setModalidades('');
-        setPalavrasChave('');
+        cancelEdit();
         loadPerfis();
       }
     } catch (e) {
       console.error(e);
     }
     setLoading(false);
+  };
+
+  const startEdit = (p: any) => {
+    setEditingId(p._id);
+    setNome(p.nome || '');
+    setUfs(p.ufs ? p.ufs.join(', ') : '');
+    setModalidades(p.modalidades ? p.modalidades.join(', ') : '');
+    setPalavrasChave(p.palavrasChave ? p.palavrasChave.join(', ') : '');
+    setMunicipiosIbge(p.municipiosIbge ? p.municipiosIbge.join(', ') : '');
+    setOrgaosCnpj(p.orgaosCnpj ? p.orgaosCnpj.join(', ') : '');
+    setUnidadesUasg(p.unidadesUasg ? p.unidadesUasg.join(', ') : '');
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setNome('');
+    setUfs('');
+    setModalidades('');
+    setPalavrasChave('');
+    setMunicipiosIbge('');
+    setOrgaosCnpj('');
+    setUnidadesUasg('');
+  };
+
+  const duplicateProfile = (p: any) => {
+    startEdit(p);
+    setEditingId(null);
+    setNome(p.nome ? `${p.nome} (Cópia)` : 'Cópia');
   };
 
   const toggle = async (id: string) => {
@@ -77,8 +144,8 @@ export default function PerfisBusca() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem' }}>
         <div className="stat-card" style={{ height: 'fit-content' }}>
-          <h3 style={{ fontSize: '1rem', color: 'var(--text-main)', marginBottom: '1.5rem' }}>Novo Filtro</h3>
-          <form onSubmit={handleCreate}>
+          <h3 style={{ fontSize: '1rem', color: 'var(--text-main)', marginBottom: '1.5rem' }}>{editingId ? 'Editar Filtro' : 'Novo Filtro'}</h3>
+          <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label>Nome (ex: Compra de Materiais)</label>
               <input type="text" className="form-control" value={nome} onChange={e => setNome(e.target.value)} required />
@@ -93,13 +160,93 @@ export default function PerfisBusca() {
               <small style={{ color: 'var(--text-muted)' }}>Separados por vírgula</small>
             </div>
             <div className="form-group">
-              <label>Produtos / Palavras Chave</label>
+              <label>Produtos / Palavras Chave (Opcional)</label>
               <input type="text" className="form-control" value={palavrasChave} onChange={e => setPalavrasChave(e.target.value)} />
-              <small style={{ color: 'var(--text-muted)' }}>Ex: fralda, lençol, detergente (Separados por vírgula)</small>
+              <small style={{ color: 'var(--text-muted)' }}>Ex: fralda, lençol (Separados por vírgula)</small>
             </div>
-            <button type="submit" className="btn-primary" disabled={loading} style={{ width: '100%' }}>
-              <Plus size={18} /> Adicionar Filtro
-            </button>
+            
+            <details style={{ marginBottom: '1.5rem', background: '#f8fafc', padding: '0.75rem', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+              <summary style={{ cursor: 'pointer', fontWeight: 600, color: '#475569', fontSize: '0.9rem' }}>Filtros Avançados Opcionais (PNCP)</summary>
+              <div style={{ marginTop: '1rem' }}>
+                <div className="form-group">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <label style={{ margin: 0 }}>Municípios (Clique para selecionar)</label>
+                    {municipiosList.length > 0 && (
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button 
+                          type="button" 
+                          onClick={() => setMunicipiosIbge(municipiosList.map(m => m.id).join(', '))}
+                          style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', background: '#e0e7ff', color: '#4f46e5', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 600 }}
+                        >
+                          Selecionar Todos
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={() => setMunicipiosIbge('')}
+                          style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 600 }}
+                        >
+                          Limpar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {municipiosList.length > 0 ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', maxHeight: '200px', overflowY: 'auto', border: '1px solid #cbd5e1', padding: '0.5rem', borderRadius: '4px', background: '#fff' }}>
+                      {municipiosList.map(m => {
+                        const selectedArray = municipiosIbge.split(',').map(v => v.trim()).filter(Boolean);
+                        const isSelected = selectedArray.includes(m.id);
+                        return (
+                          <label key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', cursor: 'pointer', background: isSelected ? '#e0e7ff' : '#f8fafc', padding: '0.4rem', borderRadius: '4px', border: isSelected ? '1px solid #a5b4fc' : '1px solid transparent', transition: 'all 0.2s' }}>
+                            <input 
+                              type="checkbox" 
+                              checked={isSelected}
+                              onChange={(e) => {
+                                let newSelected = [...selectedArray];
+                                if (e.target.checked) {
+                                  newSelected.push(m.id);
+                                } else {
+                                  newSelected = newSelected.filter(id => id !== m.id);
+                                }
+                                setMunicipiosIbge(newSelected.join(', '));
+                              }}
+                              style={{ cursor: 'pointer' }}
+                            />
+                            {m.nome} - {m.uf}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div style={{ padding: '0.75rem', background: '#f1f5f9', color: '#64748b', fontSize: '0.85rem', borderRadius: '4px', border: '1px dashed #cbd5e1' }}>
+                      Digite as siglas dos Estados (ex: CE, SP) acima para carregar os quadrinhos de municípios.
+                    </div>
+                  )}
+                  {municipiosList.length > 0 && (
+                    <small style={{ color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
+                      * Você pode selecionar vários quadrinhos simultaneamente.
+                    </small>
+                  )}
+                </div>
+                <div className="form-group">
+                  <label>Órgãos (CNPJ)</label>
+                  <input type="text" className="form-control" value={orgaosCnpj} onChange={e => setOrgaosCnpj(e.target.value)} placeholder="Somente números" />
+                </div>
+                <div className="form-group">
+                  <label>Unidades (UASG / Cód. PNCP)</label>
+                  <input type="text" className="form-control" value={unidadesUasg} onChange={e => setUnidadesUasg(e.target.value)} placeholder="Ex: 981253" />
+                </div>
+              </div>
+            </details>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button type="submit" className="btn-primary" disabled={loading} style={{ flex: 1 }}>
+                <Plus size={18} /> {editingId ? 'Salvar' : 'Adicionar Filtro'}
+              </button>
+              {editingId && (
+                <button type="button" onClick={cancelEdit} className="btn-primary" style={{ background: '#e2e8f0', color: '#475569' }}>
+                  Cancelar
+                </button>
+              )}
+            </div>
           </form>
         </div>
 
@@ -108,7 +255,7 @@ export default function PerfisBusca() {
             <thead>
               <tr>
                 <th>Nome</th>
-                <th>UFs</th>
+                <th>UFs / Locais</th>
                 <th>Modalidades</th>
                 <th>Produtos</th>
                 <th>Status</th>
@@ -119,7 +266,13 @@ export default function PerfisBusca() {
               {perfis.map(p => (
                 <tr key={p._id}>
                   <td><strong>{p.nome}</strong></td>
-                  <td>{p.ufs.length > 0 ? p.ufs.join(', ') : 'Nacional'}</td>
+                  <td>
+                    {p.ufs?.length > 0 && <div><small style={{ color: '#64748b' }}>UF: </small>{p.ufs.join(', ')}</div>}
+                    {p.municipiosIbge?.length > 0 && <div><small style={{ color: '#64748b' }}>IBGE: </small>{p.municipiosIbge.join(', ')}</div>}
+                    {p.orgaosCnpj?.length > 0 && <div><small style={{ color: '#64748b' }}>CNPJ: </small>{p.orgaosCnpj.join(', ')}</div>}
+                    {p.unidadesUasg?.length > 0 && <div><small style={{ color: '#64748b' }}>UASG: </small>{p.unidadesUasg.join(', ')}</div>}
+                    {!p.ufs?.length && !p.municipiosIbge?.length && !p.orgaosCnpj?.length && !p.unidadesUasg?.length && 'Nacional / Todos'}
+                  </td>
                   <td>{p.modalidades.join(', ')}</td>
                   <td>{p.palavrasChave && p.palavrasChave.length > 0 ? p.palavrasChave.join(', ') : 'Tudo'}</td>
                   <td>
@@ -131,7 +284,13 @@ export default function PerfisBusca() {
                   </td>
                   <td>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <button onClick={() => toggle(p._id)} className="btn-primary" style={{ padding: '0.4rem', background: '#e2e8f0', color: '#475569' }}>
+                      <button onClick={() => startEdit(p)} className="btn-primary" style={{ padding: '0.4rem', background: '#e0e7ff', color: '#4f46e5', minWidth: '60px' }}>
+                        Editar
+                      </button>
+                      <button onClick={() => duplicateProfile(p)} className="btn-primary" style={{ padding: '0.4rem', background: '#dbeafe', color: '#1d4ed8', minWidth: '70px' }}>
+                        Duplicar
+                      </button>
+                      <button onClick={() => toggle(p._id)} className="btn-primary" style={{ padding: '0.4rem', background: '#e2e8f0', color: '#475569', minWidth: '75px' }}>
                         {p.ativo ? 'Desativar' : 'Ativar'}
                       </button>
                       <button onClick={() => remove(p._id)} className="btn-primary" style={{ padding: '0.4rem', background: '#fee2e2', color: '#ef4444' }}>

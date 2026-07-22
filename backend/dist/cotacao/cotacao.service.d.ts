@@ -11,6 +11,13 @@ export declare class CotacaoService {
     updatePreco(cotacaoId: string, itemId: string, precoData: {
         fornecedorId: string;
         precoUnitario: number;
+        fatorEmbalagem?: number;
+        precoEmbalagem?: number;
+        nomeEmbalagem?: string;
+        freteIncluso?: boolean;
+        prazoPagamento?: number;
+        permiteParcelamento?: boolean;
         observacao?: string;
     }): Promise<Cotacao>;
+    removePreco(cotacaoId: string, itemId: string, fornecedorId: string): Promise<Cotacao>;
 }

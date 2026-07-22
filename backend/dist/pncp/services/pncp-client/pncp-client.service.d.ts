@@ -1,6 +1,7 @@
 import { HttpService } from '@nestjs/axios';
 import { PncpContratacaoRawDto } from '../../dtos/pncp.dto';
 export interface FiltroBuscaDto {
+    dataInicial: string;
     dataFinal: string;
     codigoModalidadeContratacao: number;
     uf?: string;

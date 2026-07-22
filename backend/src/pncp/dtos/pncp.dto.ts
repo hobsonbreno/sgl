@@ -14,6 +14,9 @@ export class UnidadeOrgaoRawDto {
 
   @ApiProperty()
   municipioNome: string;
+
+  @ApiProperty({ required: false })
+  codigoUnidade?: string;
 }
 
 export class PncpContratacaoRawDto {
@@ -28,6 +31,12 @@ export class PncpContratacaoRawDto {
 
   @ApiProperty({ required: false })
   valorTotalEstimado?: number;
+
+  @ApiProperty({ required: false })
+  numeroCompra?: string;
+
+  @ApiProperty({ required: false })
+  anoCompra?: number;
 
   @ApiProperty({ type: OrgaoEntidadeRawDto, required: false })
   orgaoEntidade?: OrgaoEntidadeRawDto;
@@ -78,6 +87,15 @@ export class OportunidadeDto {
   
   @ApiProperty()
   objetoCompra: string;
+
+  @ApiProperty({ required: false })
+  unidadeCompradora?: string;
+
+  @ApiProperty({ required: false })
+  numeroCompraOrigem?: string;
+
+  @ApiProperty({ required: false })
+  anoCompraOrigem?: number;
   
   @ApiProperty()
   valorTotalEstimado: number;
@@ -109,6 +127,9 @@ export function mapPncpParaOportunidade(raw: PncpContratacaoRawDto): Oportunidad
     orgaoNome: raw.orgaoEntidade?.razaoSocial || '',
     uf: raw.unidadeOrgao?.ufSigla || '',
     municipio: raw.unidadeOrgao?.municipioNome || '',
+    unidadeCompradora: raw.unidadeOrgao?.codigoUnidade || '',
+    numeroCompraOrigem: raw.numeroCompra || '',
+    anoCompraOrigem: raw.anoCompra || 0,
     objetoCompra: raw.objetoCompra || '',
     valorTotalEstimado: raw.valorTotalEstimado || 0,
     dataAberturaProposta: raw.dataAberturaProposta ? new Date(raw.dataAberturaProposta) : undefined,

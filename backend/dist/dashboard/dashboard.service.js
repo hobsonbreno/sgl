@@ -18,12 +18,16 @@ const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const oportunidade_schema_1 = require("../oportunidade/oportunidade.schema");
 const bot_execucao_schema_1 = require("../bot/bot-execucao.schema");
+const bot_service_1 = require("../bot/bot.service");
+const common_2 = require("@nestjs/common");
 let DashboardService = class DashboardService {
     oportunidadeModel;
     botExecucaoModel;
-    constructor(oportunidadeModel, botExecucaoModel) {
+    botService;
+    constructor(oportunidadeModel, botExecucaoModel, botService) {
         this.oportunidadeModel = oportunidadeModel;
         this.botExecucaoModel = botExecucaoModel;
+        this.botService = botService;
     }
     async getResumo() {
         const ontem = new Date();
@@ -49,7 +53,7 @@ let DashboardService = class DashboardService {
         });
         const hoje = new Date();
         const prazosCriticos = await this.oportunidadeModel.find({
-            kanbanStatus: { $nin: ['FEITO', 'AGUARDANDO_RESPOSTA'] },
+            kanbanStatus: { $in: ['FAZENDO', 'FEITO', 'AGUARDANDO_RESPOSTA'] },
             dataEncerramentoProposta: { $gte: hoje }
         })
             .sort({ dataEncerramentoProposta: 1 })
@@ -61,7 +65,8 @@ let DashboardService = class DashboardService {
             porStatus,
             valorTotalPorStatus,
             prazosCriticos,
-            ultimaExecucaoBot
+            ultimaExecucaoBot,
+            botEmExecucao: this.botService.isExecucao()
         };
     }
 };
@@ -70,7 +75,9 @@ exports.DashboardService = DashboardService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(oportunidade_schema_1.Oportunidade.name)),
     __param(1, (0, mongoose_1.InjectModel)(bot_execucao_schema_1.BotExecucao.name)),
+    __param(2, (0, common_2.Inject)((0, common_2.forwardRef)(() => bot_service_1.BotService))),
     __metadata("design:paramtypes", [mongoose_2.Model,
-        mongoose_2.Model])
+        mongoose_2.Model,
+        bot_service_1.BotService])
 ], DashboardService);
 //# sourceMappingURL=dashboard.service.js.map

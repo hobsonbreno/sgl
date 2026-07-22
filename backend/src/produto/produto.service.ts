@@ -17,7 +17,20 @@ export class ProdutoService {
       filtro.oportunidadeId = query.oportunidadeId;
     }
 
-    const data = await this.model.find(filtro).sort({ dataInclusao: -1 }).skip(skip).limit(limit).exec();
+    const rawData = await this.model.find(filtro)
+      .populate({
+        path: 'oportunidadeId',
+        match: { kanbanStatus: { $ne: 'EXCLUIDA' } },
+        select: 'orgaoNome numeroControlePNCP kanbanStatus uf numeroCompraOrigem anoCompraOrigem'
+      })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .exec();
+
+    // Filtra os produtos onde a oportunidade foi excluída (populate retorna null)
+    const data = rawData.filter(d => d.oportunidadeId !== null);
+
     const total = await this.model.countDocuments(filtro).exec();
     const totalPages = Math.ceil(total / limit) || 1;
 

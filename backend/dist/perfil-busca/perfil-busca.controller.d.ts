@@ -3,6 +3,8 @@ export declare class CreatePerfilDto {
     nome: string;
     ufs?: string[];
     municipiosIbge?: string[];
+    orgaosCnpj?: string[];
+    unidadesUasg?: string[];
     modalidades: number[];
     palavrasChave?: string[];
     ativo?: boolean;

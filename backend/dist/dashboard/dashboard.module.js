@@ -13,6 +13,7 @@ const dashboard_service_1 = require("./dashboard.service");
 const dashboard_controller_1 = require("./dashboard.controller");
 const oportunidade_module_1 = require("../oportunidade/oportunidade.module");
 const bot_execucao_schema_1 = require("../bot/bot-execucao.schema");
+const bot_module_1 = require("../bot/bot.module");
 let DashboardModule = class DashboardModule {
 };
 exports.DashboardModule = DashboardModule;
@@ -20,6 +21,7 @@ exports.DashboardModule = DashboardModule = __decorate([
     (0, common_1.Module)({
         imports: [
             oportunidade_module_1.OportunidadeModule,
+            (0, common_1.forwardRef)(() => bot_module_1.BotModule),
             mongoose_1.MongooseModule.forFeature([{ name: bot_execucao_schema_1.BotExecucao.name, schema: bot_execucao_schema_1.BotExecucaoSchema }])
         ],
         providers: [dashboard_service_1.DashboardService],

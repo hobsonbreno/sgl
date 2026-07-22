@@ -12,12 +12,18 @@ const mongoose_1 = require("@nestjs/mongoose");
 const oportunidade_service_1 = require("./oportunidade.service");
 const oportunidade_controller_1 = require("./oportunidade.controller");
 const oportunidade_schema_1 = require("./oportunidade.schema");
+const pncp_module_1 = require("../pncp/pncp.module");
+const produto_module_1 = require("../produto/produto.module");
 let OportunidadeModule = class OportunidadeModule {
 };
 exports.OportunidadeModule = OportunidadeModule;
 exports.OportunidadeModule = OportunidadeModule = __decorate([
     (0, common_1.Module)({
-        imports: [mongoose_1.MongooseModule.forFeature([{ name: oportunidade_schema_1.Oportunidade.name, schema: oportunidade_schema_1.OportunidadeSchema }])],
+        imports: [
+            mongoose_1.MongooseModule.forFeature([{ name: oportunidade_schema_1.Oportunidade.name, schema: oportunidade_schema_1.OportunidadeSchema }]),
+            pncp_module_1.PncpModule,
+            (0, common_1.forwardRef)(() => produto_module_1.ProdutoModule)
+        ],
         controllers: [oportunidade_controller_1.OportunidadeController],
         providers: [oportunidade_service_1.OportunidadeService],
         exports: [mongoose_1.MongooseModule, oportunidade_service_1.OportunidadeService],

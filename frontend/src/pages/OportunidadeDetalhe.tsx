@@ -64,7 +64,7 @@ function FornecedorPrecoInput({ item, f, pf, precoEmbalagemSalvo, handlePrecoCom
   );
 }
 
-function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, handleRemovePreco, novoFornecedorId, setNovoFornecedorId }: any) {
+function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, handleRemovePreco, novoFornecedorId, setNovoFornecedorId, cotacaoId, setCotacao }: any) {
   const [open, setOpen] = useState(false);
   // fator de embalagem por fornecedor: quantas unidades tem cada embalagem/caixa cotada
   const [fatores, setFatores] = useState<Record<string, number>>({});
@@ -74,6 +74,23 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
   const [fretes, setFretes] = useState<Record<string, boolean>>({});
   const [parcelamentos, setParcelamentos] = useState<Record<string, boolean>>({});
   const [prazos, setPrazos] = useState<Record<string, number>>({});
+
+  // Estados para Calculadora de Concorrência
+  const initialConcorrente = item.produtoId?.valorConcorrente || item.valorConcorrente || '';
+  const [precoConcorrenteStr, setPrecoConcorrenteStr] = useState(initialConcorrente ? Number(initialConcorrente).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}) : '');
+  const precoConcorrente = parseFloat(precoConcorrenteStr.replace(/\./g, '').replace(',', '.')) || 0;
+
+  const initialNossoLance = item.produtoId?.valorNossoLance || item.valorNossoLance || '';
+  const [nossoLanceStr, setNossoLanceStr] = useState(initialNossoLance ? Number(initialNossoLance).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}) : '');
+  const nossoLanceVal = parseFloat(nossoLanceStr.replace(/\./g, '').replace(',', '.')) || 0;
+
+  const nossoCusto = item.melhorPreco ? item.melhorPreco.precoUnitario : 0;
+  
+  // Sugere cobrir a oferta por 1 centavo (0.0100)
+  const sugestaoLance = precoConcorrente > 0 ? precoConcorrente - 0.01 : 0;
+  const lucroSugestao = sugestaoLance - nossoCusto;
+  const margemSugestao = sugestaoLance > 0 ? (lucroSugestao / sugestaoLance) * 100 : 0;
+  const isViable = lucroSugestao > 0;
 
   const [cenarios, setCenarios] = useState({ a: 30, b: 20, c: 10 });
   const isSigiloso = !item.valorUnitarioEstimado || item.valorUnitarioEstimado <= 0;
@@ -523,6 +540,179 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
               </div>
             </div>
           )}
+
+          {/* CALCULADORA DE CONCORRENCIA */}
+          <div style={{ marginTop: '1rem', padding: '1.5rem', background: '#fffbeb', borderRadius: '8px', border: '1px solid #fde68a' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <h4 style={{ marginBottom: '0.5rem', color: '#92400e', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    ⚔️ Calculadora de Concorrência (Lances em Tempo Real)
+                  </h4>
+                  <p style={{ fontSize: '0.8rem', color: '#b45309', marginBottom: '1.5rem' }}>
+                    Simule o menor preço atual do concorrente no portal. O sistema calculará o lance necessário para vencer e analisará a viabilidade do seu lucro.
+                  </p>
+                </div>
+              </div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                {/* 1. Preço do Concorrente */}
+                <div style={{ padding: '1rem', background: '#fff', border: '1px solid #fcd34d', borderRadius: '6px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <label style={{ fontSize: '0.75rem', color: '#92400e', display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>1. Menor Lance do Concorrente</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ color: '#b45309', fontWeight: 600 }}>R$</span>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      placeholder="Ex: 0,7700"
+                      value={precoConcorrenteStr}
+                      onChange={e => setPrecoConcorrenteStr(e.target.value)}
+                      onBlur={async () => {
+                        const val = parseFloat(precoConcorrenteStr.replace(/\./g, '').replace(',', '.')) || 0;
+                        setPrecoConcorrenteStr(val > 0 ? val.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}) : '');
+                        const currentVal = item.produtoId?.valorConcorrente || item.valorConcorrente || 0;
+                        if (val !== currentVal && val >= 0) {
+                          try {
+                            const pId = item.produtoId?._id || item.produtoId || item._id;
+                            await fetch(`http://localhost:7005/produto/${pId}`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ valorConcorrente: val })
+                            });
+                            if (setCotacao && cotacaoId) {
+                              const resCotFull = await fetch(`http://localhost:7005/cotacoes/${cotacaoId}`);
+                              setCotacao(await resCotFull.json());
+                            }
+                          } catch (err) {
+                            console.error('Falha ao salvar lance concorrente', err);
+                          }
+                        }
+                      }}
+                      style={{ borderColor: '#fcd34d', background: '#fef3c7', fontWeight: 600, fontSize: '1.1rem' }}
+                    />
+                  </div>
+                  <span style={{ fontSize: '0.7rem', color: '#d97706', marginTop: '0.5rem' }}>Pode digitar manualmente ou receber via bot automático.</span>
+                </div>
+
+                {/* 2. Sugestão e Viabilidade */}
+                {precoConcorrente > 0 && (
+                  <>
+                    <div style={{ padding: '1rem', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '6px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.4rem', fontWeight: 600 }}>2. Lance Sugerido (Para Vencer)</div>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.2rem' }}>
+                        R$ {sugestaoLance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                        (- R$ 0,01 do concorrente)
+                      </div>
+                    </div>
+
+                    {item.melhorPreco ? (
+                      <div style={{ padding: '1rem', background: isViable ? '#dcfce7' : '#fee2e2', border: `1px solid ${isViable ? '#86efac' : '#fca5a5'}`, borderRadius: '6px' }}>
+                        <div style={{ fontSize: '0.75rem', color: isViable ? '#166534' : '#991b1b', marginBottom: '0.6rem', fontWeight: 600 }}>3. Viabilidade da Margem</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', fontSize: '0.85rem' }}>
+                          <span>Seu Custo Unit:</span>
+                          <strong style={{ color: '#475569' }}>R$ {nossoCusto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', fontSize: '0.85rem' }}>
+                          <span>Lucro Unitário:</span>
+                          <strong style={{ color: isViable ? '#15803d' : '#b91c1c' }}>R$ {lucroSugestao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                          <span>Margem Real:</span>
+                          <strong style={{ color: isViable ? '#15803d' : '#b91c1c' }}>{margemSugestao.toFixed(2)}%</strong>
+                        </div>
+                        
+                        {!isViable && (
+                          <div style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: '#b91c1c', fontWeight: 600, padding: '0.5rem', background: '#fef2f2', borderRadius: '4px' }}>
+                            ⚠️ CUIDADO: Cobrir este lance dará prejuízo!
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{ padding: '1rem', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: '#64748b', fontSize: '0.85rem', fontWeight: 500 }}>
+                        Selecione um fornecedor para calcular a viabilidade.
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+
+          {/* NOSSO LANCE OFICIAL (PARA PROJEÇÃO FINANCEIRA) */}
+          <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#e0e7ff', borderRadius: '8px', border: '1px solid #a5b4fc', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+              <div>
+                <p style={{ fontSize: '0.95rem', color: '#3730a3', fontWeight: 700, marginBottom: '0.2rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <Check size={18} color="#4338ca"/> Nosso Lance Oficial (Unitário)
+                </p>
+                <p style={{ fontSize: '0.75rem', color: '#4f46e5', maxWidth: '500px' }}>
+                  Último valor que lançamos oficialmente para o órgão antes de encerrar as negociações.
+                  Este valor servirá como base para as projeções do Livro Caixa (Faturamento a Receber).
+                </p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontWeight: 600, color: '#312e81' }}>R$</span>
+                <input 
+                  id={`input-lance-${item.produtoId?._id || item.produtoId || item._id}`}
+                  type="text" 
+                  value={nossoLanceStr}
+                  onChange={e => setNossoLanceStr(e.target.value)}
+                  onBlur={() => {
+                    const val = parseFloat(nossoLanceStr.replace(/\./g, '').replace(',', '.')) || 0;
+                    setNossoLanceStr(val > 0 ? val.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}) : '');
+                  }}
+                  placeholder="Ex: 6,00"
+                  style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid #818cf8', fontSize: '1.1rem', width: '130px', fontWeight: 'bold', color: '#312e81' }}
+                />
+                <button
+                  onClick={async () => {
+                    const val = parseFloat(nossoLanceStr.replace(/\./g, '').replace(',', '.')) || 0;
+                    const pId = item.produtoId?._id || item.produtoId || item._id;
+                    if (val >= 0) {
+                      try {
+                        await fetch(`http://localhost:7005/produto/${pId}`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ valorNossoLance: val })
+                        });
+                        if (setCotacao && cotacaoId) {
+                          const resCotFull = await fetch(`http://localhost:7005/cotacoes/${cotacaoId}`);
+                          setCotacao(await resCotFull.json());
+                        }
+                        alert('Valor oficial salvo com sucesso!');
+                      } catch (err) {
+                        console.error('Falha ao salvar nosso lance', err);
+                        alert('Erro ao salvar lance!');
+                      }
+                    }
+                  }}
+                  style={{ background: '#4f46e5', color: '#fff', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem' }}
+                >
+                  Salvar Valor
+                </button>
+              </div>
+            </div>
+
+            {nossoLanceVal > 0 && precoConcorrente > 0 && (
+              <div style={{ 
+                padding: '0.75rem', 
+                background: nossoLanceVal < precoConcorrente ? '#dcfce7' : '#fee2e2', 
+                border: `1px solid ${nossoLanceVal < precoConcorrente ? '#86efac' : '#fca5a5'}`, 
+                borderRadius: '6px', 
+                fontSize: '0.85rem', 
+                color: nossoLanceVal < precoConcorrente ? '#166534' : '#991b1b', 
+                fontWeight: 600 
+              }}>
+                {nossoLanceVal < precoConcorrente ? (
+                  <>✅ Sua proposta está melhor que o concorrente em R$ {Math.abs(precoConcorrente - nossoLanceVal).toLocaleString('pt-BR', {minimumFractionDigits: 2})} por unidade.</>
+                ) : nossoLanceVal === precoConcorrente ? (
+                  <>⚠️ Empate! Sua proposta está igual ao concorrente. Precisamos baixar R$ {Math.abs(nossoLanceVal - sugestaoLance).toLocaleString('pt-BR', {minimumFractionDigits: 2})} para vencer a proposta (Sugerido: R$ {sugestaoLance.toLocaleString('pt-BR', {minimumFractionDigits: 2})}).</>
+                ) : (
+                  <>⚠️ Sua proposta está maior que o concorrente. Precisamos baixar R$ {Math.abs(nossoLanceVal - sugestaoLance).toLocaleString('pt-BR', {minimumFractionDigits: 2})} para vencer a proposta (Sugerido: R$ {sugestaoLance.toLocaleString('pt-BR', {minimumFractionDigits: 2})}).</>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -691,6 +881,26 @@ export default function OportunidadeDetalhe() {
 
   return (
     <div>
+      <div 
+        id="sgl-extension-data" 
+        style={{ display: 'none' }}
+        data-uasg={oportunidade.unidadeCompradora || ''}
+        data-processo={(function(){
+          if (oportunidade.numeroCompraOrigem && oportunidade.anoCompraOrigem) {
+            // O Comprasnet exige Número + Ano juntos, sem barras, para a busca de pregão
+            return `${oportunidade.numeroCompraOrigem}${oportunidade.anoCompraOrigem}`;
+          }
+          const parts = oportunidade.numeroControlePNCP ? oportunidade.numeroControlePNCP.split('-') : [];
+          if(parts.length < 3) return oportunidade.numeroControlePNCP || '';
+          const numYear = parts[2].split('/');
+          if(numYear.length === 2) {
+            return parseInt(numYear[0], 10) + '/' + numYear[1];
+          }
+          return parts[2];
+        })()}
+        data-objeto={oportunidade.objetoCompra || ''}
+      ></div>
+
       <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <Link to="/kanban" className="btn-primary" style={{ background: '#e2e8f0', color: '#475569', padding: '0.5rem 1rem' }}>
@@ -794,6 +1004,7 @@ export default function OportunidadeDetalhe() {
                   cotacaoId={cotacao._id}
                   novoFornecedorId={novoFornecedorId}
                   setNovoFornecedorId={setNovoFornecedorId}
+                  setCotacao={setCotacao}
                 />
               ))
             )}
@@ -832,6 +1043,76 @@ export default function OportunidadeDetalhe() {
               })}
             </div>
           </div>
+
+          {/* PAINEL: CENÁRIO DO PREÇO DO CONCORRENTE */}
+          <div style={{ marginTop: '1rem', padding: '1.5rem', background: '#451a03', borderRadius: '8px', color: '#fff' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div>
+                <h3 style={{ margin: 0, color: '#fcd34d', fontSize: '1rem' }}>Cenário: Menor Lance do Concorrente</h3>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: '#d97706' }}>Cálculo automático: Menor Lance Concorrente × Quantidade</p>
+              </div>
+              <div style={{ fontSize: '2rem', fontWeight: 700, color: '#fbbf24' }}>
+                R$ {Number(cotacao.itens.reduce((acc: number, it: any) => acc + (Number(it.produtoId?.valorConcorrente || it.valorConcorrente || 0) * Number(it.quantidade || 1)), 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+            </div>
+
+            <div style={{ borderTop: '1px solid #78350f', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              {cotacao.itens.filter((it: any) => (it.produtoId?.valorConcorrente || it.valorConcorrente) > 0).map((it: any) => {
+                const valConc = it.produtoId?.valorConcorrente || it.valorConcorrente || 0;
+                const subtotal = Number(valConc) * Number(it.quantidade || 1);
+                const custo = it.melhorPreco ? Number(it.melhorPreco.precoUnitario) * Number(it.quantidade || 1) : 0;
+                const lucro = subtotal - custo;
+                return (
+                  <div key={it._id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: '#fef3c7' }}>
+                    <span style={{ flex: 1 }}>{it.descricaoItem} ({it.quantidade} un.)</span>
+                    <span style={{ color: '#fde68a', fontWeight: 600, marginLeft: '1rem' }}>
+                      Lance: R$ {Number(valConc).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })} × {it.quantidade} = R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                    {lucro > 0 && (
+                      <span style={{ color: '#34d399', fontWeight: 700, marginLeft: '1rem' }}>
+                        (Lucro Provisório: R$ {lucro.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* PAINEL: CENÁRIO DO NOSSO LANCE OFICIAL */}
+          <div style={{ marginTop: '1rem', padding: '1.5rem', background: '#1e1b4b', borderRadius: '8px', color: '#fff' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div>
+                <h3 style={{ margin: 0, color: '#c7d2fe', fontSize: '1rem' }}>Cenário: Nosso Lance Oficial (Faturamento Real)</h3>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: '#818cf8' }}>Cálculo automático: Nosso Lance Oficial × Quantidade</p>
+              </div>
+              <div style={{ fontSize: '2rem', fontWeight: 700, color: '#818cf8' }}>
+                R$ {Number(cotacao.itens.reduce((acc: number, it: any) => acc + (Number(it.produtoId?.valorNossoLance || it.valorNossoLance || 0) * Number(it.quantidade || 1)), 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+            </div>
+
+            <div style={{ borderTop: '1px solid #3730a3', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              {cotacao.itens.filter((it: any) => (it.produtoId?.valorNossoLance || it.valorNossoLance) > 0).map((it: any) => {
+                const valLance = it.produtoId?.valorNossoLance || it.valorNossoLance || 0;
+                const subtotal = Number(valLance) * Number(it.quantidade || 1);
+                const custo = it.melhorPreco ? Number(it.melhorPreco.precoUnitario) * Number(it.quantidade || 1) : 0;
+                const lucro = subtotal - custo;
+                return (
+                  <div key={it._id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: '#e0e7ff' }}>
+                    <span style={{ flex: 1 }}>{it.descricaoItem} ({it.quantidade} un.)</span>
+                    <span style={{ color: '#c7d2fe', fontWeight: 600, marginLeft: '1rem' }}>
+                      Nosso Lance: R$ {Number(valLance).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} × {it.quantidade} = R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                    {lucro > 0 && (
+                      <span style={{ color: '#34d399', fontWeight: 700, marginLeft: '1rem' }}>
+                        (Lucro Real: R$ {lucro.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 
@@ -847,6 +1128,38 @@ export default function OportunidadeDetalhe() {
             </p>
 
             <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
+              {oportunidade.linkSistemaOrigem ? (
+                <a href={oportunidade.linkSistemaOrigem} target="_blank" rel="noreferrer" className="btn-primary" style={{ background: '#7c3aed', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 6px rgba(124, 58, 237, 0.2)' }}>
+                  <ExternalLink size={16} /> Portal Original da Licitação
+                </a>
+              ) : (
+                <>
+                  <a href={`https://pncp.gov.br/app/editais?q=${oportunidade.numeroControlePNCP}`} target="_blank" rel="noreferrer" className="btn-primary" style={{ background: '#7c3aed', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 6px rgba(124, 58, 237, 0.2)' }}>
+                    <ExternalLink size={16} /> Ver no PNCP
+                  </a>
+                  {(function(){
+                    const portaisEstaduais: Record<string, { nome: string, url: string }> = {
+                      'CE': { nome: 'Portal de Compras - CE (S2GPR)', url: 'https://s2gpr.sefaz.ce.gov.br/licita-web/paginas/licita/PublicacaoList.seam' },
+                      'SP': { nome: 'BEC/SP', url: 'https://www.bec.sp.gov.br/' },
+                      'MG': { nome: 'Portal de Compras - MG', url: 'https://www.compras.mg.gov.br/' },
+                      'PR': { nome: 'Compras Paraná', url: 'https://www.comprasparana.pr.gov.br/' },
+                      'RS': { nome: 'Compras RS', url: 'https://www.compras.rs.gov.br/' },
+                      'SC': { nome: 'Portal de Compras - SC', url: 'https://portaldecompras.sc.gov.br/' },
+                      'PE': { nome: 'PE Integrado', url: 'https://www.peintegrado.pe.gov.br/' },
+                      'BA': { nome: 'Comprasnet BA', url: 'https://www.comprasnet.ba.gov.br/' }
+                    };
+                    const portalInfo = portaisEstaduais[oportunidade.uf];
+                    if (portalInfo && oportunidade.orgaoNome?.toUpperCase().includes('ESTADO')) {
+                      return (
+                        <a href={portalInfo.url} target="_blank" rel="noreferrer" className="btn-primary" style={{ background: '#f59e0b', color: '#fff', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 6px rgba(245, 158, 11, 0.2)' }}>
+                          <ExternalLink size={16} /> Acessar {portalInfo.nome}
+                        </a>
+                      );
+                    }
+                    return null;
+                  })()}
+                </>
+              )}
               <a href="https://www.gov.br/compras" target="_blank" rel="noreferrer" className="btn-primary" style={{ background: '#005b9f', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <ExternalLink size={16} /> Portal Compras.gov
               </a>
@@ -858,8 +1171,15 @@ export default function OportunidadeDetalhe() {
             <h4 style={{ marginBottom: '1rem', color: '#334155', fontSize: '0.95rem' }}>Dados Rápidos para Copiar</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {[
-                { label: 'UASG / Órgão', value: oportunidade.numeroControlePNCP?.split('-')[0] || oportunidade.orgaoCnpj },
-                { label: 'Número da Compra', value: oportunidade.numeroControlePNCP ? oportunidade.numeroControlePNCP.split('/')[1] + '/' + (oportunidade.numeroControlePNCP.split('-')[2]?.split('/')[0] || '') : oportunidade.numeroControlePNCP },
+                { label: 'CNPJ do Órgão', value: oportunidade.orgaoCnpj },
+                { label: 'Unidade Compradora (UASG)', value: oportunidade.unidadeCompradora || 'N/A' },
+                { label: 'Número da Compra', value: (oportunidade.numeroCompraOrigem && oportunidade.anoCompraOrigem) ? `${oportunidade.numeroCompraOrigem}${oportunidade.anoCompraOrigem}` : (oportunidade.numeroControlePNCP ? (function(){
+                  const parts = oportunidade.numeroControlePNCP.split('-');
+                  if(parts.length < 3) return oportunidade.numeroControlePNCP;
+                  const numYear = parts[2].split('/');
+                  if(numYear.length === 2) return parseInt(numYear[0], 10) + '/' + numYear[1];
+                  return parts[2];
+                })() : oportunidade.numeroControlePNCP) },
                 { label: 'Objeto', value: oportunidade.objetoCompra }
               ].map((info, i) => {
                 // Estado local injetado via closure para feedback

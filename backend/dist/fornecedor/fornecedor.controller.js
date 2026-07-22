@@ -31,8 +31,8 @@ let FornecedorController = class FornecedorController {
     create(data) {
         return this.service.create(data);
     }
-    findAll(categoria, busca) {
-        return this.service.findAll(categoria, busca);
+    findAll(query) {
+        return this.service.findAll(query);
     }
     update(id, data) {
         return this.service.update(id, data);
@@ -49,13 +49,10 @@ __decorate([
 ], FornecedorController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
-    (0, swagger_1.ApiOperation)({ summary: 'Listar fornecedores (com busca)' }),
-    (0, swagger_1.ApiQuery)({ name: 'categoria', required: false }),
-    (0, swagger_1.ApiQuery)({ name: 'busca', required: false }),
-    __param(0, (0, common_1.Query)('categoria')),
-    __param(1, (0, common_1.Query)('busca')),
+    (0, swagger_1.ApiOperation)({ summary: 'Listar fornecedores (com paginação e busca)' }),
+    __param(0, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], FornecedorController.prototype, "findAll", null);
 __decorate([

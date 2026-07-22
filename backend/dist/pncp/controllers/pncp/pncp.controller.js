@@ -23,13 +23,20 @@ let PncpController = class PncpController {
         this.pncpClientService = pncpClientService;
     }
     async testBusca(modalidade, uf, dias = 10) {
-        const hoje = new Date();
-        hoje.setDate(hoje.getDate() + Number(dias));
-        const yyyy = hoje.getFullYear();
-        const mm = String(hoje.getMonth() + 1).padStart(2, '0');
-        const dd = String(hoje.getDate()).padStart(2, '0');
-        const dataFinal = `${yyyy}${mm}${dd}`;
+        const hojeFinal = new Date();
+        hojeFinal.setDate(hojeFinal.getDate() + Number(dias));
+        const yyyyF = hojeFinal.getFullYear();
+        const mmF = String(hojeFinal.getMonth() + 1).padStart(2, '0');
+        const ddF = String(hojeFinal.getDate()).padStart(2, '0');
+        const dataFinal = `${yyyyF}${mmF}${ddF}`;
+        const hojeInicial = new Date();
+        hojeInicial.setDate(hojeInicial.getDate() - 30);
+        const yyyyI = hojeInicial.getFullYear();
+        const mmI = String(hojeInicial.getMonth() + 1).padStart(2, '0');
+        const ddI = String(hojeInicial.getDate()).padStart(2, '0');
+        const dataInicial = `${yyyyI}${mmI}${ddI}`;
         const rawResult = await this.pncpClientService.buscarContratacoesComPropostaAberta({
+            dataInicial,
             dataFinal,
             codigoModalidadeContratacao: Number(modalidade),
             uf,

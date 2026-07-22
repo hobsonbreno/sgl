@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Assistente SGL - Compras.gov",
+  "version": "1.0",
+  "description": "Integração automática do SGL com o painel do Governo Federal.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "http://localhost:7000/*",
+    "*://*.gov.br/*",
+    "*://*.serpro.gov.br/*",
+    "*://*.comprasnet.gov.br/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["http://localhost:7000/*"],
+      "js": ["content-sgl.js"]
+    },
+    {
+      "matches": [
+        "*://*.gov.br/*",
+        "*://*.serpro.gov.br/*",
+        "*://*.comprasnet.gov.br/*",
+        "*://*.compras.gov.br/*"
+      ],
+      "js": ["content-gov.js"],
+      "css": ["style.css"]
+    }
+  ],
+  "action": {
+    "default_title": "SGL Extension"
+  }
+}

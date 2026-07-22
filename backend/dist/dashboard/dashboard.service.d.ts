@@ -1,10 +1,12 @@
 import { Model } from 'mongoose';
 import { Oportunidade, OportunidadeDocument } from '../oportunidade/oportunidade.schema';
 import { BotExecucao, BotExecucaoDocument } from '../bot/bot-execucao.schema';
+import { BotService } from '../bot/bot.service';
 export declare class DashboardService {
     private oportunidadeModel;
     private botExecucaoModel;
-    constructor(oportunidadeModel: Model<OportunidadeDocument>, botExecucaoModel: Model<BotExecucaoDocument>);
+    private botService;
+    constructor(oportunidadeModel: Model<OportunidadeDocument>, botExecucaoModel: Model<BotExecucaoDocument>, botService: BotService);
     getResumo(): Promise<{
         novasHoje: number;
         porStatus: {
@@ -49,5 +51,6 @@ export declare class DashboardService {
         } & Required<{
             _id: import("mongoose").Types.ObjectId;
         }>) | null;
+        botEmExecucao: boolean;
     }>;
 }

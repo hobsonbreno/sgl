@@ -1,7 +1,11 @@
+import { MessageEvent } from '@nestjs/common';
+import { Observable } from 'rxjs';
+import { EventsService } from '../events/events.service';
 import { DashboardService } from './dashboard.service';
 export declare class DashboardController {
     private readonly dashboardService;
-    constructor(dashboardService: DashboardService);
+    private readonly eventsService;
+    constructor(dashboardService: DashboardService, eventsService: EventsService);
     getResumo(): Promise<{
         novasHoje: number;
         porStatus: {
@@ -46,5 +50,7 @@ export declare class DashboardController {
         } & Required<{
             _id: import("mongoose").Types.ObjectId;
         }>) | null;
+        botEmExecucao: boolean;
     }>;
+    stream(): Observable<MessageEvent>;
 }

@@ -14,4 +14,5 @@ export declare class CotacaoController {
     findByOportunidade(oportunidadeId: string): Promise<import("./cotacao.schema").Cotacao>;
     findOne(id: string): Promise<import("./cotacao.schema").Cotacao>;
     updatePreco(id: string, itemId: string, data: UpdatePrecoDto): Promise<import("./cotacao.schema").Cotacao>;
+    removePreco(id: string, itemId: string, fornecedorId: string): Promise<import("./cotacao.schema").Cotacao>;
 }

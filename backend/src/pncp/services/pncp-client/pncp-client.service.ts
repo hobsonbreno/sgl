@@ -43,8 +43,8 @@ export class PncpClientService {
       }
 
       pagina++;
-      // Sleep for rate limit awareness (optional delay to prevent 429)
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Sleep for rate limit awareness - increased to 1.5s per page to prevent 429
+      await new Promise(resolve => setTimeout(resolve, 1500));
     }
 
     this.logger.log(`Total encontrado para modalidade ${filtros.codigoModalidadeContratacao}: ${resultados.length}`);
@@ -98,19 +98,19 @@ export class PncpClientService {
     return firstValueFrom(
       this.httpService.get(url, { params, timeout: 60000 }).pipe(
         retry({
-          count: 2,
+          count: 5,
           delay: (error: AxiosError, retryCount: number) => {
-            this.logger.warn(`Falha na requisição para ${url}. Tentativa ${retryCount}/2. Erro: ${error.message}`);
+            this.logger.warn(`Falha na requisição para ${url}. Tentativa ${retryCount}/5. Erro: ${error.message}`);
             if (error.response?.status === 429) {
-              this.logger.warn('Rate limit atingido (429). Aguardando 5 segundos antes de tentar novamente...');
-              return timer(5000 * retryCount);
+              this.logger.warn(`Rate limit atingido (429). Aguardando ${10 * retryCount} segundos antes de tentar novamente...`);
+              return timer(10000 * retryCount); // Backoff: 10s, 20s, 30s...
             }
-            return timer(2000 * retryCount);
+            return timer(5000 * retryCount);
           }
         }),
         catchError((error: AxiosError) => {
           this.logger.error(`Erro fatal na requisição para ${url} após retries: ${error.message}`);
-          return of({ data: { data: [], totalPaginas: 1 } }); // Retorna vazio para não derrubar o worker
+          throw error; // Não retorna of() vazio, lança para o loop principal decidir se para
         })
       )
     );

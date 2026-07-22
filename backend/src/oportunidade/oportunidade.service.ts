@@ -54,9 +54,8 @@ export class OportunidadeService {
   }
 
   async updateStatus(id: string, kanbanStatus: string): Promise<Oportunidade> {
-    const statusValidos = ['A_FAZER', 'FAZENDO', 'FEITO', 'AGUARDANDO_RESPOSTA', 'EXCLUIDA'];
-    if (!statusValidos.includes(kanbanStatus)) {
-      throw new BadRequestException('Status inválido');
+    if (!kanbanStatus) {
+      throw new BadRequestException('Status não informado');
     }
 
     const doc = await this.model.findByIdAndUpdate(

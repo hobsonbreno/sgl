@@ -20,6 +20,9 @@ let Oportunidade = class Oportunidade {
     orgaoNome;
     uf;
     municipio;
+    unidadeCompradora;
+    numeroCompraOrigem;
+    anoCompraOrigem;
     objetoCompra;
     valorTotalEstimado;
     dataAberturaProposta;
@@ -66,6 +69,18 @@ __decorate([
 __decorate([
     (0, mongoose_1.Prop)(),
     __metadata("design:type", String)
+], Oportunidade.prototype, "unidadeCompradora", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], Oportunidade.prototype, "numeroCompraOrigem", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", Number)
+], Oportunidade.prototype, "anoCompraOrigem", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
 ], Oportunidade.prototype, "objetoCompra", void 0);
 __decorate([
     (0, mongoose_1.Prop)(),
@@ -88,7 +103,7 @@ __decorate([
     __metadata("design:type", String)
 ], Oportunidade.prototype, "situacaoCompraNome", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: true, enum: ['A_FAZER', 'FAZENDO', 'FEITO', 'AGUARDANDO_RESPOSTA'], default: 'A_FAZER' }),
+    (0, mongoose_1.Prop)({ required: true, default: 'A_FAZER' }),
     __metadata("design:type", String)
 ], Oportunidade.prototype, "kanbanStatus", void 0);
 __decorate([

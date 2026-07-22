@@ -5,12 +5,15 @@ export declare class OrgaoEntidadeRawDto {
 export declare class UnidadeOrgaoRawDto {
     ufSigla: string;
     municipioNome: string;
+    codigoUnidade?: string;
 }
 export declare class PncpContratacaoRawDto {
     numeroControlePNCP: string;
     dataEncerramentoProposta?: string;
     dataAberturaProposta?: string;
     valorTotalEstimado?: number;
+    numeroCompra?: string;
+    anoCompra?: number;
     orgaoEntidade?: OrgaoEntidadeRawDto;
     unidadeOrgao?: UnidadeOrgaoRawDto;
     modalidadeId?: number;
@@ -29,6 +32,9 @@ export declare class OportunidadeDto {
     uf: string;
     municipio: string;
     objetoCompra: string;
+    unidadeCompradora?: string;
+    numeroCompraOrigem?: string;
+    anoCompraOrigem?: number;
     valorTotalEstimado: number;
     dataAberturaProposta?: Date;
     dataEncerramentoProposta?: Date;

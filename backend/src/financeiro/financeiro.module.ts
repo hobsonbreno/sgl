@@ -3,10 +3,19 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { FinanceiroController } from './financeiro.controller';
 import { FinanceiroService } from './financeiro.service';
 import { TransacaoFinanceira, TransacaoFinanceiraSchema } from './financeiro.schema';
+import { Oportunidade, OportunidadeSchema } from '../oportunidade/oportunidade.schema';
+import { Produto, ProdutoSchema } from '../produto/produto.schema';
+
+import { Cotacao, CotacaoSchema } from '../cotacao/cotacao.schema';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: TransacaoFinanceira.name, schema: TransacaoFinanceiraSchema }])
+    MongooseModule.forFeature([
+      { name: TransacaoFinanceira.name, schema: TransacaoFinanceiraSchema },
+      { name: Oportunidade.name, schema: OportunidadeSchema },
+      { name: Produto.name, schema: ProdutoSchema },
+      { name: Cotacao.name, schema: CotacaoSchema }
+    ])
   ],
   controllers: [FinanceiroController],
   providers: [FinanceiroService],

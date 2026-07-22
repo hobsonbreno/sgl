@@ -18,6 +18,7 @@ const fornecedor_module_1 = require("../fornecedor/fornecedor.module");
 const oportunidade_module_1 = require("../oportunidade/oportunidade.module");
 const orgao_module_1 = require("../orgao/orgao.module");
 const produto_module_1 = require("../produto/produto.module");
+const configuracao_module_1 = require("../configuracao/configuracao.module");
 let BotModule = class BotModule {
 };
 exports.BotModule = BotModule;
@@ -31,9 +32,11 @@ exports.BotModule = BotModule = __decorate([
             oportunidade_module_1.OportunidadeModule,
             orgao_module_1.OrgaoModule,
             produto_module_1.ProdutoModule,
+            (0, common_1.forwardRef)(() => configuracao_module_1.ConfiguracaoModule)
         ],
         providers: [bot_service_1.BotService],
-        controllers: [bot_controller_1.BotController]
+        controllers: [bot_controller_1.BotController],
+        exports: [bot_service_1.BotService]
     })
 ], BotModule);
 //# sourceMappingURL=bot.module.js.map

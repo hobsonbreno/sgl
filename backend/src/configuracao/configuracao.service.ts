@@ -37,4 +37,8 @@ export class ConfiguracaoService implements OnModuleInit {
   async setUltimaExecucao(data: string) {
     return this.configModel.findOneAndUpdate({}, { ultimaExecucaoAutomaticaData: data }, { new: true }).exec();
   }
+
+  async setColunas(colunas: { id: string, nome: string }[]) {
+    return this.configModel.findOneAndUpdate({}, { colunasKanban: colunas }, { new: true }).exec();
+  }
 }

@@ -29,11 +29,20 @@ __decorate([
     (0, mongoose_1.Prop)({
         type: [{
                 _id: { type: mongoose_2.default.Schema.Types.ObjectId, auto: true },
+                produtoId: { type: mongoose_2.default.Schema.Types.ObjectId, ref: 'Produto' },
                 descricaoItem: String,
                 quantidade: Number,
+                unidadeMedida: String,
+                valorUnitarioEstimado: Number,
                 precosFornecedores: [{
                         fornecedorId: { type: mongoose_2.default.Schema.Types.ObjectId, ref: 'Fornecedor' },
                         precoUnitario: Number,
+                        fatorEmbalagem: Number,
+                        precoEmbalagem: Number,
+                        nomeEmbalagem: String,
+                        freteIncluso: { type: Boolean, default: false },
+                        prazoPagamento: { type: Number, default: 0 },
+                        permiteParcelamento: { type: Boolean, default: false },
                         observacao: String
                     }],
                 melhorPreco: {

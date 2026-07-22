@@ -12,6 +12,12 @@ export class CreatePerfilDto {
   @ApiProperty({ required: false, type: [String] })
   municipiosIbge?: string[];
 
+  @ApiProperty({ required: false, type: [String] })
+  orgaosCnpj?: string[];
+
+  @ApiProperty({ required: false, type: [String] })
+  unidadesUasg?: string[];
+
   @ApiProperty({ type: [Number] })
   modalidades: number[];
 

@@ -30,6 +30,15 @@ export class Oportunidade {
   municipio: string;
 
   @Prop()
+  unidadeCompradora: string;
+
+  @Prop()
+  numeroCompraOrigem: string;
+
+  @Prop()
+  anoCompraOrigem: number;
+
+  @Prop()
   objetoCompra: string;
 
   @Prop()
@@ -47,7 +56,7 @@ export class Oportunidade {
   @Prop()
   situacaoCompraNome: string;
 
-  @Prop({ required: true, enum: ['A_FAZER', 'FAZENDO', 'FEITO', 'AGUARDANDO_RESPOSTA', 'EXCLUIDA'], default: 'A_FAZER' })
+  @Prop({ required: true, default: 'A_FAZER' })
   kanbanStatus: string;
 
   @Prop()

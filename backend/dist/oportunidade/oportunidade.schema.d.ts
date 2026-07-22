@@ -9,6 +9,9 @@ export declare class Oportunidade {
     orgaoNome: string;
     uf: string;
     municipio: string;
+    unidadeCompradora: string;
+    numeroCompraOrigem: string;
+    anoCompraOrigem: number;
     objetoCompra: string;
     valorTotalEstimado: number;
     dataAberturaProposta: Date;
@@ -92,6 +95,33 @@ export declare const OportunidadeSchema: import("mongoose").Schema<Oportunidade,
         id: string;
     }>> | undefined;
     municipio?: import("mongoose").SchemaDefinitionProperty<string, Oportunidade, import("mongoose").Document<unknown, {}, Oportunidade, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<Oportunidade & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>> | undefined;
+    unidadeCompradora?: import("mongoose").SchemaDefinitionProperty<string, Oportunidade, import("mongoose").Document<unknown, {}, Oportunidade, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<Oportunidade & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>> | undefined;
+    numeroCompraOrigem?: import("mongoose").SchemaDefinitionProperty<string, Oportunidade, import("mongoose").Document<unknown, {}, Oportunidade, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<Oportunidade & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>> | undefined;
+    anoCompraOrigem?: import("mongoose").SchemaDefinitionProperty<number, Oportunidade, import("mongoose").Document<unknown, {}, Oportunidade, {
         id: string;
     }, import("mongoose").DefaultSchemaOptions> & Omit<Oportunidade & {
         _id: import("mongoose").Types.ObjectId;

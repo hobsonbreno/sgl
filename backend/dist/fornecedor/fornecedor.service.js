@@ -37,17 +37,23 @@ let FornecedorService = class FornecedorService {
             throw new common_1.BadRequestException('Fornecedor com este CNPJ já existe');
         return this.model.create({ ...data, origem: 'manual' });
     }
-    async findAll(categoria, busca) {
+    async findAll(query) {
         const filters = {};
-        if (categoria)
-            filters.categorias = categoria;
-        if (busca) {
+        if (query.categoria)
+            filters.categorias = query.categoria;
+        if (query.busca) {
             filters.$or = [
-                { razaoSocial: { $regex: busca, $options: 'i' } },
-                { cnpj: { $regex: busca, $options: 'i' } }
+                { razaoSocial: { $regex: query.busca, $options: 'i' } },
+                { cnpj: { $regex: query.busca, $options: 'i' } }
             ];
         }
-        return this.model.find(filters).limit(50).exec();
+        const page = Number(query.page) || 1;
+        const limit = Number(query.limit) || 50;
+        const skip = (page - 1) * limit;
+        const data = await this.model.find(filters).sort({ createdAt: -1 }).skip(skip).limit(limit).exec();
+        const total = await this.model.countDocuments(filters).exec();
+        const totalPages = Math.ceil(total / limit) || 1;
+        return { data, total, totalPages, currentPage: page };
     }
     async findOne(id) {
         const doc = await this.model.findById(id).exec();

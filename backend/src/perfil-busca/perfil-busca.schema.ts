@@ -14,6 +14,12 @@ export class PerfilBusca {
   @Prop([String])
   municipiosIbge: string[];
 
+  @Prop([String])
+  orgaosCnpj: string[];
+
+  @Prop([String])
+  unidadesUasg: string[];
+
   @Prop({ type: [Number], required: true })
   modalidades: number[];
 
