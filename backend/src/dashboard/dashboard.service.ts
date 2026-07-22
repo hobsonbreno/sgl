@@ -30,15 +30,13 @@ export class DashboardService {
       }
     ]).exec();
 
-    const porStatus = { A_FAZER: 0, FAZENDO: 0, FEITO: 0, AGUARDANDO_RESPOSTA: 0 };
-    const valorTotalPorStatus = { A_FAZER: 0, FAZENDO: 0, FEITO: 0, AGUARDANDO_RESPOSTA: 0 };
+    const porStatus: Record<string, number> = {};
+    const valorTotalPorStatus: Record<string, number> = {};
 
     agregacao.forEach(item => {
-      const id = item._id as keyof typeof porStatus;
-      if (porStatus[id] !== undefined) {
-        porStatus[id] = item.count;
-        valorTotalPorStatus[id] = item.valorTotal || 0;
-      }
+      const id = item._id || 'NAO_DEFINIDO';
+      porStatus[id] = item.count;
+      valorTotalPorStatus[id] = item.valorTotal || 0;
     });
 
     const hoje = new Date();

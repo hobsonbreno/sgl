@@ -264,7 +264,13 @@ export default function Kanban() {
         >
           {colunas.map(col => {
             const colId = col.id;
-            const itensDaColuna = oportunidades.filter(op => op.kanbanStatus === colId);
+            const itensDaColuna = oportunidades
+              .filter(op => op.kanbanStatus === colId)
+              .sort((a, b) => {
+                const dateA = new Date(a.dataEncerramentoProposta).getTime() || 0;
+                const dateB = new Date(b.dataEncerramentoProposta).getTime() || 0;
+                return dateA - dateB;
+              });
 
             const isCollapsed = collapsedCols[colId] !== undefined ? collapsedCols[colId] : (itensDaColuna.length === 0);
 
