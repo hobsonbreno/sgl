@@ -3,7 +3,8 @@ import type { MouseEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import type { DropResult } from '@hello-pangea/dnd';
-import { Clock, Trash2, Trophy, Settings, Plus, ArrowUp, ArrowDown } from 'lucide-react';
+import { Trash2, Trophy, Settings, Plus, ArrowUp, ArrowDown } from 'lucide-react';
+import Countdown from '../components/Countdown';
 
 const generateId = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/\s+/g, '_');
 
@@ -295,7 +296,6 @@ export default function Kanban() {
                     ) : (
                       <div className="kanban-list" style={{ flex: 1, minHeight: '100px' }}>
                       {itensDaColuna.map((item, index) => {
-                        const diasRestantes = item.dataEncerramentoProposta ? Math.ceil((new Date(item.dataEncerramentoProposta).getTime() - new Date().getTime()) / (1000 * 3600 * 24)) : null;
                         const prods = produtos.filter(p => p.oportunidadeId === item._id);
                         const bestOffer = getBestOfferInfo(item._id);
                         
@@ -389,11 +389,9 @@ export default function Kanban() {
                                 </div>
                               )}
                               
-                              {diasRestantes !== null && (
-                                <div aria-label={`Faltam ${diasRestantes} dias para o encerramento`} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '1rem', fontSize: '0.8rem', color: diasRestantes <= 2 ? '#ef4444' : '#eab308', fontWeight: 600 }}>
-                                  <Clock size={14} aria-hidden="true" /> Faltam {diasRestantes} dias
-                                </div>
-                              )}
+                              <div style={{ marginBottom: '1rem' }}>
+                                <Countdown targetDate={item.dataEncerramentoProposta} />
+                              </div>
 
                               <div className="kanban-card-footer">
                                 <span className="kanban-card-price" aria-label={`Valor estimado: R$ ${item.valorTotalEstimado?.toLocaleString('pt-BR')}`}>

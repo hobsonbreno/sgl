@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Play, TrendingUp, AlertTriangle, FileText, CheckCircle, Clock, RefreshCw, Activity, Bot, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import Countdown from '../components/Countdown';
 
 export default function Dashboard() {
   const [resumo, setResumo] = useState<any>(null);
@@ -245,9 +246,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.75rem', minWidth: '180px' }}>
-                      <span style={{ color: isUrgent ? '#dc2626' : '#d97706', fontWeight: 800, fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.5px', background: isUrgent ? '#fef2f2' : '#fffbeb', padding: '0.5rem 1rem', borderRadius: '12px' }}>
-                        Faltam {diasRestantes} {diasRestantes === 1 ? 'dia' : 'dias'}
-                      </span>
+                      <Countdown targetDate={op.dataEncerramentoProposta} />
                       <span style={{ fontWeight: 900, color: '#0f172a', fontSize: '1.4rem' }}>
                         R$ {op.valorTotalEstimado?.toLocaleString('pt-BR', {minimumFractionDigits:2}) || '0,00'}
                       </span>
