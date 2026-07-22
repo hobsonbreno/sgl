@@ -55,7 +55,16 @@ export class FornecedorService {
     const doc = await this.model.findById(id).exec();
     if (!doc) throw new NotFoundException('Fornecedor não encontrado');
 
-    // Se origem for bot, só pode atualizar categorias e contato
+    if (data.telefone !== undefined) doc.telefone = data.telefone;
+    if (data.nomeConsultor !== undefined) doc.nomeConsultor = data.nomeConsultor;
+    if (data.email !== undefined) doc.email = data.email;
+    if (data.cep !== undefined) doc.cep = data.cep;
+    if (data.endereco !== undefined) doc.endereco = data.endereco;
+    if (data.bairro !== undefined) doc.bairro = data.bairro;
+    if (data.cidade !== undefined) doc.cidade = data.cidade;
+    if (data.uf !== undefined) doc.uf = data.uf;
+
+    // Se origem for bot, só pode atualizar categorias, contato e campos não-fiscais
     if (doc.origem === 'bot') {
       if (data.categorias) doc.categorias = data.categorias;
       if (data.contato) doc.contato = data.contato;

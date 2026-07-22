@@ -14,6 +14,30 @@ export class Fornecedor {
   @Prop({ type: [{ nome: String, telefone: String, email: String }] })
   contato: { nome: string; telefone: string; email: string }[];
 
+  @Prop()
+  telefone: string;
+
+  @Prop()
+  nomeConsultor: string;
+
+  @Prop()
+  email: string;
+
+  @Prop()
+  cep: string;
+
+  @Prop()
+  endereco: string;
+
+  @Prop()
+  bairro: string;
+
+  @Prop()
+  cidade: string;
+
+  @Prop()
+  uf: string;
+
   @Prop([String])
   categorias: string[];
 

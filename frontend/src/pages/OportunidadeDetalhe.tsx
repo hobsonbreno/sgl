@@ -64,7 +64,7 @@ function FornecedorPrecoInput({ item, f, pf, precoEmbalagemSalvo, handlePrecoCom
   );
 }
 
-function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, handleRemovePreco, novoFornecedorId, setNovoFornecedorId, cotacaoId, setCotacao }: any) {
+function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, handleRemovePreco, novoFornecedorId, setNovoFornecedorId, cotacaoId, setCotacao, onLiveValoresChange }: any) {
   const [open, setOpen] = useState(false);
   // fator de embalagem por fornecedor: quantas unidades tem cada embalagem/caixa cotada
   const [fatores, setFatores] = useState<Record<string, number>>({});
@@ -89,11 +89,29 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
   // Sugere cobrir a oferta por 1 centavo (0.0100)
   const sugestaoLance = precoConcorrente > 0 ? precoConcorrente - 0.01 : 0;
   const lucroSugestao = sugestaoLance - nossoCusto;
-  const margemSugestao = sugestaoLance > 0 ? (lucroSugestao / sugestaoLance) * 100 : 0;
-  const isViable = lucroSugestao > 0;
+  const margemSugestao = nossoCusto > 0 ? (lucroSugestao / nossoCusto) * 100 : 0;
+  const isViable = margemSugestao >= 11;
 
-  const [cenarios, setCenarios] = useState({ a: 30, b: 20, c: 10 });
+  const [cenarios, setCenarios] = useState<{a: number, b: number, c: number}>(() => {
+    const saved = localStorage.getItem('sgl_cenarios_margem');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return { a: 30, b: 20, c: 10 };
+  });
+
+  useEffect(() => {
+    localStorage.setItem('sgl_cenarios_margem', JSON.stringify(cenarios));
+  }, [cenarios]);
   const isSigiloso = !item.valorUnitarioEstimado || item.valorUnitarioEstimado <= 0;
+
+  useEffect(() => {
+    if (onLiveValoresChange) {
+      onLiveValoresChange(item._id, precoConcorrente, nossoLanceVal);
+    }
+  }, [precoConcorrente, nossoLanceVal]);
 
   const getFator = (fornecedorId: string) => {
     if (fatores[fornecedorId]) return fatores[fornecedorId];
@@ -517,21 +535,21 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                             R$ {lanceTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </strong>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed #e2e8f0', paddingTop: '0.4rem', marginTop: '0.2rem' }}>
-                          <span style={{ color: '#64748b' }}>Lucro Unitário (Lance - Custo):</span>
-                          <strong style={{ color: '#10b981' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e2e8f0', paddingTop: '0.8rem', marginTop: '0.5rem' }}>
+                          <span style={{ color: '#475569', fontWeight: 600 }}>Lucro Unitário:</span>
+                          <strong style={{ color: '#15803d', background: '#dcfce7', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '1rem' }}>
                             R$ {lucroUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                           </strong>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: '#64748b' }}>Lucro Total:</span>
-                          <strong style={{ color: '#10b981' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+                          <span style={{ color: '#475569', fontWeight: 600 }}>Lucro Total:</span>
+                          <strong style={{ color: '#15803d', background: '#dcfce7', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '1rem' }}>
                             R$ {lucroTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </strong>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: '#64748b' }}>Margem Real (Lucro/Lance):</span>
-                          <strong>{margemReal.toFixed(2)}%</strong>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+                          <span style={{ color: '#475569', fontWeight: 600 }}>Margem Real:</span>
+                          <strong style={{ color: '#15803d', fontSize: '1.1rem' }}>{margemReal.toFixed(2)}%</strong>
                         </div>
                       </div>
                     </div>
@@ -542,21 +560,21 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
           )}
 
           {/* CALCULADORA DE CONCORRENCIA */}
-          <div style={{ marginTop: '1rem', padding: '1.5rem', background: '#fffbeb', borderRadius: '8px', border: '1px solid #fde68a' }}>
+          <div style={{ marginTop: '1rem', padding: '1rem', background: '#fffbeb', borderRadius: '8px', border: '1px solid #fde68a' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                  <h4 style={{ marginBottom: '0.5rem', color: '#92400e', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <h4 style={{ marginBottom: '0.25rem', color: '#92400e', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     ⚔️ Calculadora de Concorrência (Lances em Tempo Real)
                   </h4>
-                  <p style={{ fontSize: '0.8rem', color: '#b45309', marginBottom: '1.5rem' }}>
+                  <p style={{ fontSize: '0.75rem', color: '#b45309', marginBottom: '0.75rem' }}>
                     Simule o menor preço atual do concorrente no portal. O sistema calculará o lance necessário para vencer e analisará a viabilidade do seu lucro.
                   </p>
                 </div>
               </div>
               
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', alignItems: 'start' }}>
                 {/* 1. Preço do Concorrente */}
-                <div style={{ padding: '1rem', background: '#fff', border: '1px solid #fcd34d', borderRadius: '6px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                <div style={{ padding: '0.75rem', background: '#fff', border: '1px solid #fcd34d', borderRadius: '6px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                   <label style={{ fontSize: '0.75rem', color: '#92400e', display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>1. Menor Lance do Concorrente</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <span style={{ color: '#b45309', fontWeight: 600 }}>R$</span>
@@ -596,35 +614,43 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                 {/* 2. Sugestão e Viabilidade */}
                 {precoConcorrente > 0 && (
                   <>
-                    <div style={{ padding: '1rem', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '6px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                      <div style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.4rem', fontWeight: 600 }}>2. Lance Sugerido (Para Vencer)</div>
-                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.2rem' }}>
+                    <div style={{ padding: '0.75rem', background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)', border: '1px solid #94a3b8', borderRadius: '8px', display: 'flex', flexDirection: 'column', justifyContent: 'center', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+                      <div style={{ fontSize: '0.85rem', color: '#334155', marginBottom: '0.4rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>🎯 2. Lance Sugerido (Para Vencer)</div>
+                      <div style={{ fontSize: '2rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.2rem', textShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
                         R$ {sugestaoLance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                      <div style={{ fontSize: '0.8rem', color: '#475569', fontWeight: 500 }}>
                         (- R$ 0,01 do concorrente)
                       </div>
                     </div>
 
                     {item.melhorPreco ? (
-                      <div style={{ padding: '1rem', background: isViable ? '#dcfce7' : '#fee2e2', border: `1px solid ${isViable ? '#86efac' : '#fca5a5'}`, borderRadius: '6px' }}>
-                        <div style={{ fontSize: '0.75rem', color: isViable ? '#166534' : '#991b1b', marginBottom: '0.6rem', fontWeight: 600 }}>3. Viabilidade da Margem</div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', fontSize: '0.85rem' }}>
-                          <span>Seu Custo Unit:</span>
+                      <div style={{ padding: '0.75rem', background: isViable ? '#f0fdf4' : '#fef2f2', border: `1px solid ${isViable ? '#86efac' : '#fca5a5'}`, borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+                        <div style={{ fontSize: '0.8rem', color: isViable ? '#166534' : '#991b1b', marginBottom: '0.6rem', fontWeight: 800, textTransform: 'uppercase' }}>3. Viabilidade da Margem</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.9rem', alignItems: 'center' }}>
+                          <span style={{ fontWeight: 600 }}>Seu Custo Unitário:</span>
                           <strong style={{ color: '#475569' }}>R$ {nossoCusto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', fontSize: '0.85rem' }}>
-                          <span>Lucro Unitário:</span>
-                          <strong style={{ color: isViable ? '#15803d' : '#b91c1c' }}>R$ {lucroSugestao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '1rem', alignItems: 'center' }}>
+                          <span style={{ fontWeight: 600 }}>Lucro Unitário:</span>
+                          <strong style={{ color: isViable ? '#15803d' : '#b91c1c', background: isViable ? '#dcfce7' : '#fee2e2', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
+                            R$ {lucroSugestao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </strong>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                          <span>Margem Real:</span>
-                          <strong style={{ color: isViable ? '#15803d' : '#b91c1c' }}>{margemSugestao.toFixed(2)}%</strong>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '1rem', alignItems: 'center' }}>
+                          <span style={{ fontWeight: 600 }}>Lucro Total ({item.quantidade} un):</span>
+                          <strong style={{ color: isViable ? '#15803d' : '#b91c1c', background: isViable ? '#dcfce7' : '#fee2e2', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
+                            R$ {(lucroSugestao * (item.quantidade || 1)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1rem', alignItems: 'center', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: `1px solid ${isViable ? '#bbf7d0' : '#fecaca'}` }}>
+                          <span style={{ fontWeight: 600 }}>Markup sobre o Custo:</span>
+                          <strong style={{ color: isViable ? '#15803d' : '#b91c1c', fontSize: '1.2rem' }}>{margemSugestao.toFixed(2)}%</strong>
                         </div>
                         
                         {!isViable && (
-                          <div style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: '#b91c1c', fontWeight: 600, padding: '0.5rem', background: '#fef2f2', borderRadius: '4px' }}>
-                            ⚠️ CUIDADO: Cobrir este lance dará prejuízo!
+                          <div style={{ marginTop: '0.75rem', fontSize: '0.8rem', color: '#7f1d1d', fontWeight: 600, padding: '0.75rem', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', textAlign: 'center' }}>
+                            ⚠️ Margem (Markup %) sobre o Custo atingiu {margemSugestao.toFixed(2)}%, melhor parar negociação.
                           </div>
                         )}
                       </div>
@@ -695,20 +721,32 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
 
             {nossoLanceVal > 0 && precoConcorrente > 0 && (
               <div style={{ 
-                padding: '0.75rem', 
-                background: nossoLanceVal < precoConcorrente ? '#dcfce7' : '#fee2e2', 
-                border: `1px solid ${nossoLanceVal < precoConcorrente ? '#86efac' : '#fca5a5'}`, 
-                borderRadius: '6px', 
-                fontSize: '0.85rem', 
+                padding: '1rem', 
+                background: nossoLanceVal < precoConcorrente ? '#f0fdf4' : '#fef2f2', 
+                border: `2px solid ${nossoLanceVal < precoConcorrente ? '#4ade80' : '#f87171'}`, 
+                borderRadius: '8px', 
+                fontSize: '1rem', 
                 color: nossoLanceVal < precoConcorrente ? '#166534' : '#991b1b', 
-                fontWeight: 600 
+                fontWeight: 700,
+                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
               }}>
                 {nossoLanceVal < precoConcorrente ? (
-                  <>✅ Sua proposta está melhor que o concorrente em R$ {Math.abs(precoConcorrente - nossoLanceVal).toLocaleString('pt-BR', {minimumFractionDigits: 2})} por unidade.</>
+                  <>✅ Sua proposta está melhor que o concorrente em <strong style={{fontSize:'1.1rem', background:'#dcfce7', padding:'0.1rem 0.4rem', borderRadius:'4px'}}>R$ {Math.abs(precoConcorrente - nossoLanceVal).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</strong> por unidade.</>
                 ) : nossoLanceVal === precoConcorrente ? (
-                  <>⚠️ Empate! Sua proposta está igual ao concorrente. Precisamos baixar R$ {Math.abs(nossoLanceVal - sugestaoLance).toLocaleString('pt-BR', {minimumFractionDigits: 2})} para vencer a proposta (Sugerido: R$ {sugestaoLance.toLocaleString('pt-BR', {minimumFractionDigits: 2})}).</>
+                  !isViable ? (
+                    <>🚫 Empate! Cobrir a proposta do concorrente trará margem abaixo de 11%. Recomendamos parar por aqui.</>
+                  ) : (
+                    <>⚠️ Empate! Sua proposta está igual ao concorrente. Precisamos baixar <strong style={{fontSize:'1.1rem', background:'#fee2e2', padding:'0.1rem 0.4rem', borderRadius:'4px'}}>R$ {Math.abs(nossoLanceVal - sugestaoLance).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</strong> para vencer a proposta (Sugerido: R$ {sugestaoLance.toLocaleString('pt-BR', {minimumFractionDigits: 2})}).</>
+                  )
                 ) : (
-                  <>⚠️ Sua proposta está maior que o concorrente. Precisamos baixar R$ {Math.abs(nossoLanceVal - sugestaoLance).toLocaleString('pt-BR', {minimumFractionDigits: 2})} para vencer a proposta (Sugerido: R$ {sugestaoLance.toLocaleString('pt-BR', {minimumFractionDigits: 2})}).</>
+                  !isViable ? (
+                    <>🚫 Atingimos o limite! Sua proposta está maior que a do concorrente, mas cobrir o lance atual trará margem abaixo de 11%.</>
+                  ) : (
+                    <>⚠️ Sua proposta está maior que o concorrente. Precisamos baixar <strong style={{fontSize:'1.1rem', background:'#fee2e2', padding:'0.1rem 0.4rem', borderRadius:'4px'}}>R$ {Math.abs(nossoLanceVal - sugestaoLance).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</strong> para vencer a proposta (Sugerido: R$ {sugestaoLance.toLocaleString('pt-BR', {minimumFractionDigits: 2})}).</>
+                  )
                 )}
               </div>
             )}
@@ -731,6 +769,15 @@ export default function OportunidadeDetalhe() {
   // Form state para adicionar fornecedor na cotacao (placeholder simples)
   const [novoFornecedorId, setNovoFornecedorId] = useState('');
   const [fornecedoresDisponiveis, setFornecedoresDisponiveis] = useState<any[]>([]);
+
+  const [liveLances, setLiveLances] = useState<Record<string, { concorrente: number, nossoLance: number }>>({});
+
+  const handleLiveValoresChange = (itemId: string, concorrente: number, nossoLance: number) => {
+    setLiveLances(prev => {
+      if (prev[itemId]?.concorrente === concorrente && prev[itemId]?.nossoLance === nossoLance) return prev;
+      return { ...prev, [itemId]: { concorrente, nossoLance } };
+    });
+  };
 
   const loadData = async () => {
     try {
@@ -1005,6 +1052,7 @@ export default function OportunidadeDetalhe() {
                   novoFornecedorId={novoFornecedorId}
                   setNovoFornecedorId={setNovoFornecedorId}
                   setCotacao={setCotacao}
+                  onLiveValoresChange={handleLiveValoresChange}
                 />
               ))
             )}
@@ -1052,13 +1100,13 @@ export default function OportunidadeDetalhe() {
                 <p style={{ margin: 0, fontSize: '0.85rem', color: '#d97706' }}>Cálculo automático: Menor Lance Concorrente × Quantidade</p>
               </div>
               <div style={{ fontSize: '2rem', fontWeight: 700, color: '#fbbf24' }}>
-                R$ {Number(cotacao.itens.reduce((acc: number, it: any) => acc + (Number(it.produtoId?.valorConcorrente || it.valorConcorrente || 0) * Number(it.quantidade || 1)), 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                R$ {Number(cotacao.itens.reduce((acc: number, it: any) => acc + ((liveLances[it._id]?.concorrente ?? (it.produtoId?.valorConcorrente || it.valorConcorrente || 0)) * Number(it.quantidade || 1)), 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
             </div>
 
             <div style={{ borderTop: '1px solid #78350f', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-              {cotacao.itens.filter((it: any) => (it.produtoId?.valorConcorrente || it.valorConcorrente) > 0).map((it: any) => {
-                const valConc = it.produtoId?.valorConcorrente || it.valorConcorrente || 0;
+              {cotacao.itens.filter((it: any) => (liveLances[it._id]?.concorrente ?? (it.produtoId?.valorConcorrente || it.valorConcorrente)) > 0).map((it: any) => {
+                const valConc = liveLances[it._id]?.concorrente ?? (it.produtoId?.valorConcorrente || it.valorConcorrente || 0);
                 const subtotal = Number(valConc) * Number(it.quantidade || 1);
                 const custo = it.melhorPreco ? Number(it.melhorPreco.precoUnitario) * Number(it.quantidade || 1) : 0;
                 const lucro = subtotal - custo;
@@ -1069,8 +1117,19 @@ export default function OportunidadeDetalhe() {
                       Lance: R$ {Number(valConc).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })} × {it.quantidade} = R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                     {lucro > 0 && (
-                      <span style={{ color: '#34d399', fontWeight: 700, marginLeft: '1rem' }}>
-                        (Lucro Provisório: R$ {lucro.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                      <span style={{ 
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        background: 'rgba(52, 211, 153, 0.15)',
+                        color: '#34d399',
+                        padding: '0.2rem 0.6rem',
+                        borderRadius: '999px',
+                        fontWeight: 700,
+                        marginLeft: '1rem',
+                        border: '1px solid rgba(52, 211, 153, 0.4)',
+                        boxShadow: '0 0 10px rgba(52, 211, 153, 0.1)'
+                      }}>
+                        💰 Lucro Provisório: R$ {lucro.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     )}
                   </div>
@@ -1087,13 +1146,13 @@ export default function OportunidadeDetalhe() {
                 <p style={{ margin: 0, fontSize: '0.85rem', color: '#818cf8' }}>Cálculo automático: Nosso Lance Oficial × Quantidade</p>
               </div>
               <div style={{ fontSize: '2rem', fontWeight: 700, color: '#818cf8' }}>
-                R$ {Number(cotacao.itens.reduce((acc: number, it: any) => acc + (Number(it.produtoId?.valorNossoLance || it.valorNossoLance || 0) * Number(it.quantidade || 1)), 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                R$ {Number(cotacao.itens.reduce((acc: number, it: any) => acc + ((liveLances[it._id]?.nossoLance ?? (it.produtoId?.valorNossoLance || it.valorNossoLance || 0)) * Number(it.quantidade || 1)), 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
             </div>
 
             <div style={{ borderTop: '1px solid #3730a3', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-              {cotacao.itens.filter((it: any) => (it.produtoId?.valorNossoLance || it.valorNossoLance) > 0).map((it: any) => {
-                const valLance = it.produtoId?.valorNossoLance || it.valorNossoLance || 0;
+              {cotacao.itens.filter((it: any) => (liveLances[it._id]?.nossoLance ?? (it.produtoId?.valorNossoLance || it.valorNossoLance)) > 0).map((it: any) => {
+                const valLance = liveLances[it._id]?.nossoLance ?? (it.produtoId?.valorNossoLance || it.valorNossoLance || 0);
                 const subtotal = Number(valLance) * Number(it.quantidade || 1);
                 const custo = it.melhorPreco ? Number(it.melhorPreco.precoUnitario) * Number(it.quantidade || 1) : 0;
                 const lucro = subtotal - custo;
@@ -1104,8 +1163,19 @@ export default function OportunidadeDetalhe() {
                       Nosso Lance: R$ {Number(valLance).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} × {it.quantidade} = R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                     {lucro > 0 && (
-                      <span style={{ color: '#34d399', fontWeight: 700, marginLeft: '1rem' }}>
-                        (Lucro Real: R$ {lucro.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                      <span style={{ 
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        background: 'rgba(52, 211, 153, 0.2)',
+                        color: '#10b981',
+                        padding: '0.2rem 0.6rem',
+                        borderRadius: '999px',
+                        fontWeight: 800,
+                        marginLeft: '1rem',
+                        border: '1px solid rgba(52, 211, 153, 0.5)',
+                        boxShadow: '0 0 15px rgba(52, 211, 153, 0.2)'
+                      }}>
+                        🏆 Lucro Real: R$ {lucro.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     )}
                   </div>
@@ -1113,6 +1183,67 @@ export default function OportunidadeDetalhe() {
               })}
             </div>
           </div>
+          
+          {/* COMPARATIVO GLOBAL (FATURAMENTO CONCORRENTE VS NOSSO LANCE) */}
+          {(() => {
+            const faturamentoTotalConcorrente = Number(cotacao.itens.reduce((acc: number, it: any) => acc + ((liveLances[it._id]?.concorrente ?? (it.produtoId?.valorConcorrente || it.valorConcorrente || 0)) * Number(it.quantidade || 1)), 0));
+            const faturamentoTotalNosso = Number(cotacao.itens.reduce((acc: number, it: any) => acc + ((liveLances[it._id]?.nossoLance ?? (it.produtoId?.valorNossoLance || it.valorNossoLance || 0)) * Number(it.quantidade || 1)), 0));
+            const custoTotalGlobal = Number(cotacao.itens.reduce((acc: number, it: any) => acc + (it.melhorPreco ? Number(it.melhorPreco.precoUnitario) * Number(it.quantidade || 1) : 0), 0));
+
+            if (faturamentoTotalConcorrente > 0 && faturamentoTotalNosso > 0) {
+              const lanceNecessarioGlobal = faturamentoTotalConcorrente - 0.01;
+              const lucroGlobalNecessario = lanceNecessarioGlobal - custoTotalGlobal;
+              const margemGlobalNecessaria = custoTotalGlobal > 0 ? (lucroGlobalNecessario / custoTotalGlobal) * 100 : 0;
+
+              const isInviavel = margemGlobalNecessaria < 11;
+              const isGanhando = faturamentoTotalNosso < faturamentoTotalConcorrente;
+              const isEmpate = faturamentoTotalNosso === faturamentoTotalConcorrente;
+
+              // Determina a cor do fundo baseada na situação. Se for inviável, fica vermelho, mesmo que estejamos perdendo.
+              const bgColor = isGanhando ? '#f0fdf4' : '#fef2f2';
+              const borderColor = isGanhando ? '#4ade80' : '#f87171';
+              const textColor = isGanhando ? '#166534' : '#991b1b';
+
+              return (
+                <div style={{ 
+                  marginTop: '1.5rem',
+                  padding: '1.25rem', 
+                  background: bgColor, 
+                  border: `2px solid ${borderColor}`, 
+                  borderRadius: '8px', 
+                  fontSize: '1.1rem', 
+                  color: textColor, 
+                  fontWeight: 700,
+                  boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  textAlign: 'center'
+                }}>
+                  {isGanhando ? (
+                    <>✅ No total, a sua proposta está melhor que o concorrente em <strong style={{fontSize:'1.2rem', background:'#dcfce7', padding:'0.2rem 0.5rem', borderRadius:'4px'}}>R$ {Math.abs(faturamentoTotalConcorrente - faturamentoTotalNosso).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</strong> reais.</>
+                  ) : isEmpate ? (
+                    <>⚠️ Empate! No total, sua proposta está igual à do concorrente.</>
+                  ) : isInviavel ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', alignItems: 'center' }}>
+                      <strong style={{ fontSize: '1.2rem' }}>⚠️ Negociação inviável! Chegamos no percentual de <span style={{ background: '#fca5a5', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>{margemGlobalNecessaria.toFixed(2)}%</span> do seu Margem (Markup %) sobre o Custo.</strong>
+                      <span style={{ fontSize: '1rem', marginTop: '0.25rem' }}>Abaixo de 11% a negociação não é mais interessante. Devemos parar e prospectar outra oportunidade! É assim mesmo, não desista! 💪</span>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <span>⚠️ No total, sua proposta está maior. Precisamos baixar</span>
+                      <strong style={{ fontSize: '1.2rem', background: '#fca5a5', color: '#7f1d1d', padding: '0.2rem 0.5rem', borderRadius: '6px', border: '1px solid #ef4444' }}>
+                        R$ {Math.abs(faturamentoTotalNosso - faturamentoTotalConcorrente).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+                      </strong>
+                      <span>para vencer globalmente.</span>
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            return null;
+          })()}
         </div>
       )}
 
