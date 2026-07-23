@@ -1,8 +1,9 @@
 import { Model } from 'mongoose';
-import { Fornecedor, FornecedorDocument } from './fornecedor.schema';
+import { Fornecedor, FornecedorDocument, ProdutoBase, ProdutoBaseDocument } from './fornecedor.schema';
 export declare class FornecedorService {
     private model;
-    constructor(model: Model<FornecedorDocument>);
+    private intelModel;
+    constructor(model: Model<FornecedorDocument>, intelModel: Model<ProdutoBaseDocument>);
     private validarCNPJ;
     create(data: any): Promise<Fornecedor>;
     findAll(query: any): Promise<{
@@ -16,6 +17,13 @@ export declare class FornecedorService {
     registrarHistoricoPreco(fornecedorId: string, itemData: {
         descricaoItem: string;
         precoUnitario: number;
+        precoEmbalagem?: number;
+        fatorEmbalagem?: number;
         oportunidadeId: string;
     }): Promise<void>;
+    getBaseProdutos(query?: any): Promise<any>;
+    updateProdutoBase(descricaoItem: string, data: {
+        nossoLanceOficial?: number;
+        valorCampeaoLicitacao?: number;
+    }): Promise<ProdutoBase>;
 }

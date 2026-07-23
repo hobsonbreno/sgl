@@ -58,6 +58,9 @@ export class PncpContratacaoRawDto {
 
   @ApiProperty({ required: false })
   linkSistemaOrigem?: string;
+
+  @ApiProperty({ required: false })
+  usuarioNome?: string;
 }
 
 export class OportunidadeDto {
@@ -114,6 +117,9 @@ export class OportunidadeDto {
   
   @ApiProperty()
   kanbanStatus: string;
+
+  @ApiProperty({ required: false })
+  usuarioNome?: string;
 }
 
 export function mapPncpParaOportunidade(raw: PncpContratacaoRawDto): OportunidadeDto {
@@ -136,6 +142,7 @@ export function mapPncpParaOportunidade(raw: PncpContratacaoRawDto): Oportunidad
     dataEncerramentoProposta: raw.dataEncerramentoProposta ? new Date(raw.dataEncerramentoProposta) : undefined,
     linkSistemaOrigem: raw.linkSistemaOrigem || '',
     situacaoCompraNome: raw.situacaoCompraNome || '',
-    kanbanStatus: 'A_FAZER'
+    kanbanStatus: 'A_FAZER',
+    usuarioNome: raw.usuarioNome || ''
   };
 }

@@ -41,11 +41,33 @@ export class Fornecedor {
   @Prop([String])
   categorias: string[];
 
+  @Prop()
+  site: string;
+
+  @Prop()
+  portifolio: string;
+
   @Prop({ required: true, enum: ['manual', 'bot'] })
   origem: string;
 
-  @Prop({ type: [{ descricaoItem: String, precoUnitario: Number, data: Date, oportunidadeId: String }] })
-  fornecedor_historico_precos: { descricaoItem: string; precoUnitario: number; data: Date; oportunidadeId: string }[];
+  @Prop({ type: [{ descricaoItem: String, precoUnitario: Number, precoEmbalagem: Number, fatorEmbalagem: Number, nomeEmbalagem: String, observacao: String, desclassificado: Boolean, data: Date, oportunidadeId: String }] })
+  fornecedor_historico_precos: { descricaoItem: string; precoUnitario: number; precoEmbalagem?: number; fatorEmbalagem?: number; nomeEmbalagem?: string; observacao?: string; desclassificado?: boolean; data: Date; oportunidadeId: string }[];
 }
 
 export const FornecedorSchema = SchemaFactory.createForClass(Fornecedor);
+
+export type ProdutoBaseDocument = HydratedDocument<ProdutoBase>;
+
+@Schema({ timestamps: true })
+export class ProdutoBase {
+  @Prop({ required: true, unique: true })
+  descricaoItem: string;
+
+  @Prop()
+  nossoLanceOficial: number;
+
+  @Prop()
+  valorCampeaoLicitacao: number;
+}
+
+export const ProdutoBaseSchema = SchemaFactory.createForClass(ProdutoBase);

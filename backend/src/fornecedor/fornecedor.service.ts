@@ -1,11 +1,14 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Fornecedor, FornecedorDocument } from './fornecedor.schema';
+import { Fornecedor, FornecedorDocument, ProdutoBase, ProdutoBaseDocument } from './fornecedor.schema';
 
 @Injectable()
 export class FornecedorService {
-  constructor(@InjectModel(Fornecedor.name) private model: Model<FornecedorDocument>) {}
+  constructor(
+    @InjectModel(Fornecedor.name) private model: Model<FornecedorDocument>,
+    @InjectModel(ProdutoBase.name) private intelModel: Model<ProdutoBaseDocument>
+  ) {}
 
   private validarCNPJ(cnpj: string): boolean {
     const limpo = cnpj.replace(/[^\d]+/g, '');
@@ -63,6 +66,8 @@ export class FornecedorService {
     if (data.bairro !== undefined) doc.bairro = data.bairro;
     if (data.cidade !== undefined) doc.cidade = data.cidade;
     if (data.uf !== undefined) doc.uf = data.uf;
+    if (data.site !== undefined) doc.site = data.site;
+    if (data.portifolio !== undefined) doc.portifolio = data.portifolio;
 
     // Se origem for bot, só pode atualizar categorias, contato e campos não-fiscais
     if (doc.origem === 'bot') {
@@ -77,7 +82,7 @@ export class FornecedorService {
     return doc.save();
   }
 
-  async registrarHistoricoPreco(fornecedorId: string, itemData: { descricaoItem: string, precoUnitario: number, oportunidadeId: string }): Promise<void> {
+  async registrarHistoricoPreco(fornecedorId: string, itemData: { descricaoItem: string, precoUnitario: number, precoEmbalagem?: number, fatorEmbalagem?: number, nomeEmbalagem?: string, observacao?: string, desclassificado?: boolean, oportunidadeId: string }): Promise<void> {
     await this.model.findByIdAndUpdate(fornecedorId, {
       $push: {
         fornecedor_historico_precos: {
@@ -86,5 +91,138 @@ export class FornecedorService {
         }
       }
     });
+  }
+
+  async removerHistoricoPreco(fornecedorId: string, descricaoItem: string, oportunidadeId: string): Promise<void> {
+    await this.model.findByIdAndUpdate(fornecedorId, {
+      $pull: {
+        fornecedor_historico_precos: {
+          descricaoItem: descricaoItem,
+          oportunidadeId: oportunidadeId
+        }
+      }
+    });
+  }
+
+  async getBaseProdutos(query: any = {}): Promise<any> {
+    const fornecedores = await this.model.find({ 'fornecedor_historico_precos.0': { $exists: true } }).exec();
+    const produtosMap = new Map<string, any>();
+
+    const busca = query.busca ? query.busca.toLowerCase() : '';
+
+    for (const f of fornecedores) {
+      for (const hist of f.fornecedor_historico_precos) {
+        const pNome = hist.descricaoItem;
+        
+        if (busca && !pNome.toLowerCase().includes(busca)) {
+          continue;
+        }
+
+        if (!produtosMap.has(pNome)) {
+          produtosMap.set(pNome, {
+            descricaoItem: pNome,
+            cotacoes: []
+          });
+        }
+        
+        const prod = produtosMap.get(pNome);
+        
+        const existingCotacaoIdx = prod.cotacoes.findIndex((c: any) => c.fornecedorId.toString() === f._id.toString());
+        
+        if (existingCotacaoIdx >= 0) {
+          if (new Date(hist.data) > new Date(prod.cotacoes[existingCotacaoIdx].data)) {
+            prod.cotacoes[existingCotacaoIdx] = {
+              fornecedorId: f._id,
+              razaoSocial: f.razaoSocial,
+              precoUnitario: hist.precoUnitario,
+              precoEmbalagem: hist.precoEmbalagem,
+              fatorEmbalagem: hist.fatorEmbalagem,
+              nomeEmbalagem: hist.nomeEmbalagem,
+              observacao: hist.observacao,
+              desclassificado: hist.desclassificado,
+              site: f.site,
+              portifolio: f.portifolio,
+              data: hist.data,
+              oportunidadeId: hist.oportunidadeId
+            };
+          }
+        } else {
+          prod.cotacoes.push({
+            fornecedorId: f._id,
+            razaoSocial: f.razaoSocial,
+            precoUnitario: hist.precoUnitario,
+            precoEmbalagem: hist.precoEmbalagem,
+            fatorEmbalagem: hist.fatorEmbalagem,
+            nomeEmbalagem: hist.nomeEmbalagem,
+            observacao: hist.observacao,
+            desclassificado: hist.desclassificado,
+            site: f.site,
+            portifolio: f.portifolio,
+            data: hist.data,
+            oportunidadeId: hist.oportunidadeId
+          });
+        }
+      }
+    }
+
+    let baseProdutos = Array.from(produtosMap.values()).map(prod => {
+      let campea = null;
+      for (const c of prod.cotacoes) {
+        if (c.desclassificado) continue;
+        if (!campea || c.precoUnitario < campea.precoUnitario) {
+          campea = c;
+        }
+      }
+      return {
+        ...prod,
+        campea
+      };
+    });
+
+    // Pagination
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 10;
+    const total = baseProdutos.length;
+    const totalPages = Math.ceil(total / limit) || 1;
+    const skip = (page - 1) * limit;
+
+    baseProdutos = baseProdutos.slice(skip, skip + limit);
+
+    // Fetch inteligência (nossoLance, valorCampeao) for this page
+    const descricoes = baseProdutos.map(p => p.descricaoItem);
+    const intelDocs = await this.intelModel.find({ descricaoItem: { $in: descricoes } }).exec();
+    
+    const intelMap = new Map(intelDocs.map(doc => [doc.descricaoItem, doc]));
+
+    baseProdutos = baseProdutos.map(prod => {
+      const intel = intelMap.get(prod.descricaoItem);
+      return {
+        ...prod,
+        nossoLanceOficial: intel?.nossoLanceOficial || null,
+        valorCampeaoLicitacao: intel?.valorCampeaoLicitacao || null
+      };
+    });
+
+    return {
+      data: baseProdutos,
+      total,
+      totalPages,
+      currentPage: page
+    };
+  }
+
+  async updateProdutoBase(descricaoItem: string, data: { nossoLanceOficial?: number, valorCampeaoLicitacao?: number }): Promise<ProdutoBase> {
+    const existe = await this.intelModel.findOne({ descricaoItem }).exec();
+    if (existe) {
+      if (data.nossoLanceOficial !== undefined) existe.nossoLanceOficial = data.nossoLanceOficial;
+      if (data.valorCampeaoLicitacao !== undefined) existe.valorCampeaoLicitacao = data.valorCampeaoLicitacao;
+      return existe.save();
+    } else {
+      return this.intelModel.create({
+        descricaoItem,
+        nossoLanceOficial: data.nossoLanceOficial,
+        valorCampeaoLicitacao: data.valorCampeaoLicitacao
+      });
+    }
   }
 }

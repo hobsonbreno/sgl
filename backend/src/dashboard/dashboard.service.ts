@@ -48,7 +48,19 @@ export class DashboardService {
     .limit(10)
     .exec();
 
-    const ultimaExecucaoBot = await this.botExecucaoModel.findOne().sort({ dataExecucao: -1 }).exec();
+    // Get all executions from today to sum the results
+    const hojeStart = new Date();
+    hojeStart.setHours(0, 0, 0, 0);
+    const execucoesHoje = await this.botExecucaoModel.find({ dataExecucao: { $gte: hojeStart } }).sort({ dataExecucao: -1 }).exec();
+    
+    let ultimaExecucaoBot = null;
+    if (execucoesHoje.length > 0) {
+      ultimaExecucaoBot = {
+        dataExecucao: execucoesHoje[0].dataExecucao, // data da mais recente
+        totalNovos: execucoesHoje.reduce((acc, curr) => acc + (curr.totalNovos || 0), 0),
+        erros: execucoesHoje.flatMap(curr => curr.erros || [])
+      };
+    }
 
     return {
       novasHoje,

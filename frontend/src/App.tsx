@@ -4,13 +4,13 @@ import Kanban from './pages/Kanban';
 import PerfisBusca from './pages/PerfisBusca';
 import Fornecedores from './pages/Fornecedores';
 import Orgaos from './pages/Orgaos';
-import Produtos from './pages/Produtos';
+import BaseProdutos from './pages/BaseProdutos';
 import Relatorios from './pages/Relatorios';
 import MarketIntelligence from './pages/MarketIntelligence';
 import Financeiro from './pages/Financeiro';
 import Configuracoes from './pages/Configuracoes';
 import OportunidadeDetalhe from './pages/OportunidadeDetalhe';
-import { LayoutDashboard, KanbanSquare, Settings, Users, Building, Package, PieChart, BrainCircuit, Wrench, Wallet } from 'lucide-react';
+import { LayoutDashboard, KanbanSquare, Settings, Users, Building, PieChart, BrainCircuit, Wrench, Wallet, Database } from 'lucide-react';
 import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
 
@@ -40,7 +40,7 @@ function App() {
               <NavItem to="/kanban" icon={KanbanSquare}>Kanban</NavItem>
               <NavItem to="/orgaos" icon={Building}>Órgãos</NavItem>
               <NavItem to="/fornecedores" icon={Users}>Fornecedores</NavItem>
-              <NavItem to="/produtos" icon={Package}>Produtos</NavItem>
+              <NavItem to="/base-produtos" icon={Database}>Base de Produtos</NavItem>
               <NavItem to="/relatorios" icon={PieChart}>Relatório Final</NavItem>
               <NavItem to="/market-intelligence" icon={BrainCircuit}>Inteligência de Mercado</NavItem>
               <NavItem to="/financeiro" icon={Wallet}>Financeiro (Caixa)</NavItem>
@@ -55,8 +55,9 @@ function App() {
               <Route path="/perfis-busca" element={<PerfisBusca />} />
               <Route path="/orgaos" element={<Orgaos />} />
               <Route path="/fornecedores" element={<Fornecedores />} />
-              <Route path="/produtos" element={<Produtos />} />
+              <Route path="/base-produtos" element={<BaseProdutos />} />
               <Route path="/relatorios" element={<Relatorios />} />
+
               <Route path="/market-intelligence" element={<MarketIntelligence />} />
               <Route path="/financeiro" element={<Financeiro />} />
               <Route path="/configuracoes" element={<Configuracoes />} />

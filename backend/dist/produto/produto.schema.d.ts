@@ -9,6 +9,7 @@ export declare class Produto {
     valorTotalEstimado: number;
     valorEstimado: number;
     valorNossoLance: number;
+    valorConcorrente: number;
     oportunidadeId: string;
 }
 export declare const ProdutoSchema: import("mongoose").Schema<Produto, import("mongoose").Model<Produto, any, any, any, any, any, Produto>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, Produto, import("mongoose").Document<unknown, {}, Produto, {
@@ -84,6 +85,15 @@ export declare const ProdutoSchema: import("mongoose").Schema<Produto, import("m
         id: string;
     }>> | undefined;
     valorNossoLance?: import("mongoose").SchemaDefinitionProperty<number, Produto, import("mongoose").Document<unknown, {}, Produto, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<Produto & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>> | undefined;
+    valorConcorrente?: import("mongoose").SchemaDefinitionProperty<number, Produto, import("mongoose").Document<unknown, {}, Produto, {
         id: string;
     }, import("mongoose").DefaultSchemaOptions> & Omit<Produto & {
         _id: import("mongoose").Types.ObjectId;

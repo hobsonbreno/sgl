@@ -19,14 +19,17 @@ const mongoose_2 = require("mongoose");
 const financeiro_schema_1 = require("./financeiro.schema");
 const oportunidade_schema_1 = require("../oportunidade/oportunidade.schema");
 const produto_schema_1 = require("../produto/produto.schema");
+const cotacao_schema_1 = require("../cotacao/cotacao.schema");
 let FinanceiroService = class FinanceiroService {
     transacaoModel;
     oportunidadeModel;
     produtoModel;
-    constructor(transacaoModel, oportunidadeModel, produtoModel) {
+    cotacaoModel;
+    constructor(transacaoModel, oportunidadeModel, produtoModel, cotacaoModel) {
         this.transacaoModel = transacaoModel;
         this.oportunidadeModel = oportunidadeModel;
         this.produtoModel = produtoModel;
+        this.cotacaoModel = cotacaoModel;
     }
     async create(createDto) {
         const created = new this.transacaoModel(createDto);
@@ -128,18 +131,70 @@ let FinanceiroService = class FinanceiroService {
         if (valorTotalLancado <= 0) {
             throw new Error('Não há lances válidos registrados para esta oportunidade.');
         }
+        const cotacao = await this.cotacaoModel.findOne({ oportunidadeId: op._id }).exec();
+        let custoTotal = 0;
+        if (cotacao && cotacao.itens) {
+            cotacao.itens.forEach(item => {
+                if (item.melhorPreco && item.melhorPreco.precoUnitario) {
+                    custoTotal += (Number(item.melhorPreco.precoUnitario) * Number(item.quantidade || 1));
+                }
+            });
+        }
         await this.create({
             oportunidadeId: op._id,
             tipo: 'RECEITA',
-            descricao: `Recebimento de Negócio: ${op.numeroControlePNCP}`,
+            descricao: `Faturamento Negócio: ${op.numeroControlePNCP}`,
             valor: valorTotalLancado,
             dataVencimento: new Date(),
-            status: 'PAGO',
-            dataPagamento: new Date()
+            status: 'PENDENTE'
         });
+        await this.transacaoModel.updateMany({ oportunidadeId: op._id, tipo: 'RECEITA' }, { status: 'PAGO', dataPagamento: new Date(), descricao: `Recebimento de Negócio: ${op.numeroControlePNCP}` });
+        if (custoTotal > 0) {
+            await this.create({
+                oportunidadeId: op._id,
+                tipo: 'DESPESA',
+                descricao: `Custo Fornecedores Negócio: ${op.numeroControlePNCP}`,
+                valor: custoTotal,
+                dataVencimento: new Date(),
+                status: 'PENDENTE',
+            });
+        }
         op.kanbanStatus = 'ARQUIVADOS';
         await op.save();
-        return { message: 'Recebimento registrado com sucesso' };
+        return op;
+    }
+    async findArquivados() {
+        const oportunidades = await this.oportunidadeModel.find({
+            kanbanStatus: { $in: ['ARQUIVADO', 'ARQUIVADOS'] }
+        }).exec();
+        const ids = oportunidades.map(o => o._id.toString());
+        const produtos = await this.produtoModel.find({ oportunidadeId: { $in: ids } }).exec();
+        return oportunidades.map(op => {
+            const prods = produtos.filter(p => p.oportunidadeId === op._id.toString());
+            let valorTotalLancado = 0;
+            prods.forEach(p => {
+                if (p.valorNossoLance !== undefined && p.valorNossoLance > 0) {
+                    valorTotalLancado += (p.valorNossoLance * (p.quantidade || 1));
+                }
+            });
+            return {
+                _id: op._id,
+                orgaoNome: op.orgaoNome,
+                numeroControlePNCP: op.numeroControlePNCP,
+                objetoCompra: op.objetoCompra,
+                valorTotalLancado
+            };
+        });
+    }
+    async estornarNegocio(oportunidadeId) {
+        const op = await this.oportunidadeModel.findById(oportunidadeId).exec();
+        if (!op)
+            throw new Error('Oportunidade não encontrada');
+        await this.transacaoModel.deleteMany({ oportunidadeId: op._id, tipo: 'RECEITA' }).exec();
+        await this.transacaoModel.deleteMany({ oportunidadeId: op._id, tipo: 'DESPESA' }).exec();
+        op.kanbanStatus = 'NEGOCIO_FECHADO';
+        await op.save();
+        return op;
     }
     async update(id, updateDto) {
         if (updateDto.status === 'PAGO' && !updateDto.dataPagamento) {
@@ -157,7 +212,9 @@ exports.FinanceiroService = FinanceiroService = __decorate([
     __param(0, (0, mongoose_1.InjectModel)(financeiro_schema_1.TransacaoFinanceira.name)),
     __param(1, (0, mongoose_1.InjectModel)(oportunidade_schema_1.Oportunidade.name)),
     __param(2, (0, mongoose_1.InjectModel)(produto_schema_1.Produto.name)),
+    __param(3, (0, mongoose_1.InjectModel)(cotacao_schema_1.Cotacao.name)),
     __metadata("design:paramtypes", [mongoose_2.Model,
+        mongoose_2.Model,
         mongoose_2.Model,
         mongoose_2.Model])
 ], FinanceiroService);

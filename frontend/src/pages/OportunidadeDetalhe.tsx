@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Check, AlertCircle, Trash2, ChevronDown, ChevronUp, X, ExternalLink, Copy } from 'lucide-react';
+import { ArrowLeft, Check, AlertCircle, Trash2, ChevronDown, ChevronUp, X, ExternalLink, Copy, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 function CopyRow({ label, value }: { label: string, value: string }) {
   const [copied, setCopied] = useState(false);
@@ -74,6 +74,8 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
   const [fretes, setFretes] = useState<Record<string, boolean>>({});
   const [parcelamentos, setParcelamentos] = useState<Record<string, boolean>>({});
   const [prazos, setPrazos] = useState<Record<string, number>>({});
+  const [observacoes, setObservacoes] = useState<Record<string, string>>({});
+  const [desclassificados, setDesclassificados] = useState<Record<string, boolean>>({});
 
   // Estados para Calculadora de Concorrência
   const initialConcorrente = item.produtoId?.valorConcorrente || item.valorConcorrente || '';
@@ -143,6 +145,18 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
     return pf?.prazoPagamento || 0;
   };
 
+  const getObservacao = (fornecedorId: string) => {
+    if (observacoes[fornecedorId] !== undefined) return observacoes[fornecedorId];
+    const pf = item.precosFornecedores?.find((p:any) => p.fornecedorId?._id === fornecedorId || p.fornecedorId === fornecedorId);
+    return pf?.observacao || '';
+  };
+
+  const getDesclassificado = (fornecedorId: string) => {
+    if (desclassificados[fornecedorId] !== undefined) return desclassificados[fornecedorId];
+    const pf = item.precosFornecedores?.find((p:any) => p.fornecedorId?._id === fornecedorId || p.fornecedorId === fornecedorId);
+    return pf?.desclassificado || false;
+  };
+
   const handleFatorChange = (fornecedorId: string, value: string) => {
     const n = Math.max(1, Number(value) || 1);
     setFatores(prev => ({ ...prev, [fornecedorId]: n }));
@@ -152,11 +166,17 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
     setNomesEmbalagem(prev => ({ ...prev, [fornecedorId]: value }));
   };
 
-  const handleCondicaoChange = (fornecedorId: string, field: 'frete' | 'parcelamento' | 'prazo', value: any) => {
-    if (field === 'frete') setFretes(prev => ({ ...prev, [fornecedorId]: value }));
-    if (field === 'parcelamento') setParcelamentos(prev => ({ ...prev, [fornecedorId]: value }));
-    if (field === 'prazo') setPrazos(prev => ({ ...prev, [fornecedorId]: value }));
-    setTimeout(() => handleSaveMetadados(fornecedorId, item._id), 50);
+  const handleObservacaoChange = (fornecedorId: string, value: string) => {
+    setObservacoes(prev => ({ ...prev, [fornecedorId]: value }));
+  };
+
+  const handleCondicaoChange = (fornecedorId: string, field: 'frete' | 'parcelamento' | 'prazo' | 'desclassificado', value: any) => {
+    let override: any = {};
+    if (field === 'frete') { setFretes(prev => ({ ...prev, [fornecedorId]: value })); override = { frete: value }; }
+    if (field === 'parcelamento') { setParcelamentos(prev => ({ ...prev, [fornecedorId]: value })); override = { parcelamento: value }; }
+    if (field === 'prazo') { setPrazos(prev => ({ ...prev, [fornecedorId]: value })); override = { prazo: value }; }
+    if (field === 'desclassificado') { setDesclassificados(prev => ({ ...prev, [fornecedorId]: value })); override = { desclassificado: value }; }
+    handleSaveMetadados(fornecedorId, item._id, override);
   };
 
   // precoUnitario real = precoEmbalagem / fator
@@ -166,17 +186,23 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
     const embalagem = parseFloat(precoEmbalagem.replace(/\./g, '').replace(',', '.'));
     if (isNaN(embalagem)) return;
     const unitario = parseFloat((embalagem / fator).toFixed(6));
-    handlePrecoBlur(itemId, fornecedorId, String(unitario), fator, embalagem, nomeEmba, getFrete(fornecedorId), getParcelamento(fornecedorId), getPrazo(fornecedorId));
+    handlePrecoBlur(itemId, fornecedorId, String(unitario), fator, embalagem, nomeEmba, getFrete(fornecedorId), getParcelamento(fornecedorId), getPrazo(fornecedorId), getObservacao(fornecedorId), getDesclassificado(fornecedorId));
   };
 
-  const handleSaveMetadados = (fornecedorId: string, itemId: string) => {
+  const handleSaveMetadados = (fornecedorId: string, itemId: string, override: any = {}) => {
     const pf = item.precosFornecedores?.find((p:any) => p.fornecedorId?._id === fornecedorId || p.fornecedorId === fornecedorId);
     const precoEmba = pf?.precoEmbalagem ?? pf?.precoUnitario;
     if (precoEmba !== undefined) {
       const fator = getFator(fornecedorId);
       const nomeEmba = getNomeEmbalagem(fornecedorId);
       const unitario = parseFloat((precoEmba / fator).toFixed(6));
-      handlePrecoBlur(itemId, fornecedorId, String(unitario), fator, precoEmba, nomeEmba, getFrete(fornecedorId), getParcelamento(fornecedorId), getPrazo(fornecedorId));
+      
+      const sendFrete = override.frete !== undefined ? override.frete : getFrete(fornecedorId);
+      const sendParcelamento = override.parcelamento !== undefined ? override.parcelamento : getParcelamento(fornecedorId);
+      const sendPrazo = override.prazo !== undefined ? override.prazo : getPrazo(fornecedorId);
+      const sendDesclassificado = override.desclassificado !== undefined ? override.desclassificado : getDesclassificado(fornecedorId);
+
+      handlePrecoBlur(itemId, fornecedorId, String(unitario), fator, precoEmba, nomeEmba, sendFrete, sendParcelamento, sendPrazo, getObservacao(fornecedorId), sendDesclassificado);
     }
   };
 
@@ -311,10 +337,13 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                 const precoEmbalagemSalvo = pf ? parseFloat((pf.precoUnitario * fator).toFixed(6)) : undefined;
                 const precoUnitCalc = pf ? pf.precoUnitario : null;
 
+                const isDesclassificado = getDesclassificado(f.id);
+
                 return (
                   <div key={f.id} style={{ 
-                    padding: '1rem', border: '1px solid', borderColor: isMelhor ? '#10b981' : '#e2e8f0', 
-                    borderRadius: '6px', background: isMelhor ? '#f0fdf4' : '#f8fafc', minWidth: '200px', maxWidth: '260px', flex: '1 1 200px'
+                    padding: '1rem', border: '1px solid', borderColor: isMelhor ? '#10b981' : isDesclassificado ? '#f87171' : '#e2e8f0', 
+                    borderRadius: '6px', background: isMelhor ? '#f0fdf4' : isDesclassificado ? '#fef2f2' : '#f8fafc', minWidth: '200px', maxWidth: '260px', flex: '1 1 200px',
+                    opacity: isDesclassificado ? 0.75 : 1
                   }}>
                     {/* Header */}
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.75rem', gap: '0.25rem' }}>
@@ -399,6 +428,22 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                       />
                     </div>
 
+                    {/* Marca / Descrição / Observação */}
+                    <div style={{ marginBottom: '0.5rem' }}>
+                      <label style={{ fontSize: '0.7rem', color: '#94a3b8', display: 'block', marginBottom: '0.2rem', fontWeight: 600 }}>
+                        Marca / Descrição do Produto
+                      </label>
+                      <input 
+                        type="text"
+                        className="form-control"
+                        placeholder="Ex: Fralda marca: Hipopó RN"
+                        value={getObservacao(f.id)}
+                        onChange={(e) => handleObservacaoChange(f.id, e.target.value)}
+                        onBlur={() => handleSaveMetadados(f.id, item._id)}
+                        style={{ width: '100%', fontSize: '0.8rem' }}
+                      />
+                    </div>
+
                     {/* Condições Comerciais (Desempate) */}
                     <div style={{ marginBottom: '0.75rem', padding: '0.5rem', background: '#e2e8f0', borderRadius: '4px', border: '1px dashed #cbd5e1' }}>
                       <p style={{ fontSize: '0.65rem', fontWeight: 600, color: '#475569', marginBottom: '0.4rem', textTransform: 'uppercase' }}>Vantagens Comerciais (Desempate)</p>
@@ -432,6 +477,15 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                             onChange={(e) => handleCondicaoChange(f.id, 'prazo', Number(e.target.value))}
                           />
                         </div>
+
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', color: '#991b1b', cursor: 'pointer', marginTop: '0.4rem', paddingTop: '0.4rem', borderTop: '1px solid #cbd5e1' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={getDesclassificado(f.id)} 
+                            onChange={(e) => handleCondicaoChange(f.id, 'desclassificado', e.target.checked)} 
+                          />
+                          <strong>Desclassificar Fornecedor</strong>
+                        </label>
                       </div>
                     </div>
 
@@ -470,6 +524,7 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                     )}
 
                     {isMelhor && <span style={{ fontSize: '0.75rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 'bold' }}><Check size={14}/> Vencedor do Item</span>}
+                    {isDesclassificado && <span style={{ fontSize: '0.75rem', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 'bold', marginTop: '0.4rem' }}><XCircle size={14}/> Desclassificado</span>}
                   </div>
                 );
               })}
@@ -701,6 +756,17 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ valorNossoLance: val })
                         });
+
+                        // Sync to ProdutoBase for Market Intelligence globally
+                        const desc = item.descricaoItem || item.descricao;
+                        if (desc) {
+                          await fetch('http://localhost:7005/fornecedores/produtos/base', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ descricaoItem: desc, nossoLanceOficial: val })
+                          });
+                        }
+
                         if (setCotacao && cotacaoId) {
                           const resCotFull = await fetch(`http://localhost:7005/cotacoes/${cotacaoId}`);
                           setCotacao(await resCotFull.json());
@@ -844,7 +910,9 @@ export default function OportunidadeDetalhe() {
     nomeEmbalagem: string = 'pacote',
     freteIncluso?: boolean,
     permiteParcelamento?: boolean,
-    prazoPagamento?: number
+    prazoPagamento?: number,
+    observacao?: string,
+    desclassificado?: boolean
   ) => {
     const numValue = Number(value.replace(',', '.'));
     if (isNaN(numValue)) return;
@@ -861,7 +929,9 @@ export default function OportunidadeDetalhe() {
           nomeEmbalagem,
           freteIncluso,
           permiteParcelamento,
-          prazoPagamento
+          prazoPagamento,
+          observacao,
+          desclassificado
         })
       });
       // Recarrega cotação para refletir os novos totais e melhor preço

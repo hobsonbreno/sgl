@@ -19,5 +19,11 @@ export declare class FornecedorController {
         totalPages: number;
         currentPage: number;
     }>;
+    getBaseProdutos(query: any): Promise<any>;
+    updateProdutoBase(data: {
+        descricaoItem: string;
+        nossoLanceOficial?: number;
+        valorCampeaoLicitacao?: number;
+    }): Promise<import("./fornecedor.schema").ProdutoBase>;
     update(id: string, data: any): Promise<import("./fornecedor.schema").Fornecedor>;
 }

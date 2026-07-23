@@ -90,13 +90,19 @@ let CotacaoService = class CotacaoService {
         return nova.save();
     }
     async findOne(id) {
-        const doc = await this.model.findById(id).populate('itens.precosFornecedores.fornecedorId').exec();
+        const doc = await this.model.findById(id)
+            .populate('itens.precosFornecedores.fornecedorId')
+            .populate('itens.produtoId')
+            .exec();
         if (!doc)
             throw new common_1.NotFoundException('Cotação não encontrada');
         return doc;
     }
     async findByOportunidade(oportunidadeId) {
-        const doc = await this.model.findOne({ oportunidadeId }).populate('itens.precosFornecedores.fornecedorId').exec();
+        const doc = await this.model.findOne({ oportunidadeId })
+            .populate('itens.precosFornecedores.fornecedorId')
+            .populate('itens.produtoId')
+            .exec();
         if (!doc)
             throw new common_1.NotFoundException('Cotação não encontrada para esta oportunidade');
         return doc;
@@ -170,6 +176,8 @@ let CotacaoService = class CotacaoService {
         await this.fornecedorService.registrarHistoricoPreco(precoData.fornecedorId, {
             descricaoItem: item.descricaoItem,
             precoUnitario: precoData.precoUnitario,
+            precoEmbalagem: precoData.precoEmbalagem,
+            fatorEmbalagem: precoData.fatorEmbalagem,
             oportunidadeId: doc.oportunidadeId.toString()
         });
         return this.findOne(cotacaoId);

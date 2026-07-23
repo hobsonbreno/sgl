@@ -134,6 +134,22 @@ export class BotService implements OnApplicationBootstrap {
           for (const raw of rawContratacoes) {
             const opDto = mapPncpParaOportunidade(raw);
             
+            // FILTRO DE FONTE (PORTAL DE ORIGEM)
+            const fontesPermitidas = [
+              'Secretaria do Planejamento e Gestão do Ceará',
+              'Compras.gov.br',
+              'MUNICIPIO DE FORTALEZA'
+            ];
+            
+            const usuarioNome = raw.usuarioNome;
+            if (usuarioNome) {
+              const fonteValida = fontesPermitidas.some(f => usuarioNome.toLowerCase().includes(f.toLowerCase()));
+              if (!fonteValida) {
+                // Descarta portais pagos (ex: M2A, Licita + Brasil, BLL Compras, BR Conectado)
+                continue;
+              }
+            }
+
             // FILTRO DE PALAVRAS CHAVE (PRODUTOS)
             if (perfil.palavrasChave && perfil.palavrasChave.length > 0) {
               const normalizar = (t: string) => (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();

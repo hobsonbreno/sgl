@@ -8,18 +8,8 @@ export declare class DashboardController {
     constructor(dashboardService: DashboardService, eventsService: EventsService);
     getResumo(): Promise<{
         novasHoje: number;
-        porStatus: {
-            A_FAZER: number;
-            FAZENDO: number;
-            FEITO: number;
-            AGUARDANDO_RESPOSTA: number;
-        };
-        valorTotalPorStatus: {
-            A_FAZER: number;
-            FAZENDO: number;
-            FEITO: number;
-            AGUARDANDO_RESPOSTA: number;
-        };
+        porStatus: Record<string, number>;
+        valorTotalPorStatus: Record<string, number>;
         prazosCriticos: (import("mongoose").Document<unknown, {}, import("mongoose").Document<unknown, {}, import("../oportunidade/oportunidade.schema").Oportunidade, {}, import("mongoose").DefaultSchemaOptions> & import("../oportunidade/oportunidade.schema").Oportunidade & {
             _id: import("mongoose").Types.ObjectId;
         } & {

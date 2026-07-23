@@ -26,6 +26,18 @@ export class FornecedorController {
     return this.service.findAll(query);
   }
 
+  @Get('produtos/base')
+  @ApiOperation({ summary: 'Obter base geral de produtos cotados com empresas campeãs' })
+  getBaseProdutos(@Query() query: any) {
+    return this.service.getBaseProdutos(query);
+  }
+
+  @Put('produtos/base')
+  @ApiOperation({ summary: 'Atualizar inteligência de um produto na base' })
+  updateProdutoBase(@Body() data: { descricaoItem: string, nossoLanceOficial?: number, valorCampeaoLicitacao?: number }) {
+    return this.service.updateProdutoBase(data.descricaoItem, data);
+  }
+
   @Put(':id')
   @ApiOperation({ summary: 'Atualizar fornecedor' })
   update(@Param('id') id: string, @Body() data: any) {

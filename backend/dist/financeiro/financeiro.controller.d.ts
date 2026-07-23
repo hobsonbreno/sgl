@@ -48,9 +48,43 @@ export declare class FinanceiroController {
         objetoCompra: string;
         valorTotalLancado: number;
     }[]>;
-    receberNegocioFechado(id: string): Promise<{
-        message: string;
-    }>;
+    findArquivados(): Promise<{
+        _id: import("mongoose").Types.ObjectId;
+        orgaoNome: string;
+        numeroControlePNCP: string;
+        objetoCompra: string;
+        valorTotalLancado: number;
+    }[]>;
+    receberNegocioFechado(id: string): Promise<import("mongoose").Document<unknown, {}, import("mongoose").Document<unknown, {}, import("../oportunidade/oportunidade.schema").Oportunidade, {}, import("mongoose").DefaultSchemaOptions> & import("../oportunidade/oportunidade.schema").Oportunidade & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    } & {
+        id: string;
+    }, {}, import("mongoose").DefaultSchemaOptions> & import("mongoose").Document<unknown, {}, import("../oportunidade/oportunidade.schema").Oportunidade, {}, import("mongoose").DefaultSchemaOptions> & import("../oportunidade/oportunidade.schema").Oportunidade & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    } & {
+        id: string;
+    } & Required<{
+        _id: import("mongoose").Types.ObjectId;
+    }>>;
+    estornarNegocio(id: string): Promise<import("mongoose").Document<unknown, {}, import("mongoose").Document<unknown, {}, import("../oportunidade/oportunidade.schema").Oportunidade, {}, import("mongoose").DefaultSchemaOptions> & import("../oportunidade/oportunidade.schema").Oportunidade & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    } & {
+        id: string;
+    }, {}, import("mongoose").DefaultSchemaOptions> & import("mongoose").Document<unknown, {}, import("../oportunidade/oportunidade.schema").Oportunidade, {}, import("mongoose").DefaultSchemaOptions> & import("../oportunidade/oportunidade.schema").Oportunidade & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    } & {
+        id: string;
+    } & Required<{
+        _id: import("mongoose").Types.ObjectId;
+    }>>;
     update(id: string, updateDto: any): Promise<(import("mongoose").Document<unknown, {}, import("mongoose").Document<unknown, {}, import("./financeiro.schema").TransacaoFinanceira, {}, import("mongoose").DefaultSchemaOptions> & import("./financeiro.schema").TransacaoFinanceira & {
         _id: import("mongoose").Types.ObjectId;
     } & {

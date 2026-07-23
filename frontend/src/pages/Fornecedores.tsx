@@ -20,6 +20,8 @@ export default function Fornecedores() {
   const [bairro, setBairro] = useState('');
   const [cidade, setCidade] = useState('');
   const [uf, setUf] = useState('');
+  const [site, setSite] = useState('');
+  const [portifolio, setPortifolio] = useState('');
 
   // Edit Modal States
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -35,6 +37,8 @@ export default function Fornecedores() {
   const [editBairro, setEditBairro] = useState('');
   const [editCidade, setEditCidade] = useState('');
   const [editUf, setEditUf] = useState('');
+  const [editSite, setEditSite] = useState('');
+  const [editPortifolio, setEditPortifolio] = useState('');
 
   const loadFornecedores = async () => {
     try {
@@ -118,7 +122,9 @@ export default function Fornecedores() {
         endereco,
         bairro,
         cidade,
-        uf
+        uf,
+        site,
+        portifolio
       };
       
       const res = await fetch('http://localhost:7005/fornecedores', {
@@ -138,6 +144,8 @@ export default function Fornecedores() {
         setBairro('');
         setCidade('');
         setUf('');
+        setSite('');
+        setPortifolio('');
         loadFornecedores();
         alert('Fornecedor cadastrado com sucesso!');
       } else {
@@ -162,6 +170,8 @@ export default function Fornecedores() {
     setEditBairro(f.bairro || '');
     setEditCidade(f.cidade || '');
     setEditUf(f.uf || '');
+    setEditSite(f.site || '');
+    setEditPortifolio(f.portifolio || '');
     setIsEditModalOpen(true);
   };
 
@@ -180,7 +190,9 @@ export default function Fornecedores() {
         endereco: editEndereco,
         bairro: editBairro,
         cidade: editCidade,
-        uf: editUf
+        uf: editUf,
+        site: editSite,
+        portifolio: editPortifolio
       };
 
       const res = await fetch(`http://localhost:7005/fornecedores/${editId}`, {
@@ -286,6 +298,23 @@ export default function Fornecedores() {
               <label>Categorias (separadas por vírgula)</label>
               <input type="text" className="form-control" value={categorias} onChange={e => setCategorias(e.target.value)} />
             </div>
+
+            <div className="form-group">
+              <label>Site</label>
+              <input type="url" className="form-control" value={site} onChange={e => setSite(e.target.value)} placeholder="https://..." />
+            </div>
+
+            <div className="form-group">
+              <label>Portfólio de Produtos (Link ou Descrição)</label>
+              <textarea 
+                className="form-control" 
+                value={portifolio} 
+                onChange={e => setPortifolio(e.target.value)} 
+                rows={3} 
+                placeholder="Ex: Link do drive, lista de produtos principais..."
+              />
+            </div>
+
             <button type="submit" className="btn-primary" disabled={loading} style={{ width: '100%' }}>
               <Plus size={18} /> {loading ? 'Salvando...' : 'Cadastrar Fornecedor'}
             </button>
@@ -438,6 +467,21 @@ export default function Fornecedores() {
               <div className="form-group">
                 <label>Categorias (separadas por vírgula)</label>
                 <input type="text" className="form-control" value={editCategorias} onChange={e => setEditCategorias(e.target.value)} />
+              </div>
+
+              <div className="form-group">
+                <label>Site</label>
+                <input type="url" className="form-control" value={editSite} onChange={e => setEditSite(e.target.value)} />
+              </div>
+
+              <div className="form-group">
+                <label>Portfólio de Produtos (Link ou Descrição)</label>
+                <textarea 
+                  className="form-control" 
+                  value={editPortifolio} 
+                  onChange={e => setEditPortifolio(e.target.value)} 
+                  rows={3} 
+                />
               </div>
               
               <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>

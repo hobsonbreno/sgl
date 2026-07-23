@@ -9,13 +9,23 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.FornecedorSchema = exports.Fornecedor = void 0;
+exports.ProdutoBaseSchema = exports.ProdutoBase = exports.FornecedorSchema = exports.Fornecedor = void 0;
 const mongoose_1 = require("@nestjs/mongoose");
 let Fornecedor = class Fornecedor {
     razaoSocial;
     cnpj;
     contato;
+    telefone;
+    nomeConsultor;
+    email;
+    cep;
+    endereco;
+    bairro;
+    cidade;
+    uf;
     categorias;
+    site;
+    portifolio;
     origem;
     fornecedor_historico_precos;
 };
@@ -33,19 +43,81 @@ __decorate([
     __metadata("design:type", Array)
 ], Fornecedor.prototype, "contato", void 0);
 __decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], Fornecedor.prototype, "telefone", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], Fornecedor.prototype, "nomeConsultor", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], Fornecedor.prototype, "email", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], Fornecedor.prototype, "cep", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], Fornecedor.prototype, "endereco", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], Fornecedor.prototype, "bairro", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], Fornecedor.prototype, "cidade", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], Fornecedor.prototype, "uf", void 0);
+__decorate([
     (0, mongoose_1.Prop)([String]),
     __metadata("design:type", Array)
 ], Fornecedor.prototype, "categorias", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], Fornecedor.prototype, "site", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], Fornecedor.prototype, "portifolio", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ required: true, enum: ['manual', 'bot'] }),
     __metadata("design:type", String)
 ], Fornecedor.prototype, "origem", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: [{ descricaoItem: String, precoUnitario: Number, data: Date, oportunidadeId: String }] }),
+    (0, mongoose_1.Prop)({ type: [{ descricaoItem: String, precoUnitario: Number, precoEmbalagem: Number, fatorEmbalagem: Number, data: Date, oportunidadeId: String }] }),
     __metadata("design:type", Array)
 ], Fornecedor.prototype, "fornecedor_historico_precos", void 0);
 exports.Fornecedor = Fornecedor = __decorate([
     (0, mongoose_1.Schema)({ timestamps: true })
 ], Fornecedor);
 exports.FornecedorSchema = mongoose_1.SchemaFactory.createForClass(Fornecedor);
+let ProdutoBase = class ProdutoBase {
+    descricaoItem;
+    nossoLanceOficial;
+    valorCampeaoLicitacao;
+};
+exports.ProdutoBase = ProdutoBase;
+__decorate([
+    (0, mongoose_1.Prop)({ required: true, unique: true }),
+    __metadata("design:type", String)
+], ProdutoBase.prototype, "descricaoItem", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", Number)
+], ProdutoBase.prototype, "nossoLanceOficial", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", Number)
+], ProdutoBase.prototype, "valorCampeaoLicitacao", void 0);
+exports.ProdutoBase = ProdutoBase = __decorate([
+    (0, mongoose_1.Schema)({ timestamps: true })
+], ProdutoBase);
+exports.ProdutoBaseSchema = mongoose_1.SchemaFactory.createForClass(ProdutoBase);
 //# sourceMappingURL=fornecedor.schema.js.map

@@ -83,11 +83,25 @@ export default function Kanban() {
       }
 
       const ops = dataOp.data || [];
-      setOportunidades(ops);
+      
+      // Auto-remover oportunidades excluídas e que já expiraram
+      const now = new Date().getTime();
+      const validOps = [];
+      for (const op of ops) {
+        const expirou = new Date(op.dataEncerramentoProposta).getTime() < now;
+        if (op.kanbanStatus === 'EXCLUIDA' && expirou) {
+          // Apaga no background (como já expirou, o bot não trará de volta do PNCP)
+          fetch(`http://localhost:7005/oportunidades/${op._id}`, { method: 'DELETE' }).catch(e => console.error('Erro no auto-delete', e));
+        } else {
+          validOps.push(op);
+        }
+      }
+
+      setOportunidades(validOps);
       setProdutos(dataProd.data || []);
 
       // Load cotações for each oportunidade (best proposal data)
-      ops.forEach(async (op: any) => {
+      validOps.forEach(async (op: any) => {
         try {
           const cotRes = await fetch(`http://localhost:7005/oportunidades/${op._id}/cotacao`);
           if (cotRes.ok) {
@@ -99,7 +113,7 @@ export default function Kanban() {
         }
       });
 
-      ops.forEach(async (op: any) => {
+      validOps.forEach(async (op: any) => {
         try {
           const scoreRes = await fetch('http://localhost:7010/market/score', {
             method: 'POST',
@@ -120,6 +134,21 @@ export default function Kanban() {
   useEffect(() => {
     carregarOportunidadesEProdutos();
   }, []);
+
+  // Monitora mudanças de estado (ex: mover um card para EXCLUIDA que já estava expirado)
+  useEffect(() => {
+    const now = new Date().getTime();
+    const expiradosEmExcluida = oportunidades.filter(op => op.kanbanStatus === 'EXCLUIDA' && new Date(op.dataEncerramentoProposta).getTime() <= now);
+    
+    if (expiradosEmExcluida.length > 0) {
+      expiradosEmExcluida.forEach(op => {
+        // Tenta apagar do banco silenciosamente
+        fetch(`http://localhost:7005/oportunidades/${op._id}`, { method: 'DELETE' }).catch(() => {});
+      });
+      // Remove do estado visual
+      setOportunidades(prev => prev.filter(op => !(op.kanbanStatus === 'EXCLUIDA' && new Date(op.dataEncerramentoProposta).getTime() <= now)));
+    }
+  }, [oportunidades]);
 
   const onDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
@@ -175,8 +204,8 @@ export default function Kanban() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm("Tem certeza? Isso vai remover permanentemente esta oportunidade, seus itens, cotações e qualquer proposta associada. Essa ação não pode ser desfeita.")) {
+  const handleDelete = async (id: string, skipConfirm = false) => {
+    if (skipConfirm || window.confirm("Tem certeza? Isso vai remover permanentemente esta oportunidade, seus itens, cotações e qualquer proposta associada. Essa ação não pode ser desfeita.")) {
       try {
         const res = await fetch(`http://localhost:7005/oportunidades/${id}`, { method: 'DELETE' });
         if (res.ok) {
@@ -390,7 +419,14 @@ export default function Kanban() {
                               )}
                               
                               <div style={{ marginBottom: '1rem' }}>
-                                <Countdown targetDate={item.dataEncerramentoProposta} />
+                                <Countdown 
+                                  targetDate={item.dataEncerramentoProposta} 
+                                  onExpire={() => {
+                                    if (colId === 'EXCLUIDA') {
+                                      handleDelete(item._id, true);
+                                    }
+                                  }}
+                                />
                               </div>
 
                               <div className="kanban-card-footer">

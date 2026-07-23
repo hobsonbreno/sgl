@@ -42,14 +42,12 @@ let DashboardService = class DashboardService {
                 }
             }
         ]).exec();
-        const porStatus = { A_FAZER: 0, FAZENDO: 0, FEITO: 0, AGUARDANDO_RESPOSTA: 0 };
-        const valorTotalPorStatus = { A_FAZER: 0, FAZENDO: 0, FEITO: 0, AGUARDANDO_RESPOSTA: 0 };
+        const porStatus = {};
+        const valorTotalPorStatus = {};
         agregacao.forEach(item => {
-            const id = item._id;
-            if (porStatus[id] !== undefined) {
-                porStatus[id] = item.count;
-                valorTotalPorStatus[id] = item.valorTotal || 0;
-            }
+            const id = item._id || 'NAO_DEFINIDO';
+            porStatus[id] = item.count;
+            valorTotalPorStatus[id] = item.valorTotal || 0;
         });
         const hoje = new Date();
         const prazosCriticos = await this.oportunidadeModel.find({

@@ -34,6 +34,12 @@ let FornecedorController = class FornecedorController {
     findAll(query) {
         return this.service.findAll(query);
     }
+    getBaseProdutos(query) {
+        return this.service.getBaseProdutos(query);
+    }
+    updateProdutoBase(data) {
+        return this.service.updateProdutoBase(data.descricaoItem, data);
+    }
     update(id, data) {
         return this.service.update(id, data);
     }
@@ -55,6 +61,22 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], FornecedorController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Get)('produtos/base'),
+    (0, swagger_1.ApiOperation)({ summary: 'Obter base geral de produtos cotados com empresas campeãs' }),
+    __param(0, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], FornecedorController.prototype, "getBaseProdutos", null);
+__decorate([
+    (0, common_1.Put)('produtos/base'),
+    (0, swagger_1.ApiOperation)({ summary: 'Atualizar inteligência de um produto na base' }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], FornecedorController.prototype, "updateProdutoBase", null);
 __decorate([
     (0, common_1.Put)(':id'),
     (0, swagger_1.ApiOperation)({ summary: 'Atualizar fornecedor' }),

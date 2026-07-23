@@ -25,7 +25,8 @@ export class Cotacao {
         freteIncluso: { type: Boolean, default: false },
         prazoPagamento: { type: Number, default: 0 },
         permiteParcelamento: { type: Boolean, default: false },
-        observacao: String
+        observacao: String,
+        desclassificado: { type: Boolean, default: false }
       }],
       melhorPreco: {
         fornecedorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Fornecedor' },
@@ -50,6 +51,7 @@ export class Cotacao {
       prazoPagamento?: number;
       permiteParcelamento?: boolean;
       observacao?: string;
+      desclassificado?: boolean;
     }[];
     melhorPreco?: {
       fornecedorId: mongoose.Types.ObjectId;

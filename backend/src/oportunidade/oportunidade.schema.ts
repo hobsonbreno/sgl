@@ -62,6 +62,9 @@ export class Oportunidade {
   @Prop()
   dataMudancaStatus: Date;
 
+  @Prop()
+  usuarioNome: string;
+
   @Prop({ type: [Object] })
   itens: any[];
 }

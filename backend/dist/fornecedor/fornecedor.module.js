@@ -17,7 +17,10 @@ let FornecedorModule = class FornecedorModule {
 exports.FornecedorModule = FornecedorModule;
 exports.FornecedorModule = FornecedorModule = __decorate([
     (0, common_1.Module)({
-        imports: [mongoose_1.MongooseModule.forFeature([{ name: fornecedor_schema_1.Fornecedor.name, schema: fornecedor_schema_1.FornecedorSchema }])],
+        imports: [mongoose_1.MongooseModule.forFeature([
+                { name: fornecedor_schema_1.Fornecedor.name, schema: fornecedor_schema_1.FornecedorSchema },
+                { name: fornecedor_schema_1.ProdutoBase.name, schema: fornecedor_schema_1.ProdutoBaseSchema }
+            ])],
         controllers: [fornecedor_controller_1.FornecedorController],
         providers: [fornecedor_service_1.FornecedorService],
         exports: [mongoose_1.MongooseModule, fornecedor_service_1.FornecedorService],

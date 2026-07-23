@@ -63,7 +63,7 @@ export class CotacaoService {
     return doc;
   }
 
-  async updatePreco(cotacaoId: string, itemId: string, precoData: { fornecedorId: string, precoUnitario: number, fatorEmbalagem?: number, precoEmbalagem?: number, nomeEmbalagem?: string, freteIncluso?: boolean, prazoPagamento?: number, permiteParcelamento?: boolean, observacao?: string }) {
+  async updatePreco(cotacaoId: string, itemId: string, precoData: { fornecedorId: string, precoUnitario: number, fatorEmbalagem?: number, precoEmbalagem?: number, nomeEmbalagem?: string, freteIncluso?: boolean, prazoPagamento?: number, permiteParcelamento?: boolean, observacao?: string, desclassificado?: boolean }) {
     const doc = await this.model.findById(cotacaoId).exec();
     if (!doc) throw new NotFoundException('Cotação não encontrada');
 
@@ -81,6 +81,7 @@ export class CotacaoService {
       item.precosFornecedores[fIdx].prazoPagamento = precoData.prazoPagamento;
       item.precosFornecedores[fIdx].permiteParcelamento = precoData.permiteParcelamento;
       item.precosFornecedores[fIdx].observacao = precoData.observacao;
+      item.precosFornecedores[fIdx].desclassificado = precoData.desclassificado || false;
     } else {
       item.precosFornecedores.push({
         fornecedorId: new mongoose.Types.ObjectId(precoData.fornecedorId),
@@ -91,13 +92,15 @@ export class CotacaoService {
         freteIncluso: precoData.freteIncluso,
         prazoPagamento: precoData.prazoPagamento,
         permiteParcelamento: precoData.permiteParcelamento,
-        observacao: precoData.observacao
+        observacao: precoData.observacao,
+        desclassificado: precoData.desclassificado || false
       });
     }
 
     // Recalculate melhorPreco for this item
     let melhor: any;
     for (const p of item.precosFornecedores) {
+      if (p.desclassificado) continue;
       if (!melhor) {
         melhor = p;
         continue;
@@ -138,6 +141,11 @@ export class CotacaoService {
     await this.fornecedorService.registrarHistoricoPreco(precoData.fornecedorId, {
       descricaoItem: item.descricaoItem,
       precoUnitario: precoData.precoUnitario,
+      precoEmbalagem: precoData.precoEmbalagem,
+      fatorEmbalagem: precoData.fatorEmbalagem,
+      nomeEmbalagem: precoData.nomeEmbalagem,
+      observacao: precoData.observacao,
+      desclassificado: precoData.desclassificado,
       oportunidadeId: doc.oportunidadeId.toString()
     });
 
@@ -155,6 +163,9 @@ export class CotacaoService {
     item.precosFornecedores = item.precosFornecedores.filter(
       p => p.fornecedorId.toString() !== fornecedorId
     ) as any;
+
+    // Remover histórico de preço no fornecedor global
+    await this.fornecedorService.removerHistoricoPreco(fornecedorId, item.descricaoItem, doc.oportunidadeId.toString());
 
     // Recalculate melhorPreco for this item
     let melhor: any;

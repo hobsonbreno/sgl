@@ -20,6 +20,7 @@ let Produto = class Produto {
     valorTotalEstimado;
     valorEstimado;
     valorNossoLance;
+    valorConcorrente;
     oportunidadeId;
 };
 exports.Produto = Produto;
@@ -55,6 +56,10 @@ __decorate([
     (0, mongoose_1.Prop)(),
     __metadata("design:type", Number)
 ], Produto.prototype, "valorNossoLance", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", Number)
+], Produto.prototype, "valorConcorrente", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ required: true }),
     __metadata("design:type", String)

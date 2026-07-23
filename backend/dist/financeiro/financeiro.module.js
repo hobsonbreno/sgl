@@ -14,6 +14,7 @@ const financeiro_service_1 = require("./financeiro.service");
 const financeiro_schema_1 = require("./financeiro.schema");
 const oportunidade_schema_1 = require("../oportunidade/oportunidade.schema");
 const produto_schema_1 = require("../produto/produto.schema");
+const cotacao_schema_1 = require("../cotacao/cotacao.schema");
 let FinanceiroModule = class FinanceiroModule {
 };
 exports.FinanceiroModule = FinanceiroModule;
@@ -23,7 +24,8 @@ exports.FinanceiroModule = FinanceiroModule = __decorate([
             mongoose_1.MongooseModule.forFeature([
                 { name: financeiro_schema_1.TransacaoFinanceira.name, schema: financeiro_schema_1.TransacaoFinanceiraSchema },
                 { name: oportunidade_schema_1.Oportunidade.name, schema: oportunidade_schema_1.OportunidadeSchema },
-                { name: produto_schema_1.Produto.name, schema: produto_schema_1.ProdutoSchema }
+                { name: produto_schema_1.Produto.name, schema: produto_schema_1.ProdutoSchema },
+                { name: cotacao_schema_1.Cotacao.name, schema: cotacao_schema_1.CotacaoSchema }
             ])
         ],
         controllers: [financeiro_controller_1.FinanceiroController],

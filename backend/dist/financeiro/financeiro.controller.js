@@ -32,8 +32,14 @@ let FinanceiroController = class FinanceiroController {
     findNegociosFechados() {
         return this.financeiroService.findNegociosFechados();
     }
+    findArquivados() {
+        return this.financeiroService.findArquivados();
+    }
     receberNegocioFechado(id) {
         return this.financeiroService.receberNegocioFechado(id);
+    }
+    estornarNegocio(id) {
+        return this.financeiroService.estornarNegocio(id);
     }
     update(id, updateDto) {
         return this.financeiroService.update(id, updateDto);
@@ -69,12 +75,25 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], FinanceiroController.prototype, "findNegociosFechados", null);
 __decorate([
+    (0, common_1.Get)('arquivados'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], FinanceiroController.prototype, "findArquivados", null);
+__decorate([
     (0, common_1.Post)('receber-negocio/:id'),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], FinanceiroController.prototype, "receberNegocioFechado", null);
+__decorate([
+    (0, common_1.Post)('estornar-negocio/:id'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], FinanceiroController.prototype, "estornarNegocio", null);
 __decorate([
     (0, common_1.Patch)(':id'),
     __param(0, (0, common_1.Param)('id')),

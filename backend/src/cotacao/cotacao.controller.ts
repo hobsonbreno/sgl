@@ -5,7 +5,14 @@ import { CotacaoService } from './cotacao.service';
 export class UpdatePrecoDto {
   fornecedorId: string;
   precoUnitario: number;
+  fatorEmbalagem?: number;
+  precoEmbalagem?: number;
+  nomeEmbalagem?: string;
+  freteIncluso?: boolean;
+  prazoPagamento?: number;
+  permiteParcelamento?: boolean;
   observacao?: string;
+  desclassificado?: boolean;
 }
 
 export class CreateCotacaoDto {

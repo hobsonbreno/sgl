@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, Timer } from 'lucide-react';
 
-const Countdown = ({ targetDate }: { targetDate: string }) => {
+const Countdown = ({ targetDate, onExpire }: { targetDate: string, onExpire?: () => void }) => {
   const [timeLeft, setTimeLeft] = useState({ dias: 0, horas: 0, minutos: 0, segundos: 0, expirado: false });
+  const [hasNotified, setHasNotified] = useState(false);
 
   useEffect(() => {
     const calc = () => {
@@ -22,6 +23,13 @@ const Countdown = ({ targetDate }: { targetDate: string }) => {
     const interval = setInterval(() => setTimeLeft(calc()), 1000);
     return () => clearInterval(interval);
   }, [targetDate]);
+
+  useEffect(() => {
+    if (timeLeft.expirado && onExpire && !hasNotified) {
+      setHasNotified(true);
+      onExpire();
+    }
+  }, [timeLeft.expirado, onExpire, hasNotified]);
 
   if (timeLeft.expirado) {
     return (

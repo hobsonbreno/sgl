@@ -19,8 +19,10 @@ const mongoose_2 = require("mongoose");
 const fornecedor_schema_1 = require("./fornecedor.schema");
 let FornecedorService = class FornecedorService {
     model;
-    constructor(model) {
+    intelModel;
+    constructor(model, intelModel) {
         this.model = model;
+        this.intelModel = intelModel;
     }
     validarCNPJ(cnpj) {
         const limpo = cnpj.replace(/[^\d]+/g, '');
@@ -65,6 +67,26 @@ let FornecedorService = class FornecedorService {
         const doc = await this.model.findById(id).exec();
         if (!doc)
             throw new common_1.NotFoundException('Fornecedor não encontrado');
+        if (data.telefone !== undefined)
+            doc.telefone = data.telefone;
+        if (data.nomeConsultor !== undefined)
+            doc.nomeConsultor = data.nomeConsultor;
+        if (data.email !== undefined)
+            doc.email = data.email;
+        if (data.cep !== undefined)
+            doc.cep = data.cep;
+        if (data.endereco !== undefined)
+            doc.endereco = data.endereco;
+        if (data.bairro !== undefined)
+            doc.bairro = data.bairro;
+        if (data.cidade !== undefined)
+            doc.cidade = data.cidade;
+        if (data.uf !== undefined)
+            doc.uf = data.uf;
+        if (data.site !== undefined)
+            doc.site = data.site;
+        if (data.portifolio !== undefined)
+            doc.portifolio = data.portifolio;
         if (doc.origem === 'bot') {
             if (data.categorias)
                 doc.categorias = data.categorias;
@@ -91,11 +113,110 @@ let FornecedorService = class FornecedorService {
             }
         });
     }
+    async getBaseProdutos(query = {}) {
+        const fornecedores = await this.model.find({ 'fornecedor_historico_precos.0': { $exists: true } }).exec();
+        const produtosMap = new Map();
+        const busca = query.busca ? query.busca.toLowerCase() : '';
+        for (const f of fornecedores) {
+            for (const hist of f.fornecedor_historico_precos) {
+                const pNome = hist.descricaoItem;
+                if (busca && !pNome.toLowerCase().includes(busca)) {
+                    continue;
+                }
+                if (!produtosMap.has(pNome)) {
+                    produtosMap.set(pNome, {
+                        descricaoItem: pNome,
+                        cotacoes: []
+                    });
+                }
+                const prod = produtosMap.get(pNome);
+                const existingCotacaoIdx = prod.cotacoes.findIndex((c) => c.fornecedorId.toString() === f._id.toString());
+                if (existingCotacaoIdx >= 0) {
+                    if (new Date(hist.data) > new Date(prod.cotacoes[existingCotacaoIdx].data)) {
+                        prod.cotacoes[existingCotacaoIdx] = {
+                            fornecedorId: f._id,
+                            razaoSocial: f.razaoSocial,
+                            precoUnitario: hist.precoUnitario,
+                            precoEmbalagem: hist.precoEmbalagem,
+                            fatorEmbalagem: hist.fatorEmbalagem,
+                            data: hist.data,
+                            oportunidadeId: hist.oportunidadeId
+                        };
+                    }
+                }
+                else {
+                    prod.cotacoes.push({
+                        fornecedorId: f._id,
+                        razaoSocial: f.razaoSocial,
+                        precoUnitario: hist.precoUnitario,
+                        precoEmbalagem: hist.precoEmbalagem,
+                        fatorEmbalagem: hist.fatorEmbalagem,
+                        data: hist.data,
+                        oportunidadeId: hist.oportunidadeId
+                    });
+                }
+            }
+        }
+        let baseProdutos = Array.from(produtosMap.values()).map(prod => {
+            let campea = null;
+            for (const c of prod.cotacoes) {
+                if (!campea || c.precoUnitario < campea.precoUnitario) {
+                    campea = c;
+                }
+            }
+            return {
+                ...prod,
+                campea
+            };
+        });
+        const page = Number(query.page) || 1;
+        const limit = Number(query.limit) || 10;
+        const total = baseProdutos.length;
+        const totalPages = Math.ceil(total / limit) || 1;
+        const skip = (page - 1) * limit;
+        baseProdutos = baseProdutos.slice(skip, skip + limit);
+        const descricoes = baseProdutos.map(p => p.descricaoItem);
+        const intelDocs = await this.intelModel.find({ descricaoItem: { $in: descricoes } }).exec();
+        const intelMap = new Map(intelDocs.map(doc => [doc.descricaoItem, doc]));
+        baseProdutos = baseProdutos.map(prod => {
+            const intel = intelMap.get(prod.descricaoItem);
+            return {
+                ...prod,
+                nossoLanceOficial: intel?.nossoLanceOficial || null,
+                valorCampeaoLicitacao: intel?.valorCampeaoLicitacao || null
+            };
+        });
+        return {
+            data: baseProdutos,
+            total,
+            totalPages,
+            currentPage: page
+        };
+    }
+    async updateProdutoBase(descricaoItem, data) {
+        const existe = await this.intelModel.findOne({ descricaoItem }).exec();
+        if (existe) {
+            if (data.nossoLanceOficial !== undefined)
+                existe.nossoLanceOficial = data.nossoLanceOficial;
+            if (data.valorCampeaoLicitacao !== undefined)
+                existe.valorCampeaoLicitacao = data.valorCampeaoLicitacao;
+            return existe.save();
+        }
+        else {
+            return this.intelModel.create({
+                descricaoItem,
+                nossoLanceOficial: data.nossoLanceOficial,
+                valorCampeaoLicitacao: data.valorCampeaoLicitacao
+            });
+        }
+    }
 };
 exports.FornecedorService = FornecedorService;
 exports.FornecedorService = FornecedorService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(fornecedor_schema_1.Fornecedor.name)),
-    __metadata("design:paramtypes", [mongoose_2.Model])
+    __param(1, (0, mongoose_1.InjectModel)(fornecedor_schema_1.ProdutoBase.name)),
+    __metadata("design:paramtypes", [mongoose_2.Model,
+        mongoose_2.Model])
 ], FornecedorService);
 //# sourceMappingURL=fornecedor.service.js.map

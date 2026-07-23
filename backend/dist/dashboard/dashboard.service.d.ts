@@ -9,18 +9,8 @@ export declare class DashboardService {
     constructor(oportunidadeModel: Model<OportunidadeDocument>, botExecucaoModel: Model<BotExecucaoDocument>, botService: BotService);
     getResumo(): Promise<{
         novasHoje: number;
-        porStatus: {
-            A_FAZER: number;
-            FAZENDO: number;
-            FEITO: number;
-            AGUARDANDO_RESPOSTA: number;
-        };
-        valorTotalPorStatus: {
-            A_FAZER: number;
-            FAZENDO: number;
-            FEITO: number;
-            AGUARDANDO_RESPOSTA: number;
-        };
+        porStatus: Record<string, number>;
+        valorTotalPorStatus: Record<string, number>;
         prazosCriticos: (import("mongoose").Document<unknown, {}, import("mongoose").Document<unknown, {}, Oportunidade, {}, import("mongoose").DefaultSchemaOptions> & Oportunidade & {
             _id: import("mongoose").Types.ObjectId;
         } & {
