@@ -88,7 +88,14 @@ export default function Kanban() {
       const now = new Date().getTime();
       const validOps = [];
       for (const op of ops) {
-        const expirou = new Date(op.dataEncerramentoProposta).getTime() < now;
+        let expirou = false;
+        if (!op.dataEncerramentoProposta) {
+          expirou = true;
+        } else {
+          const dt = new Date(op.dataEncerramentoProposta).getTime();
+          expirou = isNaN(dt) || dt <= now;
+        }
+
         if (op.kanbanStatus === 'EXCLUIDA' && expirou) {
           // Apaga no background (como já expirou, o bot não trará de volta do PNCP)
           fetch(`http://localhost:7005/oportunidades/${op._id}`, { method: 'DELETE' }).catch(e => console.error('Erro no auto-delete', e));
@@ -138,7 +145,14 @@ export default function Kanban() {
   // Monitora mudanças de estado (ex: mover um card para EXCLUIDA que já estava expirado)
   useEffect(() => {
     const now = new Date().getTime();
-    const expiradosEmExcluida = oportunidades.filter(op => op.kanbanStatus === 'EXCLUIDA' && new Date(op.dataEncerramentoProposta).getTime() <= now);
+    
+    const checkExpirado = (op: any) => {
+      if (!op.dataEncerramentoProposta) return true;
+      const dt = new Date(op.dataEncerramentoProposta).getTime();
+      return isNaN(dt) || dt <= now;
+    };
+
+    const expiradosEmExcluida = oportunidades.filter(op => op.kanbanStatus === 'EXCLUIDA' && checkExpirado(op));
     
     if (expiradosEmExcluida.length > 0) {
       expiradosEmExcluida.forEach(op => {
@@ -146,7 +160,7 @@ export default function Kanban() {
         fetch(`http://localhost:7005/oportunidades/${op._id}`, { method: 'DELETE' }).catch(() => {});
       });
       // Remove do estado visual
-      setOportunidades(prev => prev.filter(op => !(op.kanbanStatus === 'EXCLUIDA' && new Date(op.dataEncerramentoProposta).getTime() <= now)));
+      setOportunidades(prev => prev.filter(op => !(op.kanbanStatus === 'EXCLUIDA' && checkExpirado(op))));
     }
   }, [oportunidades]);
 
