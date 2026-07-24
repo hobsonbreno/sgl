@@ -8,9 +8,11 @@ import { ProdutoModule } from '../produto/produto.module';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Oportunidade.name, schema: OportunidadeSchema }]),
+    MongooseModule.forFeature([
+      { name: Oportunidade.name, schema: OportunidadeSchema },
+    ]),
     PncpModule,
-    forwardRef(() => ProdutoModule)
+    forwardRef(() => ProdutoModule),
   ],
   controllers: [OportunidadeController],
   providers: [OportunidadeService],

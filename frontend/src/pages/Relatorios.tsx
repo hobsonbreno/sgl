@@ -3,22 +3,80 @@ import { FileText, TrendingUp, DollarSign, Target } from 'lucide-react';
 
 export default function Relatorios() {
   const [propostas, setPropostas] = useState<any[]>([]);
+  const [colunas, setColunas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [statusFiltro, setStatusFiltro] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  const loadPropostas = async () => {
+  const loadData = async () => {
     setLoading(true);
     try {
-      let url = `http://localhost:7005/propostas?page=${page}&limit=50`;
-      if (statusFiltro) url += `&status=${statusFiltro}`;
+      // 1. Fetch configurações para pegar colunas dinâmicas
+      const resConfig = await fetch('http://localhost:7005/configuracoes');
+      const dataConfig = await resConfig.json();
+      const colunasDynamic = dataConfig.colunasKanban || [
+        { id: 'A_FAZER', nome: 'A FAZER' },
+        { id: 'FAZENDO', nome: 'FAZENDO' },
+        { id: 'FEITO', nome: 'FEITO' },
+        { id: 'AGUARDANDO_RESPOSTA', nome: 'AGUARDANDO RESPOSTA' },
+        { id: 'EXCLUIDA', nome: 'EXCLUÍDA' }
+      ];
+      setColunas(colunasDynamic);
+
+      // 2. Fetch Oportunidades and Propostas
+      const limit = 50;
+      let urlOps = `http://localhost:7005/oportunidades?limit=${limit}&page=${page}`;
       
-      const res = await fetch(url);
-      const payload = await res.json();
-      setPropostas(payload.data || []);
-      setTotalPages(payload.totalPages || 1);
+      // Se o filtro for VENCEDOR, PERDEU, CANCELADO, buscamos na Proposta
+      const isStatusFinal = ['VENCEDOR', 'PERDEU', 'CANCELADO'].includes(statusFiltro);
+      
+      if (statusFiltro && !isStatusFinal) {
+        urlOps += `&kanbanStatus=${statusFiltro}`;
+      }
+
+      const [resOps, resProps] = await Promise.all([
+        fetch(urlOps),
+        fetch(`http://localhost:7005/propostas?limit=1000`) // Pegamos as propostas globais para merge
+      ]);
+
+      const payloadOps = await resOps.json();
+      const payloadProps = await resProps.json();
+
+      const ops = payloadOps.data || [];
+      const props = payloadProps.data || [];
+
+      // Create a map of propostas by oportunidadeId
+      const propsMap = new Map();
+      props.forEach((p: any) => {
+        if (p.oportunidadeId?._id) propsMap.set(p.oportunidadeId._id, p);
+        else if (typeof p.oportunidadeId === 'string') propsMap.set(p.oportunidadeId, p);
+      });
+
+      // Merge: Oportunidade -> Proposta
+      let mergedData = ops.map((op: any) => {
+        const p = propsMap.get(op._id);
+        return {
+          _id: p ? p._id : op._id,
+          oportunidadeId: op,
+          valorLancado: p ? p.valorLancado : 0,
+          dataLancamento: p ? p.dataLancamento : op.createdAt,
+          status: p ? p.status : op.kanbanStatus,
+          isProposta: !!p
+        };
+      });
+
+      // Se o filtro for de status final (VENCEDOR, PERDEU), aplica filtro no frontend após o merge
+      if (isStatusFinal) {
+        mergedData = mergedData.filter((m: any) => m.status === statusFiltro);
+      }
+
+      // Ordenar por data
+      mergedData.sort((a: any, b: any) => new Date(b.dataLancamento).getTime() - new Date(a.dataLancamento).getTime());
+
+      setPropostas(mergedData);
+      setTotalPages(payloadOps.totalPages || 1);
     } catch (e) {
       console.error(e);
     }
@@ -26,7 +84,7 @@ export default function Relatorios() {
   };
 
   useEffect(() => {
-    loadPropostas();
+    loadData();
   }, [page, statusFiltro]);
 
   const handleStatusChange = async (id: string, novoStatus: string) => {
@@ -37,7 +95,7 @@ export default function Relatorios() {
         body: JSON.stringify({ status: novoStatus })
       });
       if (res.ok) {
-        loadPropostas();
+        loadData();
       }
     } catch (e) {
       console.error(e);
@@ -50,13 +108,24 @@ export default function Relatorios() {
   const totalGanho = propostas.filter(p => p.status === 'VENCEDOR').reduce((acc, p) => acc + (p.valorLancado || 0), 0);
   const vencidas = propostas.filter(p => p.status === 'VENCEDOR').length;
   const perdidas = propostas.filter(p => p.status === 'PERDEU').length;
+  const totalProcessadas = propostas.length;
   const taxaSucesso = (vencidas + perdidas) > 0 ? (vencidas / (vencidas + perdidas)) * 100 : 0;
 
   const getStatusColor = (s: string) => {
     if (s === 'VENCEDOR') return '#10b981';
     if (s === 'PERDEU') return '#ef4444';
     if (s === 'CANCELADO') return '#f59e0b';
-    return '#64748b'; // AGUARDANDO_RESPOSTA
+    if (s === 'EXCLUIDA') return '#94a3b8';
+    return '#3b82f6'; // Dinâmicos do Kanban em azul
+  };
+
+  const getStatusName = (s: string) => {
+    if (s === 'VENCEDOR') return 'Vencedor';
+    if (s === 'PERDEU') return 'Perdeu';
+    if (s === 'CANCELADO') return 'Cancelado';
+    if (s === 'AGUARDANDO_RESPOSTA') return 'Aguardando Resposta';
+    const col = colunas.find(c => c.id === s);
+    return col ? col.nome : s.replace(/_/g, ' ');
   };
 
   return (
@@ -69,40 +138,47 @@ export default function Relatorios() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
         <div className="stat-card">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>
-            <FileText size={18} /> Total de Propostas Listadas
+            <FileText size={18} /> Total da Página
           </div>
-          <div className="stat-value">{propostas.length}</div>
+          <div className="stat-value">{totalProcessadas}</div>
+          <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Todas as colunas unificadas</div>
         </div>
         <div className="stat-card">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>
             <Target size={18} /> Taxa de Sucesso
           </div>
           <div className="stat-value">{taxaSucesso.toFixed(1)}%</div>
-          <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Apenas Ganhas vs Perdidas</div>
+          <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Vencedor vs Perdeu</div>
         </div>
         <div className="stat-card">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>
             <TrendingUp size={18} /> Total Lançado
           </div>
-          <div className="stat-value" style={{ fontSize: '1.25rem' }}>R$ {totalLancado.toLocaleString('pt-BR')}</div>
+          <div className="stat-value" style={{ fontSize: '1.15rem' }}>R$ {totalLancado.toLocaleString('pt-BR')}</div>
         </div>
         <div className="stat-card">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>
             <DollarSign size={18} color="#10b981" /> Total Ganho
           </div>
-          <div className="stat-value" style={{ fontSize: '1.25rem', color: '#10b981' }}>R$ {totalGanho.toLocaleString('pt-BR')}</div>
+          <div className="stat-value" style={{ fontSize: '1.15rem', color: '#10b981' }}>R$ {totalGanho.toLocaleString('pt-BR')}</div>
         </div>
       </div>
 
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', background: '#f8fafc', padding: '1rem', borderRadius: '8px' }}>
         <div className="form-group" style={{ margin: 0 }}>
-          <label>Filtrar por Status</label>
+          <label>Filtro Global (Kanban + Resultados)</label>
           <select className="form-control" value={statusFiltro} onChange={e => { setStatusFiltro(e.target.value); setPage(1); }}>
-            <option value="">Todos</option>
-            <option value="AGUARDANDO_RESPOSTA">Aguardando Resposta</option>
-            <option value="VENCEDOR">Vencedor</option>
-            <option value="PERDEU">Perdeu</option>
-            <option value="CANCELADO">Cancelado</option>
+            <option value="">Todas as Etapas e Status</option>
+            <optgroup label="Colunas do Kanban">
+              {colunas.map(c => (
+                <option key={c.id} value={c.id}>{c.nome}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Resultados Finais">
+              <option value="VENCEDOR">Vencedor</option>
+              <option value="PERDEU">Perdeu</option>
+              <option value="CANCELADO">Cancelado</option>
+            </optgroup>
           </select>
         </div>
       </div>
@@ -136,24 +212,26 @@ export default function Relatorios() {
                   <td><strong>R$ {p.valorLancado?.toLocaleString('pt-BR')}</strong></td>
                   <td>
                     <span style={{ background: getStatusColor(p.status) + '22', color: getStatusColor(p.status), padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>
-                      {p.status.replace('_', ' ')}
+                      {getStatusName(p.status).toUpperCase()}
                     </span>
                   </td>
                   <td>
-                    {p.status === 'AGUARDANDO_RESPOSTA' ? (
+                    {!p.isProposta ? (
+                       <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Ainda em Cotação/Kanban</span>
+                    ) : p.status === 'AGUARDANDO_RESPOSTA' ? (
                       <select 
                         className="form-control"
                         style={{ padding: '0.25rem', fontSize: '0.8rem', width: 'auto' }}
                         value=""
                         onChange={(e) => handleStatusChange(p._id, e.target.value)}
                       >
-                        <option value="" disabled>Definir...</option>
+                        <option value="" disabled>Definir Resultado...</option>
                         <option value="VENCEDOR">Marcar Vencedor</option>
                         <option value="PERDEU">Marcar Perdeu</option>
                         <option value="CANCELADO">Cancelar</option>
                       </select>
                     ) : (
-                      <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Decidido</span>
+                      <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Fechado</span>
                     )}
                   </td>
                 </tr>

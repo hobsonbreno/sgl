@@ -4,7 +4,10 @@ import { Proposta, PropostaSchema } from './proposta.schema';
 import { PropostaService } from './proposta.service';
 import { PropostaController } from './proposta.controller';
 import { Cotacao, CotacaoSchema } from '../cotacao/cotacao.schema';
-import { Oportunidade, OportunidadeSchema } from '../oportunidade/oportunidade.schema';
+import {
+  Oportunidade,
+  OportunidadeSchema,
+} from '../oportunidade/oportunidade.schema';
 
 @Module({
   imports: [

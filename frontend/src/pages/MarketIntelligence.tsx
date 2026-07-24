@@ -4,17 +4,41 @@ import { BrainCircuit, Trophy, Building, TrendingDown, Target, FileWarning } fro
 export default function MarketIntelligence() {
   const [stats, setStats] = useState<any>(null);
   const [modelInfo, setModelInfo] = useState<any>(null);
+  const [botStats, setBotStats] = useState<any>(null);
+  const [teamStats, setTeamStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const [resStats, resModel] = await Promise.all([
+      const [resStats, resModel, resBot, resOps] = await Promise.all([
         fetch('http://localhost:7010/market/stats'),
-        fetch('http://localhost:7010/market/model-info')
+        fetch('http://localhost:7010/market/model-info'),
+        fetch('http://localhost:7005/bot/execucoes?limit=50'),
+        fetch('http://localhost:7005/oportunidades?limit=1000')
       ]);
       setStats(await resStats.json());
       setModelInfo(await resModel.json());
+      
+      const botData = await resBot.json();
+      const opsData = await resOps.json();
+
+      // Bot Performance
+      const captadas = botData.reduce((acc: number, curr: any) => acc + (curr.totalNovos || 0), 0);
+      const encontradas = botData.reduce((acc: number, curr: any) => acc + (curr.totalEncontrados || 0), 0);
+      setBotStats({ captadas, encontradas, execucoes: botData.length });
+
+      // Team Conversion
+      const ops = opsData.data || [];
+      const descartadas = ops.filter((o: any) => o.kanbanStatus === 'EXCLUIDA').length;
+      const aguardando = ops.filter((o: any) => o.kanbanStatus === 'A_FAZER' || !o.kanbanStatus).length;
+      const emAndamento = ops.filter((o: any) => o.kanbanStatus !== 'A_FAZER' && o.kanbanStatus !== 'EXCLUIDA').length;
+      
+      const taxaEngajamento = ops.length > 0 ? (emAndamento / ops.length) * 100 : 0;
+      const taxaRejeicao = ops.length > 0 ? (descartadas / ops.length) * 100 : 0;
+      
+      setTeamStats({ descartadas, aguardando, emAndamento, taxaEngajamento, taxaRejeicao, total: ops.length });
+
     } catch (e) {
       console.error(e);
     }
@@ -40,8 +64,39 @@ export default function MarketIntelligence() {
         <h1 style={{ margin: 0 }}>Inteligência de Mercado</h1>
       </div>
       <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>
-        Estatísticas baseadas em seu histórico de atuação, orquestradas pelo módulo de Machine Learning.
+        Estatísticas baseadas no histórico do Robô, engajamento da equipe e modelo de Machine Learning.
       </p>
+
+      {/* Team & Bot Performance */}
+      {teamStats && botStats && (
+        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '1.5rem', marginBottom: '2rem' }}>
+          <h3 style={{ marginTop: 0, marginBottom: '1rem', color: '#334155', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Target size={20} color="#3b82f6" /> Performance do Robô vs Engajamento da Equipe
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
+            <div>
+              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Oportunidades Captadas</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#3b82f6' }}>{botStats.captadas}</div>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Últimas {botStats.execucoes} buscas</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Taxa de Engajamento</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#10b981' }}>{teamStats.taxaEngajamento.toFixed(1)}%</div>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Movidas p/ Cotação ({teamStats.emAndamento})</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Taxa de Rejeição</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#ef4444' }}>{teamStats.taxaRejeicao.toFixed(1)}%</div>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Descartadas ({teamStats.descartadas})</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Fila Ociosa (A Fazer)</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#f59e0b' }}>{teamStats.aguardando}</div>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Esperando triagem</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Model Info Banner */}
       <div style={{ padding: '1rem', background: modelInfo?.treinado ? '#f0fdf4' : '#fffbeb', border: `1px solid ${modelInfo?.treinado ? '#bbf7d0' : '#fef08a'}`, borderRadius: '8px', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>

@@ -28,4 +28,5 @@ export class TransacaoFinanceira {
   oportunidadeId: mongoose.Types.ObjectId;
 }
 
-export const TransacaoFinanceiraSchema = SchemaFactory.createForClass(TransacaoFinanceira);
+export const TransacaoFinanceiraSchema =
+  SchemaFactory.createForClass(TransacaoFinanceira);

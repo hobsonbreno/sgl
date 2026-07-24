@@ -1,4 +1,13 @@
-import { Controller, Get, Patch, Param, Query, Body, Post, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Patch,
+  Param,
+  Query,
+  Body,
+  Post,
+  Delete,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { OportunidadeService } from './oportunidade.service';
 
@@ -36,7 +45,9 @@ export class OportunidadeController {
   }
 
   @Post(':id/sincronizar-itens')
-  @ApiOperation({ summary: 'Sincronizar itens reais do PNCP para a oportunidade' })
+  @ApiOperation({
+    summary: 'Sincronizar itens reais do PNCP para a oportunidade',
+  })
   sincronizarItens(@Param('id') id: string) {
     return this.service.sincronizarItens(id);
   }

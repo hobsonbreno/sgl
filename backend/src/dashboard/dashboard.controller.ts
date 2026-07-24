@@ -21,8 +21,8 @@ export class DashboardController {
   @Sse('stream')
   @ApiOperation({ summary: 'Stream SSE de atualizações do dashboard' })
   stream(): Observable<MessageEvent> {
-    return this.eventsService.getDashboardUpdates().pipe(
-      map(() => ({ data: { type: 'update' } } as MessageEvent))
-    );
+    return this.eventsService
+      .getDashboardUpdates()
+      .pipe(map(() => ({ data: { type: 'update' } })));
   }
 }

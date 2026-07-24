@@ -7,11 +7,13 @@ import { BotModule } from '../bot/bot.module';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Configuracao.name, schema: ConfiguracaoSchema }]),
-    forwardRef(() => BotModule)
+    MongooseModule.forFeature([
+      { name: Configuracao.name, schema: ConfiguracaoSchema },
+    ]),
+    forwardRef(() => BotModule),
   ],
   controllers: [ConfiguracaoController],
   providers: [ConfiguracaoService],
-  exports: [ConfiguracaoService]
+  exports: [ConfiguracaoService],
 })
 export class ConfiguracaoModule {}

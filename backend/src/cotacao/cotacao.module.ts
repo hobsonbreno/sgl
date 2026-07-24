@@ -8,9 +8,9 @@ import { FornecedorModule } from '../fornecedor/fornecedor.module';
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Cotacao.name, schema: CotacaoSchema }]),
-    FornecedorModule
+    FornecedorModule,
   ],
   providers: [CotacaoService],
-  controllers: [CotacaoController]
+  controllers: [CotacaoController],
 })
 export class CotacaoModule {}

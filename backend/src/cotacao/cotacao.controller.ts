@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { CotacaoService } from './cotacao.service';
 
@@ -26,14 +34,22 @@ export class CotacaoController {
 
   @Post('oportunidades/:id/cotacao')
   @ApiOperation({ summary: 'Criar ou obter cotação para uma oportunidade' })
-  createOrGet(@Param('id') oportunidadeId: string, @Body() data: CreateCotacaoDto) {
+  createOrGet(
+    @Param('id') oportunidadeId: string,
+    @Body() data: CreateCotacaoDto,
+  ) {
     return this.cotacaoService.createOrGet(oportunidadeId, data.itens);
   }
 
   @Get('oportunidades/:id/cotacao')
   @ApiOperation({ summary: 'Obter cotação por Oportunidade ID' })
-  findByOportunidade(@Param('id') oportunidadeId: string) {
-    return this.cotacaoService.findByOportunidade(oportunidadeId);
+  async findByOportunidade(@Param('id') oportunidadeId: string) {
+    try {
+      return await this.cotacaoService.findByOportunidade(oportunidadeId);
+    } catch (e) {
+      if (e.status === 404) return null;
+      throw e;
+    }
   }
 
   @Get('cotacoes/:id')
@@ -43,11 +59,13 @@ export class CotacaoController {
   }
 
   @Patch('cotacoes/:id/itens/:itemId/preco')
-  @ApiOperation({ summary: 'Atualizar ou adicionar preço de fornecedor para um item' })
+  @ApiOperation({
+    summary: 'Atualizar ou adicionar preço de fornecedor para um item',
+  })
   updatePreco(
-    @Param('id') id: string, 
-    @Param('itemId') itemId: string, 
-    @Body() data: UpdatePrecoDto
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+    @Body() data: UpdatePrecoDto,
   ) {
     return this.cotacaoService.updatePreco(id, itemId, data);
   }

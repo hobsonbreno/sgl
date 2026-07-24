@@ -10,9 +10,11 @@ import { BotModule } from '../bot/bot.module';
   imports: [
     OportunidadeModule,
     forwardRef(() => BotModule),
-    MongooseModule.forFeature([{ name: BotExecucao.name, schema: BotExecucaoSchema }])
+    MongooseModule.forFeature([
+      { name: BotExecucao.name, schema: BotExecucaoSchema },
+    ]),
   ],
   providers: [DashboardService],
-  controllers: [DashboardController]
+  controllers: [DashboardController],
 })
 export class DashboardModule {}

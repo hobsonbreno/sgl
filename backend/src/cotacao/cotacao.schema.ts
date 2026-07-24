@@ -5,34 +5,48 @@ export type CotacaoDocument = HydratedDocument<Cotacao>;
 
 @Schema({ timestamps: true })
 export class Cotacao {
-  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Oportunidade', required: true })
+  @Prop({
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Oportunidade',
+    required: true,
+  })
   oportunidadeId: mongoose.Types.ObjectId;
 
   @Prop({
-    type: [{
-      _id: { type: mongoose.Schema.Types.ObjectId, auto: true },
-      produtoId: { type: mongoose.Schema.Types.ObjectId, ref: 'Produto' },
-      descricaoItem: String,
-      quantidade: Number,
-      unidadeMedida: String,
-      valorUnitarioEstimado: Number,
-      precosFornecedores: [{
-        fornecedorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Fornecedor' },
-        precoUnitario: Number,
-        fatorEmbalagem: Number,
-        precoEmbalagem: Number,
-        nomeEmbalagem: String,
-        freteIncluso: { type: Boolean, default: false },
-        prazoPagamento: { type: Number, default: 0 },
-        permiteParcelamento: { type: Boolean, default: false },
-        observacao: String,
-        desclassificado: { type: Boolean, default: false }
-      }],
-      melhorPreco: {
-        fornecedorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Fornecedor' },
-        precoUnitario: Number
-      }
-    }]
+    type: [
+      {
+        _id: { type: mongoose.Schema.Types.ObjectId, auto: true },
+        produtoId: { type: mongoose.Schema.Types.ObjectId, ref: 'Produto' },
+        descricaoItem: String,
+        quantidade: Number,
+        unidadeMedida: String,
+        valorUnitarioEstimado: Number,
+        precosFornecedores: [
+          {
+            fornecedorId: {
+              type: mongoose.Schema.Types.ObjectId,
+              ref: 'Fornecedor',
+            },
+            precoUnitario: Number,
+            fatorEmbalagem: Number,
+            precoEmbalagem: Number,
+            nomeEmbalagem: String,
+            freteIncluso: { type: Boolean, default: false },
+            prazoPagamento: { type: Number, default: 0 },
+            permiteParcelamento: { type: Boolean, default: false },
+            observacao: String,
+            desclassificado: { type: Boolean, default: false },
+          },
+        ],
+        melhorPreco: {
+          fornecedorId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Fornecedor',
+          },
+          precoUnitario: Number,
+        },
+      },
+    ],
   })
   itens: {
     _id: mongoose.Types.ObjectId;

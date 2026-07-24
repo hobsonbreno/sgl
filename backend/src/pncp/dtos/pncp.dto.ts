@@ -17,6 +17,9 @@ export class UnidadeOrgaoRawDto {
 
   @ApiProperty({ required: false })
   codigoUnidade?: string;
+
+  @ApiProperty({ required: false })
+  codigoIbge?: string;
 }
 
 export class PncpContratacaoRawDto {
@@ -66,28 +69,28 @@ export class PncpContratacaoRawDto {
 export class OportunidadeDto {
   @ApiProperty()
   numeroControlePNCP: string;
-  
+
   @ApiProperty()
   tipo: 'licitacao' | 'dispensa';
-  
+
   @ApiProperty()
   modalidadeCodigo: number;
-  
+
   @ApiProperty()
   modalidadeNome: string;
-  
+
   @ApiProperty()
   orgaoCnpj: string;
-  
+
   @ApiProperty()
   orgaoNome: string;
-  
+
   @ApiProperty()
   uf: string;
-  
+
   @ApiProperty()
   municipio: string;
-  
+
   @ApiProperty()
   objetoCompra: string;
 
@@ -99,22 +102,22 @@ export class OportunidadeDto {
 
   @ApiProperty({ required: false })
   anoCompraOrigem?: number;
-  
+
   @ApiProperty()
   valorTotalEstimado: number;
-  
+
   @ApiProperty({ required: false })
   dataAberturaProposta?: Date;
-  
+
   @ApiProperty({ required: false })
   dataEncerramentoProposta?: Date;
-  
+
   @ApiProperty()
   linkSistemaOrigem: string;
-  
+
   @ApiProperty()
   situacaoCompraNome: string;
-  
+
   @ApiProperty()
   kanbanStatus: string;
 
@@ -122,7 +125,9 @@ export class OportunidadeDto {
   usuarioNome?: string;
 }
 
-export function mapPncpParaOportunidade(raw: PncpContratacaoRawDto): OportunidadeDto {
+export function mapPncpParaOportunidade(
+  raw: PncpContratacaoRawDto,
+): OportunidadeDto {
   const isDispensa = raw.modalidadeId === 8 || raw.modalidadeId === 9;
   return {
     numeroControlePNCP: raw.numeroControlePNCP,
@@ -138,11 +143,15 @@ export function mapPncpParaOportunidade(raw: PncpContratacaoRawDto): Oportunidad
     anoCompraOrigem: raw.anoCompra || 0,
     objetoCompra: raw.objetoCompra || '',
     valorTotalEstimado: raw.valorTotalEstimado || 0,
-    dataAberturaProposta: raw.dataAberturaProposta ? new Date(raw.dataAberturaProposta) : undefined,
-    dataEncerramentoProposta: raw.dataEncerramentoProposta ? new Date(raw.dataEncerramentoProposta) : undefined,
+    dataAberturaProposta: raw.dataAberturaProposta
+      ? new Date(raw.dataAberturaProposta)
+      : undefined,
+    dataEncerramentoProposta: raw.dataEncerramentoProposta
+      ? new Date(raw.dataEncerramentoProposta)
+      : undefined,
     linkSistemaOrigem: raw.linkSistemaOrigem || '',
     situacaoCompraNome: raw.situacaoCompraNome || '',
     kanbanStatus: 'A_FAZER',
-    usuarioNome: raw.usuarioNome || ''
+    usuarioNome: raw.usuarioNome || '',
   };
 }

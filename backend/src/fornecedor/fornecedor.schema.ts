@@ -50,8 +50,32 @@ export class Fornecedor {
   @Prop({ required: true, enum: ['manual', 'bot'] })
   origem: string;
 
-  @Prop({ type: [{ descricaoItem: String, precoUnitario: Number, precoEmbalagem: Number, fatorEmbalagem: Number, nomeEmbalagem: String, observacao: String, desclassificado: Boolean, data: Date, oportunidadeId: String }] })
-  fornecedor_historico_precos: { descricaoItem: string; precoUnitario: number; precoEmbalagem?: number; fatorEmbalagem?: number; nomeEmbalagem?: string; observacao?: string; desclassificado?: boolean; data: Date; oportunidadeId: string }[];
+  @Prop({
+    type: [
+      {
+        descricaoItem: String,
+        precoUnitario: Number,
+        precoEmbalagem: Number,
+        fatorEmbalagem: Number,
+        nomeEmbalagem: String,
+        observacao: String,
+        desclassificado: Boolean,
+        data: Date,
+        oportunidadeId: String,
+      },
+    ],
+  })
+  fornecedor_historico_precos: {
+    descricaoItem: string;
+    precoUnitario: number;
+    precoEmbalagem?: number;
+    fatorEmbalagem?: number;
+    nomeEmbalagem?: string;
+    observacao?: string;
+    desclassificado?: boolean;
+    data: Date;
+    oportunidadeId: string;
+  }[];
 }
 
 export const FornecedorSchema = SchemaFactory.createForClass(Fornecedor);

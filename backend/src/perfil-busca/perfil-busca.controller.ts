@@ -1,5 +1,19 @@
-import { Controller, Get, Post, Body, Put, Param, Delete, Patch } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiProperty } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Put,
+  Param,
+  Delete,
+  Patch,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiProperty,
+} from '@nestjs/swagger';
 import { PerfilBuscaService } from './perfil-busca.service';
 
 export class CreatePerfilDto {

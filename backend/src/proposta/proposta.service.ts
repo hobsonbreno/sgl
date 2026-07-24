@@ -1,23 +1,37 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Proposta, PropostaDocument } from './proposta.schema';
 import { Cotacao, CotacaoDocument } from '../cotacao/cotacao.schema';
-import { Oportunidade, OportunidadeDocument } from '../oportunidade/oportunidade.schema';
+import {
+  Oportunidade,
+  OportunidadeDocument,
+} from '../oportunidade/oportunidade.schema';
 
 @Injectable()
 export class PropostaService {
   constructor(
     @InjectModel(Proposta.name) private propostaModel: Model<PropostaDocument>,
     @InjectModel(Cotacao.name) private cotacaoModel: Model<CotacaoDocument>,
-    @InjectModel(Oportunidade.name) private oportunidadeModel: Model<OportunidadeDocument>
+    @InjectModel(Oportunidade.name)
+    private oportunidadeModel: Model<OportunidadeDocument>,
   ) {}
 
   async criarProposta(oportunidadeId: string, payload: any) {
     const cotacao = await this.cotacaoModel.findOne({ oportunidadeId }).exec();
-    
-    if (!cotacao || !cotacao.valorTotalMelhorCotacao || cotacao.valorTotalMelhorCotacao <= 0) {
-      throw new BadRequestException('Finalize a cotação antes de lançar a proposta');
+
+    if (
+      !cotacao ||
+      !cotacao.valorTotalMelhorCotacao ||
+      cotacao.valorTotalMelhorCotacao <= 0
+    ) {
+      throw new BadRequestException(
+        'Finalize a cotação antes de lançar a proposta',
+      );
     }
 
     const novaProposta = new this.propostaModel({
@@ -29,29 +43,38 @@ export class PropostaService {
       status: 'AGUARDANDO_RESPOSTA',
       dataLancamento: new Date(),
       dataAtualizacaoStatus: new Date(),
-      observacoes: payload.observacoes
+      observacoes: payload.observacoes,
     });
 
     const propostaSalva = await novaProposta.save();
 
-    await this.oportunidadeModel.findByIdAndUpdate(oportunidadeId, {
-      kanbanStatus: 'AGUARDANDO_RESPOSTA'
-    }).exec();
+    await this.oportunidadeModel
+      .findByIdAndUpdate(oportunidadeId, {
+        kanbanStatus: 'AGUARDANDO_RESPOSTA',
+      })
+      .exec();
 
     return propostaSalva;
   }
 
   async atualizarStatus(id: string, status: string) {
-    const permitidos = ['AGUARDANDO_RESPOSTA', 'VENCEDOR', 'PERDEU', 'CANCELADO'];
+    const permitidos = [
+      'AGUARDANDO_RESPOSTA',
+      'VENCEDOR',
+      'PERDEU',
+      'CANCELADO',
+    ];
     if (!permitidos.includes(status)) {
       throw new BadRequestException('Status inválido');
     }
 
-    const proposta = await this.propostaModel.findByIdAndUpdate(
-      id,
-      { status, dataAtualizacaoStatus: new Date() },
-      { new: true }
-    ).exec();
+    const proposta = await this.propostaModel
+      .findByIdAndUpdate(
+        id,
+        { status, dataAtualizacaoStatus: new Date() },
+        { new: true },
+      )
+      .exec();
 
     if (!proposta) throw new NotFoundException('Proposta não encontrada');
     return proposta;
@@ -74,7 +97,10 @@ export class PropostaService {
 
     const data = await this.propostaModel
       .find(filter)
-      .populate('oportunidadeId', 'orgaoNome objetoCompra numeroControlePNCP uf')
+      .populate(
+        'oportunidadeId',
+        'orgaoNome objetoCompra numeroControlePNCP uf',
+      )
       .sort({ dataLancamento: -1 })
       .skip(skip)
       .limit(limit)
@@ -87,7 +113,10 @@ export class PropostaService {
   }
 
   async buscarPorId(id: string) {
-    const proposta = await this.propostaModel.findById(id).populate('oportunidadeId').exec();
+    const proposta = await this.propostaModel
+      .findById(id)
+      .populate('oportunidadeId')
+      .exec();
     if (!proposta) throw new NotFoundException('Proposta não encontrada');
     return proposta;
   }

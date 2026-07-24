@@ -13,17 +13,19 @@ import { ConfiguracaoModule } from '../configuracao/configuracao.module';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: BotExecucao.name, schema: BotExecucaoSchema }]),
+    MongooseModule.forFeature([
+      { name: BotExecucao.name, schema: BotExecucaoSchema },
+    ]),
     PncpModule,
     PerfilBuscaModule,
     FornecedorModule,
     OportunidadeModule,
     OrgaoModule,
     ProdutoModule,
-    forwardRef(() => ConfiguracaoModule)
+    forwardRef(() => ConfiguracaoModule),
   ],
   providers: [BotService],
   controllers: [BotController],
-  exports: [BotService]
+  exports: [BotService],
 })
 export class BotModule {}

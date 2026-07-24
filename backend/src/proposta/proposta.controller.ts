@@ -1,4 +1,12 @@
-import { Controller, Post, Get, Patch, Param, Body, Query } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Patch,
+  Param,
+  Body,
+  Query,
+} from '@nestjs/common';
 import { PropostaService } from './proposta.service';
 
 @Controller('propostas')
@@ -11,7 +19,10 @@ export class PropostaController {
   }
 
   @Patch('/:id/status')
-  async atualizarStatus(@Param('id') id: string, @Body('status') status: string) {
+  async atualizarStatus(
+    @Param('id') id: string,
+    @Body('status') status: string,
+  ) {
     return this.propostaService.atualizarStatus(id, status);
   }
 

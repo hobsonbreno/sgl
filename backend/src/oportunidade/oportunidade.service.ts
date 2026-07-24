@@ -1,4 +1,9 @@
-import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  Logger,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Oportunidade, OportunidadeDocument } from './oportunidade.schema';
@@ -12,15 +17,21 @@ export class OportunidadeService {
   constructor(
     @InjectModel(Oportunidade.name) private model: Model<OportunidadeDocument>,
     private readonly pncpClientService: PncpClientService,
-    @InjectModel(Produto.name) private produtoModel: Model<ProdutoDocument>
+    @InjectModel(Produto.name) private produtoModel: Model<ProdutoDocument>,
   ) {}
 
-  async findAll(query: any): Promise<{ data: Oportunidade[]; total: number; totalPages: number; currentPage: number }> {
+  async findAll(query: any): Promise<{
+    data: Oportunidade[];
+    total: number;
+    totalPages: number;
+    currentPage: number;
+  }> {
     const filters: any = {};
     if (query.kanbanStatus) filters.kanbanStatus = query.kanbanStatus;
     if (query.uf) filters.uf = query.uf;
-    if (query.modalidadeCodigo) filters.modalidadeCodigo = query.modalidadeCodigo;
-    
+    if (query.modalidadeCodigo)
+      filters.modalidadeCodigo = query.modalidadeCodigo;
+
     if (query.prazoAteEmDias) {
       const hoje = new Date();
       hoje.setDate(hoje.getDate() + Number(query.prazoAteEmDias));
@@ -33,14 +44,22 @@ export class OportunidadeService {
       { kanbanStatus: { $ne: 'EXCLUIDA' } },
       { kanbanStatus: 'EXCLUIDA', dataEncerramentoProposta: { $gte: agora } },
       { kanbanStatus: 'EXCLUIDA', dataEncerramentoProposta: null },
-      { kanbanStatus: 'EXCLUIDA', dataEncerramentoProposta: { $exists: false } }
+      {
+        kanbanStatus: 'EXCLUIDA',
+        dataEncerramentoProposta: { $exists: false },
+      },
     ];
 
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 50;
     const skip = (page - 1) * limit;
 
-    const data = await this.model.find(filters).sort({ createdAt: -1 }).skip(skip).limit(limit).exec();
+    const data = await this.model
+      .find(filters)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .exec();
     const total = await this.model.countDocuments(filters).exec();
     const totalPages = Math.ceil(total / limit) || 1;
 
@@ -58,17 +77,21 @@ export class OportunidadeService {
       throw new BadRequestException('Status não informado');
     }
 
-    const doc = await this.model.findByIdAndUpdate(
-      id, 
-      { kanbanStatus, dataMudancaStatus: new Date() }, 
-      { new: true }
-    ).exec();
+    const doc = await this.model
+      .findByIdAndUpdate(
+        id,
+        { kanbanStatus, dataMudancaStatus: new Date() },
+        { new: true },
+      )
+      .exec();
 
     if (!doc) throw new NotFoundException('Oportunidade não encontrada');
 
     if (kanbanStatus === 'EXCLUIDA') {
       await this.produtoModel.deleteMany({ oportunidadeId: id }).exec();
-      this.logger.log(`Produtos da oportunidade ${id} removidos (movida para lixeira)`);
+      this.logger.log(
+        `Produtos da oportunidade ${id} removidos (movida para lixeira)`,
+      );
     }
 
     return doc;
@@ -83,14 +106,18 @@ export class OportunidadeService {
     }
 
     // Verifica se já existem produtos para esta oportunidade
-    const produtosExistentes = await this.produtoModel.countDocuments({ oportunidadeId: id }).exec();
+    const produtosExistentes = await this.produtoModel
+      .countDocuments({ oportunidadeId: id })
+      .exec();
     if (produtosExistentes > 0) {
       return { message: 'Itens já sincronizados', total: produtosExistentes };
     }
 
     try {
-      const itensRaw = await this.pncpClientService.buscarItensDaContratacao(doc.numeroControlePNCP);
-      
+      const itensRaw = await this.pncpClientService.buscarItensDaContratacao(
+        doc.numeroControlePNCP,
+      );
+
       if (!itensRaw || itensRaw.length === 0) {
         return { message: 'Nenhum item retornado pela API da PNCP', total: 0 };
       }
@@ -106,21 +133,30 @@ export class OportunidadeService {
         valorEstimado: item.valorTotal || 0,
       }));
 
-      const ops = novosProdutos.map(prod => ({
+      const ops = novosProdutos.map((prod) => ({
         updateOne: {
           filter: { oportunidadeId: id, numeroItem: prod.numeroItem },
           update: { $set: prod },
-          upsert: true
-        }
+          upsert: true,
+        },
       }));
 
       await this.produtoModel.bulkWrite(ops);
 
-      this.logger.log(`Sincronizados (upsert) ${novosProdutos.length} itens para a oportunidade ${id}`);
-      return { message: 'Itens sincronizados com sucesso', total: novosProdutos.length };
+      this.logger.log(
+        `Sincronizados (upsert) ${novosProdutos.length} itens para a oportunidade ${id}`,
+      );
+      return {
+        message: 'Itens sincronizados com sucesso',
+        total: novosProdutos.length,
+      };
     } catch (e) {
-      this.logger.error(`Erro ao sincronizar itens da oportunidade ${id}: ${e.message}`);
-      throw new BadRequestException('Não foi possível carregar os itens agora, tente novamente.');
+      this.logger.error(
+        `Erro ao sincronizar itens da oportunidade ${id}: ${e.message}`,
+      );
+      throw new BadRequestException(
+        'Não foi possível carregar os itens agora, tente novamente.',
+      );
     }
   }
   async remove(id: string) {
@@ -129,14 +165,16 @@ export class OportunidadeService {
 
     try {
       await this.model.updateOne(
-        { _id: doc._id }, 
-        { $set: { kanbanStatus: 'EXCLUIDA', dataMudancaStatus: new Date() } }
+        { _id: doc._id },
+        { $set: { kanbanStatus: 'EXCLUIDA', dataMudancaStatus: new Date() } },
       );
 
       // Excluir produtos associados
       await this.produtoModel.deleteMany({ oportunidadeId: id }).exec();
 
-      this.logger.log(`Oportunidade ${id} enviada para lixeira e produtos removidos`);
+      this.logger.log(
+        `Oportunidade ${id} enviada para lixeira e produtos removidos`,
+      );
       return { message: 'Oportunidade excluída com sucesso' };
     } catch (error) {
       this.logger.error(`Erro ao excluir oportunidade ${id}: ${error.message}`);

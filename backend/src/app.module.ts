@@ -19,7 +19,9 @@ import { FinanceiroModule } from './financeiro/financeiro.module';
 
 @Module({
   imports: [
-    MongooseModule.forRoot(process.env.MONGO_URI || 'mongodb://mongo:27017/licitacoes'),
+    MongooseModule.forRoot(
+      process.env.MONGO_URI || 'mongodb://mongo:27017/licitacoes',
+    ),
     ScheduleModule.forRoot(),
     PncpModule,
     PerfilBuscaModule,

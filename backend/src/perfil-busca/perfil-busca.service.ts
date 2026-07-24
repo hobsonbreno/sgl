@@ -1,11 +1,17 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { PerfilBusca, PerfilBuscaDocument } from './perfil-busca.schema';
 
 @Injectable()
 export class PerfilBuscaService {
-  constructor(@InjectModel(PerfilBusca.name) private model: Model<PerfilBuscaDocument>) {}
+  constructor(
+    @InjectModel(PerfilBusca.name) private model: Model<PerfilBuscaDocument>,
+  ) {}
 
   async create(data: any): Promise<PerfilBusca> {
     if (!data.modalidades || data.modalidades.length === 0) {
@@ -28,7 +34,9 @@ export class PerfilBuscaService {
     if (data.modalidades && data.modalidades.length === 0) {
       throw new BadRequestException('Pelo menos 1 modalidade é obrigatória.');
     }
-    const doc = await this.model.findByIdAndUpdate(id, data, { new: true }).exec();
+    const doc = await this.model
+      .findByIdAndUpdate(id, data, { new: true })
+      .exec();
     if (!doc) throw new NotFoundException('Perfil não encontrado');
     return doc;
   }
@@ -36,7 +44,7 @@ export class PerfilBuscaService {
   async toggleActive(id: string): Promise<PerfilBusca> {
     const doc = await this.model.findById(id).exec();
     if (!doc) throw new NotFoundException('Perfil não encontrado');
-    
+
     doc.ativo = !doc.ativo;
     return doc.save();
   }

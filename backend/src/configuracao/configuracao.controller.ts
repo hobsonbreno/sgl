@@ -1,4 +1,10 @@
-import { Controller, Get, Patch, Body, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Patch,
+  Body,
+  BadRequestException,
+} from '@nestjs/common';
 import { ConfiguracaoService } from './configuracao.service';
 
 @Controller('configuracoes')
@@ -13,12 +19,17 @@ export class ConfiguracaoController {
   @Patch()
   async update(@Body() body: any) {
     if (body.horariosBuscaBot) {
-      if (!Array.isArray(body.horariosBuscaBot) || body.horariosBuscaBot.some((h: string) => !/^\d{2}:\d{2}$/.test(h))) {
-        throw new BadRequestException('Formato de horários inválido. Use um array de strings HH:mm');
+      if (
+        !Array.isArray(body.horariosBuscaBot) ||
+        body.horariosBuscaBot.some((h: string) => !/^\d{2}:\d{2}$/.test(h))
+      ) {
+        throw new BadRequestException(
+          'Formato de horários inválido. Use um array de strings HH:mm',
+        );
       }
       return this.configuracaoService.setHorarios(body.horariosBuscaBot);
     }
-    
+
     if (body.colunasKanban) {
       if (!Array.isArray(body.colunasKanban)) {
         throw new BadRequestException('Formato de colunas inválido.');

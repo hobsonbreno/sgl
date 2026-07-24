@@ -5,10 +5,18 @@ export type PropostaDocument = HydratedDocument<Proposta>;
 
 @Schema({ timestamps: true })
 export class Proposta {
-  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Oportunidade', required: true })
+  @Prop({
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Oportunidade',
+    required: true,
+  })
   oportunidadeId: mongoose.Types.ObjectId;
 
-  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Cotacao', required: true })
+  @Prop({
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Cotacao',
+    required: true,
+  })
   cotacaoId: mongoose.Types.ObjectId;
 
   @Prop({ required: true })
@@ -26,7 +34,10 @@ export class Proposta {
   @Prop({ type: [String] })
   documentosAnexos?: string[];
 
-  @Prop({ required: true, enum: ['AGUARDANDO_RESPOSTA', 'VENCEDOR', 'PERDEU', 'CANCELADO'] })
+  @Prop({
+    required: true,
+    enum: ['AGUARDANDO_RESPOSTA', 'VENCEDOR', 'PERDEU', 'CANCELADO'],
+  })
   status: string;
 
   @Prop({ default: Date.now })

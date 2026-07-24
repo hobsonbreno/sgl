@@ -10,7 +10,8 @@ import { BotExecucao, BotExecucaoDocument } from './bot-execucao.schema';
 export class BotController {
   constructor(
     private readonly botService: BotService,
-    @InjectModel(BotExecucao.name) private botExecucaoModel: Model<BotExecucaoDocument>,
+    @InjectModel(BotExecucao.name)
+    private botExecucaoModel: Model<BotExecucaoDocument>,
   ) {}
 
   @Post('run-now')
