@@ -50,13 +50,13 @@ export default function Relatorios() {
       // Create a map of propostas by oportunidadeId
       const propsMap = new Map();
       props.forEach((p: any) => {
-        if (p.oportunidadeId?._id) propsMap.set(p.oportunidadeId._id, p);
-        else if (typeof p.oportunidadeId === 'string') propsMap.set(p.oportunidadeId, p);
+        if (p.oportunidadeId?._id) propsMap.set(String(p.oportunidadeId._id), p);
+        else if (p.oportunidadeId) propsMap.set(String(p.oportunidadeId), p);
       });
 
       // Merge: Oportunidade -> Proposta
       let mergedData = ops.map((op: any) => {
-        const p = propsMap.get(op._id);
+        const p = propsMap.get(String(op._id));
         return {
           _id: p ? p._id : op._id,
           oportunidadeId: op,
@@ -187,18 +187,18 @@ export default function Relatorios() {
         <table>
           <thead>
             <tr>
-              <th>Data Lançamento</th>
+              <th>Data Inicial</th>
               <th>Órgão / Objeto</th>
-              <th>Valor Lançado</th>
-              <th>Status do Pregão</th>
-              <th>Ação / Resultado</th>
+              <th>Valor (Estimado / Lançado)</th>
+              <th>Status Atual (Kanban)</th>
+              <th>Resultado da Proposta</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr><td colSpan={5} style={{textAlign:'center'}}>Carregando...</td></tr>
             ) : propostas.length === 0 ? (
-              <tr><td colSpan={5} style={{textAlign:'center'}}>Nenhuma proposta lançada.</td></tr>
+              <tr><td colSpan={5} style={{textAlign:'center'}}>Nenhuma oportunidade ou proposta encontrada.</td></tr>
             ) : (
               propostas.map(p => (
                 <tr key={p._id}>
@@ -209,7 +209,13 @@ export default function Relatorios() {
                       {p.oportunidadeId?.objetoCompra?.substring(0, 60)}...
                     </div>
                   </td>
-                  <td><strong>R$ {p.valorLancado?.toLocaleString('pt-BR')}</strong></td>
+                  <td>
+                    {p.isProposta ? (
+                      <strong>R$ {p.valorLancado?.toLocaleString('pt-BR')}</strong>
+                    ) : (
+                      <span style={{ color: '#64748b' }}>R$ {(p.oportunidadeId?.valorTotalEstimado || 0).toLocaleString('pt-BR')} <span style={{fontSize: '0.75rem'}}>(Est.)</span></span>
+                    )}
+                  </td>
                   <td>
                     <span style={{ background: getStatusColor(p.status) + '22', color: getStatusColor(p.status), padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>
                       {getStatusName(p.status).toUpperCase()}
