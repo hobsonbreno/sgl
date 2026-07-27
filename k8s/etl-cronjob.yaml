@@ -1,0 +1,23 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sgl-etl-cronjob
+spec:
+  # Roda às 02:00 da manhã do dia 10 de cada mês
+  schedule: "0 2 10 * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: sgl-etl
+            # Substituir pela sua imagem real hospedada no Docker Hub / Registry (ex: breno/sgl-backend:latest)
+            image: your-docker-registry/sgl-backend:latest
+            command:
+            - npm
+            - run
+            - sync:receita
+            env:
+            - name: MONGO_URI
+              value: "mongodb://mongo:27017/licitacoes"
+          restartPolicy: OnFailure

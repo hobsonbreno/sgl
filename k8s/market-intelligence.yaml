@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sgl-market-intelligence
+spec:
+  selector:
+    matchLabels:
+      app: sgl-market-intelligence
+  template:
+    metadata:
+      labels:
+        app: sgl-market-intelligence
+    spec:
+      containers:
+      - name: market-intelligence
+        image: seu-usuario-dockerhub/sgl-market-intelligence:latest
+        ports:
+        - containerPort: 7010
+        env:
+        - name: MONGO_URI
+          value: "mongodb://mongo:27017/licitacoes"
+        - name: TZ
+          value: "America/Sao_Paulo"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: market-intelligence
+spec:
+  selector:
+    app: sgl-market-intelligence
+  ports:
+    - protocol: TCP
+      port: 7010
+      targetPort: 7010

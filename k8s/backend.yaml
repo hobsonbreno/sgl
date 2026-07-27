@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sgl-backend
+spec:
+  selector:
+    matchLabels:
+      app: sgl-backend
+  template:
+    metadata:
+      labels:
+        app: sgl-backend
+    spec:
+      containers:
+      - name: backend
+        image: seu-usuario-dockerhub/sgl-backend:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: MONGO_URI
+          value: "mongodb://mongo:27017/licitacoes"
+        - name: PNCP_BASE_URL
+          value: "https://pncp.gov.br/api/consulta"
+        - name: TZ
+          value: "America/Sao_Paulo"
+        # Adicione outras variáveis do seu .env aqui (ou crie um ConfigMap depois)
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  selector:
+    app: sgl-backend
+  ports:
+    - protocol: TCP
+      port: 3000
+      targetPort: 3000
