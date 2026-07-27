@@ -27,9 +27,11 @@ kind: Service
 metadata:
   name: market-intelligence
 spec:
+  type: NodePort
   selector:
     app: sgl-market-intelligence
   ports:
     - protocol: TCP
       port: 7010
       targetPort: 7010
+      nodePort: 30010

@@ -12,8 +12,8 @@ export default function Dashboard() {
   const carregarResumo = async () => {
     try {
       const [resResumo, resConfig] = await Promise.all([
-        fetch('http://localhost:7005/dashboard/resumo'),
-        fetch('http://localhost:7005/configuracoes')
+        fetch('http://192.168.1.16:30000/dashboard/resumo'),
+        fetch('http://192.168.1.16:30000/configuracoes')
       ]);
       const dataResumo = await resResumo.json();
       const dataConfig = await resConfig.json();
@@ -29,7 +29,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     carregarResumo();
-    const eventSource = new EventSource('http://localhost:7005/dashboard/stream');
+    const eventSource = new EventSource('http://192.168.1.16:30000/dashboard/stream');
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
@@ -46,7 +46,7 @@ export default function Dashboard() {
   const rodarBot = async () => {
     setLoadingBot(true);
     try {
-      await fetch('http://localhost:7005/bot/run-now', { method: 'POST' });
+      await fetch('http://192.168.1.16:30000/bot/run-now', { method: 'POST' });
       await carregarResumo();
     } catch (e) {
       console.error(e);

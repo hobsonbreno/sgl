@@ -42,7 +42,7 @@ export default function Fornecedores() {
 
   const loadFornecedores = async () => {
     try {
-      const res = await fetch(`http://localhost:7005/fornecedores?busca=${busca}&page=${page}&limit=10`);
+      const res = await fetch(`http://192.168.1.16:30000/fornecedores?busca=${busca}&page=${page}&limit=10`);
       const payload = await res.json();
       setFornecedores(payload.data || []);
       setTotalPages(payload.totalPages || 1);
@@ -127,7 +127,7 @@ export default function Fornecedores() {
         portifolio
       };
       
-      const res = await fetch('http://localhost:7005/fornecedores', {
+      const res = await fetch('http://192.168.1.16:30000/fornecedores', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -195,7 +195,7 @@ export default function Fornecedores() {
         portifolio: editPortifolio
       };
 
-      const res = await fetch(`http://localhost:7005/fornecedores/${editId}`, {
+      const res = await fetch(`http://192.168.1.16:30000/fornecedores/${editId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -219,7 +219,7 @@ export default function Fornecedores() {
     if (!window.confirm('Tem certeza que deseja excluir este fornecedor? Esta ação não pode ser desfeita.')) return;
     
     try {
-      const res = await fetch(`http://localhost:7005/fornecedores/${id}`, {
+      const res = await fetch(`http://192.168.1.16:30000/fornecedores/${id}`, {
         method: 'DELETE'
       });
       if (res.ok) {
