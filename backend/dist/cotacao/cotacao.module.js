@@ -13,6 +13,7 @@ const cotacao_service_1 = require("./cotacao.service");
 const cotacao_controller_1 = require("./cotacao.controller");
 const cotacao_schema_1 = require("./cotacao.schema");
 const fornecedor_module_1 = require("../fornecedor/fornecedor.module");
+const perfil_busca_module_1 = require("../perfil-busca/perfil-busca.module");
 let CotacaoModule = class CotacaoModule {
 };
 exports.CotacaoModule = CotacaoModule;
@@ -20,10 +21,11 @@ exports.CotacaoModule = CotacaoModule = __decorate([
     (0, common_1.Module)({
         imports: [
             mongoose_1.MongooseModule.forFeature([{ name: cotacao_schema_1.Cotacao.name, schema: cotacao_schema_1.CotacaoSchema }]),
-            fornecedor_module_1.FornecedorModule
+            fornecedor_module_1.FornecedorModule,
+            perfil_busca_module_1.PerfilBuscaModule,
         ],
         providers: [cotacao_service_1.CotacaoService],
-        controllers: [cotacao_controller_1.CotacaoController]
+        controllers: [cotacao_controller_1.CotacaoController],
     })
 ], CotacaoModule);
 //# sourceMappingURL=cotacao.module.js.map

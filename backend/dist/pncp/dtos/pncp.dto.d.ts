@@ -6,6 +6,7 @@ export declare class UnidadeOrgaoRawDto {
     ufSigla: string;
     municipioNome: string;
     codigoUnidade?: string;
+    codigoIbge?: string;
 }
 export declare class PncpContratacaoRawDto {
     numeroControlePNCP: string;
@@ -21,6 +22,7 @@ export declare class PncpContratacaoRawDto {
     situacaoCompraNome?: string;
     objetoCompra?: string;
     linkSistemaOrigem?: string;
+    usuarioNome?: string;
 }
 export declare class OportunidadeDto {
     numeroControlePNCP: string;
@@ -41,5 +43,6 @@ export declare class OportunidadeDto {
     linkSistemaOrigem: string;
     situacaoCompraNome: string;
     kanbanStatus: string;
+    usuarioNome?: string;
 }
 export declare function mapPncpParaOportunidade(raw: PncpContratacaoRawDto): OportunidadeDto;

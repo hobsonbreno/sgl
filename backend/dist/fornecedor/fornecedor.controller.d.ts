@@ -26,4 +26,5 @@ export declare class FornecedorController {
         valorCampeaoLicitacao?: number;
     }): Promise<import("./fornecedor.schema").ProdutoBase>;
     update(id: string, data: any): Promise<import("./fornecedor.schema").Fornecedor>;
+    remove(id: string): Promise<void>;
 }

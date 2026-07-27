@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Check, AlertCircle, Trash2, ChevronDown, ChevronUp, X, ExternalLink, Copy, XCircle } from 'lucide-react';
+import { ArrowLeft, Check, AlertCircle, Trash2, ChevronDown, ChevronUp, X, ExternalLink, Copy, XCircle, RotateCw, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 function CopyRow({ label, value }: { label: string, value: string }) {
   const [copied, setCopied] = useState(false);
@@ -66,6 +66,9 @@ function FornecedorPrecoInput({ item, f, pf, precoEmbalagemSalvo, handlePrecoCom
 
 function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, handleRemovePreco, novoFornecedorId, setNovoFornecedorId, cotacaoId, setCotacao, onLiveValoresChange }: any) {
   const [open, setOpen] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isIntelligenceLoading, setIsIntelligenceLoading] = useState(false);
+  const [intelligenceData, setIntelligenceData] = useState<any>(null);
   // fator de embalagem por fornecedor: quantas unidades tem cada embalagem/caixa cotada
   const [fatores, setFatores] = useState<Record<string, number>>({});
   const [nomesEmbalagem, setNomesEmbalagem] = useState<Record<string, string>>({});
@@ -76,6 +79,7 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
   const [prazos, setPrazos] = useState<Record<string, number>>({});
   const [observacoes, setObservacoes] = useState<Record<string, string>>({});
   const [desclassificados, setDesclassificados] = useState<Record<string, boolean>>({});
+  const [justificativasDesclassificacao, setJustificativasDesclassificacao] = useState<Record<string, string>>({});
 
   // Estados para Calculadora de Concorrência
   const initialConcorrente = item.produtoId?.valorConcorrente || item.valorConcorrente || '';
@@ -157,6 +161,17 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
     return pf?.desclassificado || false;
   };
 
+  const getJustificativaDesclassificacao = (fornecedorId: string) => {
+    if (justificativasDesclassificacao[fornecedorId] !== undefined) return justificativasDesclassificacao[fornecedorId];
+    const pf = item.precosFornecedores?.find((p:any) => p.fornecedorId?._id === fornecedorId || p.fornecedorId === fornecedorId);
+    return pf?.justificativaDesclassificacao || '';
+  };
+
+  const getLinkProduto = (fornecedorId: string) => {
+    const pf = item.precosFornecedores?.find((p:any) => p.fornecedorId?._id === fornecedorId || p.fornecedorId === fornecedorId);
+    return pf?.linkProduto || '';
+  };
+
   const handleFatorChange = (fornecedorId: string, value: string) => {
     const n = Math.max(1, Number(value) || 1);
     setFatores(prev => ({ ...prev, [fornecedorId]: n }));
@@ -170,12 +185,18 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
     setObservacoes(prev => ({ ...prev, [fornecedorId]: value }));
   };
 
-  const handleCondicaoChange = (fornecedorId: string, field: 'frete' | 'parcelamento' | 'prazo' | 'desclassificado', value: any) => {
+  const handleCondicaoChange = (fornecedorId: string, field: 'frete' | 'parcelamento' | 'prazo' | 'desclassificado', value: any, extraJustificativa?: string) => {
     let override: any = {};
     if (field === 'frete') { setFretes(prev => ({ ...prev, [fornecedorId]: value })); override = { frete: value }; }
     if (field === 'parcelamento') { setParcelamentos(prev => ({ ...prev, [fornecedorId]: value })); override = { parcelamento: value }; }
     if (field === 'prazo') { setPrazos(prev => ({ ...prev, [fornecedorId]: value })); override = { prazo: value }; }
-    if (field === 'desclassificado') { setDesclassificados(prev => ({ ...prev, [fornecedorId]: value })); override = { desclassificado: value }; }
+    if (field === 'desclassificado') { 
+        setDesclassificados(prev => ({ ...prev, [fornecedorId]: value })); 
+        override = { desclassificado: value, justificativa: extraJustificativa || "" }; 
+        if (extraJustificativa !== undefined) {
+            setJustificativasDesclassificacao(prev => ({ ...prev, [fornecedorId]: extraJustificativa }));
+        }
+    }
     handleSaveMetadados(fornecedorId, item._id, override);
   };
 
@@ -201,8 +222,9 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
       const sendParcelamento = override.parcelamento !== undefined ? override.parcelamento : getParcelamento(fornecedorId);
       const sendPrazo = override.prazo !== undefined ? override.prazo : getPrazo(fornecedorId);
       const sendDesclassificado = override.desclassificado !== undefined ? override.desclassificado : getDesclassificado(fornecedorId);
+      const sendJustificativa = override.justificativa !== undefined ? override.justificativa : getJustificativaDesclassificacao(fornecedorId);
 
-      handlePrecoBlur(itemId, fornecedorId, String(unitario), fator, precoEmba, nomeEmba, sendFrete, sendParcelamento, sendPrazo, getObservacao(fornecedorId), sendDesclassificado);
+      handlePrecoBlur(itemId, fornecedorId, String(unitario), fator, precoEmba, nomeEmba, sendFrete, sendParcelamento, sendPrazo, getObservacao(fornecedorId), sendDesclassificado, sendJustificativa);
     }
   };
 
@@ -322,7 +344,168 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
           </div>
           
           <div style={{ borderTop: '1px dashed #cbd5e1', paddingTop: '1.5rem' }}>
-            <h4 style={{ marginBottom: '1rem', color: '#0f172a', fontSize: '0.95rem' }}>Valores Ofertados pelos Fornecedores</h4>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h4 style={{ margin: 0, color: '#0f172a', fontSize: '0.95rem' }}>Valores Ofertados pelos Fornecedores <span style={{ color: '#64748b', fontSize: '0.8rem', marginLeft: '0.5rem', fontWeight: 500 }}>({item.precosFornecedores?.length || 0} na lista)</span></h4>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  disabled={isIntelligenceLoading}
+                  onClick={async () => {
+                     setIsIntelligenceLoading(true);
+                     try {
+                       const keyword = (item.descricao || '').split(' ')[0] || 'Produto';
+                       // Usa o estado local ou 'CE' como fallback
+                       const uf = 'CE'; 
+                       const res = await fetch(`http://localhost:7005/pncp/inteligencia-precos?keyword=${encodeURIComponent(keyword)}&uf=${uf}`);
+                       if (res.ok) {
+                          const data = await res.json();
+                          setIntelligenceData(data);
+                       } else {
+                          alert('Erro ao consultar a API de Dados Abertos.');
+                       }
+                     } catch(e) {
+                        console.error(e);
+                        alert('Erro na requisição ao Compras.gov.');
+                     } finally {
+                        setIsIntelligenceLoading(false);
+                     }
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '0.5rem',
+                    padding: '0.4rem 0.8rem', background: isIntelligenceLoading ? '#fcd34d' : '#f59e0b', color: '#fff',
+                    border: 'none', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 600, cursor: isIntelligenceLoading ? 'not-allowed' : 'pointer'
+                  }}
+                  title="Espião de Preços Governamentais (Histórico de licitações recentes)"
+                >
+                  {isIntelligenceLoading ? 'Consultando...' : '👁️ Espião de Preços'}
+                </button>
+                <button
+                  type="button"
+                  disabled={isSearching}
+                  onClick={async () => {
+                     // Busca 100% Automática e Direta (sem popup)
+                     setIsSearching(true);
+                     try {
+                       const res = await fetch(`http://localhost:7005/cotacoes/${cotacaoId}/itens/${item._id}/buscar-web`, { 
+                         method: 'POST',
+                         headers: { 'Content-Type': 'application/json' },
+                         body: JSON.stringify({}) // Backend pega do PerfilBusca automaticamente
+                       });
+                       if (res.ok) {
+                          const data = await res.json();
+                          setTimeout(() => alert(`Busca concluída! ${data.encontrados} fornecedores encontrados.`), 100);
+                          if (setCotacao) {
+                             const updatedRes = await fetch(`http://localhost:7005/cotacoes/${cotacaoId}`);
+                             const updatedData = await updatedRes.json();
+                             setCotacao(updatedData);
+                          }
+                       } else {
+                          alert('Erro ao buscar fornecedores na web.');
+                       }
+                     } catch(e) {
+                        console.error(e);
+                        setTimeout(() => alert('Erro na requisição ao robô.'), 100);
+                     } finally {
+                        setIsSearching(false);
+                     }
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '0.5rem',
+                    padding: '0.4rem 0.8rem', background: isSearching ? '#94a3b8' : '#3b82f6', color: '#fff',
+                    border: 'none', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 600, cursor: isSearching ? 'not-allowed' : 'pointer'
+                  }}
+                  title="Busca automática de Fornecedores na Web (Baseada nos Filtros do Robô)"
+                >
+                  {isSearching ? <><RotateCw size={14} style={{ animation: 'spin 1.2s cubic-bezier(0.5, 0.1, 0.4, 0.9) infinite' }} /> Buscando...</> : '🤖 Buscar CNPJs B2B'}
+                </button>
+                <button
+                  type="button"
+                  disabled={isSearching}
+                  onClick={async () => {
+                     const loc = window.prompt("📍 BUSCA DE EMPRESA ESPECÍFICA\n\nQual o nome da empresa que você deseja puxar? (Ex: GD7, Donizete)");
+                     if (loc === null || loc.trim() === '') return;
+                     
+                     if (!window.confirm("Essa operação consumirá créditos da sua conta SerpApi.\nDeseja continuar?")) return;
+
+                     // Garante que o prefixo BUSCAR: exista para que o backend entenda como override
+                     const overrideLoc = loc.trim().toUpperCase().startsWith('BUSCAR') ? loc.trim() : `BUSCAR: ${loc.trim()}`;
+
+                     setIsSearching(true);
+                     try {
+                       const res = await fetch(`http://localhost:7005/cotacoes/${cotacaoId}/itens/${item._id}/buscar-web`, { 
+                         method: 'POST',
+                         headers: { 'Content-Type': 'application/json' },
+                         body: JSON.stringify({ location: overrideLoc })
+                       });
+                       if (res.ok) {
+                          const data = await res.json();
+                          setTimeout(() => alert(`Busca concluída! ${data.encontrados} fornecedores encontrados.`), 100);
+                          if (setCotacao) {
+                             const updatedRes = await fetch(`http://localhost:7005/cotacoes/${cotacaoId}`);
+                             const updatedData = await updatedRes.json();
+                             setCotacao(updatedData);
+                          }
+                       } else {
+                          alert('Erro ao buscar fornecedores na web.');
+                       }
+                     } catch(e) {
+                        console.error(e);
+                        setTimeout(() => alert('Erro na requisição ao robô.'), 100);
+                     } finally {
+                        setIsSearching(false);
+                     }
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '0.4rem 0.6rem', background: isSearching ? '#cbd5e1' : '#64748b', color: '#fff',
+                    border: 'none', borderRadius: '4px', cursor: isSearching ? 'not-allowed' : 'pointer'
+                  }}
+                  title="Busca Manual de Empresa Específica (Override)"
+                >
+                  <Search size={14} />
+                </button>
+              </div>
+            </div>
+
+            {intelligenceData && (
+              <div style={{ marginBottom: '1.5rem', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '1rem' }}>
+                <h5 style={{ margin: '0 0 0.5rem 0', color: '#b45309', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <AlertCircle size={16} /> Relatório de Inteligência PNCP (Últimos 6 Meses - UF: CE)
+                </h5>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+                  <div style={{ background: '#fff', padding: '0.75rem', borderRadius: '6px', border: '1px solid #fef3c7' }}>
+                    <p style={{ fontSize: '0.75rem', color: '#92400e', margin: 0 }}>Menor Preço Encontrado</p>
+                    <p style={{ fontSize: '1.1rem', fontWeight: 600, color: '#0f172a', margin: '0.2rem 0 0 0' }}>
+                      R$ {intelligenceData.precoMinimo > 0 ? (intelligenceData.precoMinimo).toLocaleString('pt-BR', {minimumFractionDigits: 2}) : 'N/A'}
+                    </p>
+                  </div>
+                  <div style={{ background: '#fff', padding: '0.75rem', borderRadius: '6px', border: '1px solid #fef3c7' }}>
+                    <p style={{ fontSize: '0.75rem', color: '#92400e', margin: 0 }}>Preço Médio Praticado</p>
+                    <p style={{ fontSize: '1.1rem', fontWeight: 600, color: '#0f172a', margin: '0.2rem 0 0 0' }}>
+                      R$ {intelligenceData.precoMedio > 0 ? (intelligenceData.precoMedio).toLocaleString('pt-BR', {minimumFractionDigits: 2}) : 'N/A'}
+                    </p>
+                  </div>
+                  <div style={{ background: '#fff', padding: '0.75rem', borderRadius: '6px', border: '1px solid #fef3c7' }}>
+                    <p style={{ fontSize: '0.75rem', color: '#92400e', margin: 0 }}>Maior Preço Encontrado</p>
+                    <p style={{ fontSize: '1.1rem', fontWeight: 600, color: '#0f172a', margin: '0.2rem 0 0 0' }}>
+                      R$ {intelligenceData.precoMaximo > 0 ? (intelligenceData.precoMaximo).toLocaleString('pt-BR', {minimumFractionDigits: 2}) : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+                {intelligenceData.topVencedores && intelligenceData.topVencedores.length > 0 && (
+                  <div style={{ marginTop: '1rem' }}>
+                    <p style={{ fontSize: '0.8rem', fontWeight: 600, color: '#92400e', margin: '0 0 0.5rem 0' }}>🏆 Maiores Vencedores na Região (Cuidado: Concorrentes)</p>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      {intelligenceData.topVencedores.map((v: any, idx: number) => (
+                        <span key={idx} style={{ background: '#fef3c7', color: '#92400e', padding: '0.2rem 0.5rem', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 500, border: '1px solid #fde68a' }}>
+                          {v.nome} ({v.vitorias} vitórias)
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
               {columnsFornecedores
                 .filter((f: any) => {
@@ -347,8 +530,13 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                   }}>
                     {/* Header */}
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.75rem', gap: '0.25rem' }}>
-                      <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#475569', lineHeight: 1.3, wordBreak: 'break-word' }}>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#475569', lineHeight: 1.3, wordBreak: 'break-word', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                         {f.razaoSocial}
+                        {getLinkProduto(f.id) && (
+                            <a href={getLinkProduto(f.id)} target="_blank" rel="noreferrer" title="Ver Produto na Loja">
+                            <ExternalLink size={14} color="#3b82f6" />
+                            </a>
+                        )}
                       </div>
                       <button
                         title={pf ? "Remover cotação deste fornecedor" : "Cancelar adição"}
@@ -482,10 +670,27 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                           <input 
                             type="checkbox" 
                             checked={getDesclassificado(f.id)} 
-                            onChange={(e) => handleCondicaoChange(f.id, 'desclassificado', e.target.checked)} 
+                            onChange={(e) => {
+                                const checked = e.target.checked;
+                                if (checked) {
+                                    const just = window.prompt("Qual o motivo da desclassificação?");
+                                    if (just) {
+                                        handleCondicaoChange(f.id, 'desclassificado', true, just);
+                                    } else {
+                                        e.target.checked = false; // Cancelou
+                                    }
+                                } else {
+                                    handleCondicaoChange(f.id, 'desclassificado', false, "");
+                                }
+                            }} 
                           />
                           <strong>Desclassificar Fornecedor</strong>
                         </label>
+                        {getDesclassificado(f.id) && getJustificativaDesclassificacao(f.id) && (
+                            <div style={{ fontSize: '0.65rem', color: '#ef4444', marginTop: '0.25rem', fontStyle: 'italic', background: '#fef2f2', padding: '0.3rem', borderRadius: '4px' }}>
+                                Motivo: {getJustificativaDesclassificacao(f.id)}
+                            </div>
+                        )}
                       </div>
                     </div>
 
@@ -525,6 +730,12 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
 
                     {isMelhor && <span style={{ fontSize: '0.75rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 'bold' }}><Check size={14}/> Vencedor do Item</span>}
                     {isDesclassificado && <span style={{ fontSize: '0.75rem', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 'bold', marginTop: '0.4rem' }}><XCircle size={14}/> Desclassificado</span>}
+                    
+                    {getLinkProduto(f.id) && (
+                      <a href={getLinkProduto(f.id)} target="_blank" rel="noreferrer" style={{ fontSize: '0.75rem', color: '#3b82f6', display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.4rem', textDecoration: 'none' }}>
+                        🔗 Ver Oferta na Web
+                      </a>
+                    )}
                   </div>
                 );
               })}
@@ -830,6 +1041,7 @@ export default function OportunidadeDetalhe() {
   const [cotacao, setCotacao] = useState<any>(null);
   const [aba, setAba] = useState<'edital' | 'cotacao' | 'portal'>('edital');
   const [loading, setLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const navigate = useNavigate();
 
   // Form state para adicionar fornecedor na cotacao (placeholder simples)
@@ -912,7 +1124,8 @@ export default function OportunidadeDetalhe() {
     permiteParcelamento?: boolean,
     prazoPagamento?: number,
     observacao?: string,
-    desclassificado?: boolean
+    desclassificado?: boolean,
+    justificativaDesclassificacao?: string
   ) => {
     const numValue = Number(value.replace(',', '.'));
     if (isNaN(numValue)) return;
@@ -931,7 +1144,8 @@ export default function OportunidadeDetalhe() {
           permiteParcelamento,
           prazoPagamento,
           observacao,
-          desclassificado
+          desclassificado,
+          justificativaDesclassificacao
         })
       });
       // Recarrega cotação para refletir os novos totais e melhor preço
@@ -970,6 +1184,52 @@ export default function OportunidadeDetalhe() {
       console.error(e);
       alert('Erro ao remover preço.');
     }
+  };
+
+  const handleExportCSV = () => {
+    if (!cotacao || !cotacao.itens) return;
+
+    let csvContent = "Item;Quantidade;Custo Unit. (Orgão);Fornecedor Campeão;CNPJ;Custo Unit. Vencedor;Custo Total Vencedor;Economia Unitária;Economia Total;Link do Produto\n";
+
+    cotacao.itens.forEach((it: any) => {
+      const descricao = (it.descricaoItem || "").replace(/;/g, " ").replace(/\n/g, " ");
+      const qtd = it.quantidade || 1;
+      const orgaoUnit = it.valorUnitarioEstimado || 0;
+      
+      let fornecedorNome = "-";
+      let fornecedorCnpj = "-";
+      let unit = 0;
+      let total = 0;
+      let economiaUnit = 0;
+      let economiaTotal = 0;
+      let link = "-";
+
+      if (it.melhorPreco) {
+         unit = it.melhorPreco.precoUnitario;
+         total = unit * qtd;
+         economiaUnit = orgaoUnit > 0 ? (orgaoUnit - unit) : 0;
+         economiaTotal = economiaUnit * qtd;
+
+         // Find the supplier data
+         const pf = it.precosFornecedores?.find((p:any) => p.fornecedorId?._id === it.melhorPreco.fornecedorId || p.fornecedorId === it.melhorPreco.fornecedorId);
+         if (pf && pf.fornecedorId) {
+            fornecedorNome = (pf.fornecedorId.razaoSocial || "").replace(/;/g, " ");
+            fornecedorCnpj = pf.fornecedorId.cnpj || "-";
+            link = pf.linkProduto || "-";
+         }
+      }
+
+      csvContent += `${descricao};${qtd};${orgaoUnit.toFixed(4).replace('.',',')};${fornecedorNome};${fornecedorCnpj};${unit.toFixed(4).replace('.',',')};${total.toFixed(4).replace('.',',')};${economiaUnit.toFixed(4).replace('.',',')};${economiaTotal.toFixed(4).replace('.',',')};${link}\n`;
+    });
+
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const linkObj = document.createElement("a");
+    linkObj.href = url;
+    linkObj.setAttribute("download", `Mapa_de_Precos_${oportunidade.unidadeCompradora || 'Cotacao'}.csv`);
+    document.body.appendChild(linkObj);
+    linkObj.click();
+    document.body.removeChild(linkObj);
   };
 
   if (loading || !oportunidade) return <div style={{ padding: '2rem' }}>Carregando dados da negociação...</div>;
@@ -1023,6 +1283,33 @@ export default function OportunidadeDetalhe() {
           <Link to="/kanban" className="btn-primary" style={{ background: '#e2e8f0', color: '#475569', padding: '0.5rem 1rem' }}>
             <ArrowLeft size={16} /> Voltar
           </Link>
+          <button
+            disabled={isSyncing}
+            onClick={async () => {
+              if (window.confirm("Deseja sincronizar novos itens deste edital direto do PNCP? (Isso não apagará suas cotações atuais)")) {
+                setIsSyncing(true);
+                try {
+                  const syncRes = await fetch(`http://localhost:7005/oportunidades/${id}/sincronizar-itens`, { method: 'POST' });
+                  if (!syncRes.ok) throw new Error();
+                  const data = await syncRes.json();
+                  setTimeout(() => alert(data.message || `Sincronização concluída!`), 100);
+                  // Recarrega cotação
+                  const resCotFull = await fetch(`http://localhost:7005/cotacoes/${cotacao?._id || ''}`);
+                  if (resCotFull.ok) setCotacao(await resCotFull.json());
+                  // Recarrega janela para garantir que a UI inteira pegue
+                  window.location.reload();
+                } catch (e) {
+                  setTimeout(() => alert('Erro ao sincronizar novos itens com o PNCP.'), 100);
+                } finally {
+                  setIsSyncing(false);
+                }
+              }
+            }}
+            className="btn-primary"
+            style={{ background: isSyncing ? '#d97706' : '#f59e0b', color: '#fff', padding: '0.5rem 1rem', cursor: isSyncing ? 'not-allowed' : 'pointer' }}
+          >
+            {isSyncing ? <><RotateCw size={16} style={{ animation: 'spin 1.2s cubic-bezier(0.5, 0.1, 0.4, 0.9) infinite' }} /> Sincronizando...</> : <><RotateCw size={16} /> Sincronizar Edital (PNCP)</>}
+          </button>
           <h1 style={{ fontSize: '1.5rem', margin: 0 }}>Negociação: {oportunidade.orgaoNome}</h1>
         </div>
         <button 
@@ -1095,6 +1382,16 @@ export default function OportunidadeDetalhe() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
             <h3 style={{ margin: 0, fontSize: '1.25rem' }}>Matriz de Preços e Melhores Ofertas</h3>
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+              <button 
+                onClick={handleExportCSV}
+                style={{
+                  background: '#10b981', color: 'white', border: 'none', padding: '0.6rem 1rem', 
+                  borderRadius: '6px', cursor: 'pointer', fontWeight: 600, display: 'flex', gap: '0.5rem', alignItems: 'center',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                }}
+              >
+                📊 Exportar Mapa de Preços (CSV)
+              </button>
               <select className="form-control" value="" onChange={e => setNovoFornecedorId(e.target.value)} style={{ minWidth: '300px' }}>
                 <option value="" disabled>+ Adicionar Fornecedor à disputa...</option>
                 {fornecedoresDisponiveis.map(f => (

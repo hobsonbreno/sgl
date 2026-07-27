@@ -26,7 +26,12 @@ let OrgaoService = class OrgaoService {
         const page = Number(query.page) || 1;
         const limit = Number(query.limit) || 50;
         const skip = (page - 1) * limit;
-        const data = await this.model.find().sort({ dataInclusao: -1 }).skip(skip).limit(limit).exec();
+        const data = await this.model
+            .find()
+            .sort({ dataInclusao: -1 })
+            .skip(skip)
+            .limit(limit)
+            .exec();
         const total = await this.model.countDocuments().exec();
         const totalPages = Math.ceil(total / limit) || 1;
         return { data, total, totalPages, currentPage: page };

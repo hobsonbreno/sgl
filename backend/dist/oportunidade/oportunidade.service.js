@@ -48,12 +48,20 @@ let OportunidadeService = OportunidadeService_1 = class OportunidadeService {
             { kanbanStatus: { $ne: 'EXCLUIDA' } },
             { kanbanStatus: 'EXCLUIDA', dataEncerramentoProposta: { $gte: agora } },
             { kanbanStatus: 'EXCLUIDA', dataEncerramentoProposta: null },
-            { kanbanStatus: 'EXCLUIDA', dataEncerramentoProposta: { $exists: false } }
+            {
+                kanbanStatus: 'EXCLUIDA',
+                dataEncerramentoProposta: { $exists: false },
+            },
         ];
         const page = Number(query.page) || 1;
         const limit = Number(query.limit) || 50;
         const skip = (page - 1) * limit;
-        const data = await this.model.find(filters).sort({ createdAt: -1 }).skip(skip).limit(limit).exec();
+        const data = await this.model
+            .find(filters)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .exec();
         const total = await this.model.countDocuments(filters).exec();
         const totalPages = Math.ceil(total / limit) || 1;
         return { data, total, totalPages, currentPage: page };
@@ -68,7 +76,9 @@ let OportunidadeService = OportunidadeService_1 = class OportunidadeService {
         if (!kanbanStatus) {
             throw new common_1.BadRequestException('Status não informado');
         }
-        const doc = await this.model.findByIdAndUpdate(id, { kanbanStatus, dataMudancaStatus: new Date() }, { new: true }).exec();
+        const doc = await this.model
+            .findByIdAndUpdate(id, { kanbanStatus, dataMudancaStatus: new Date() }, { new: true })
+            .exec();
         if (!doc)
             throw new common_1.NotFoundException('Oportunidade não encontrada');
         if (kanbanStatus === 'EXCLUIDA') {
@@ -84,10 +94,9 @@ let OportunidadeService = OportunidadeService_1 = class OportunidadeService {
         if (!doc.numeroControlePNCP) {
             throw new common_1.BadRequestException('Oportunidade sem número de controle PNCP');
         }
-        const produtosExistentes = await this.produtoModel.countDocuments({ oportunidadeId: id }).exec();
-        if (produtosExistentes > 0) {
-            return { message: 'Itens já sincronizados', total: produtosExistentes };
-        }
+        const produtosExistentes = await this.produtoModel
+            .countDocuments({ oportunidadeId: id })
+            .exec();
         try {
             const itensRaw = await this.pncpClientService.buscarItensDaContratacao(doc.numeroControlePNCP);
             if (!itensRaw || itensRaw.length === 0) {
@@ -103,16 +112,19 @@ let OportunidadeService = OportunidadeService_1 = class OportunidadeService {
                 valorTotalEstimado: item.valorTotal || 0,
                 valorEstimado: item.valorTotal || 0,
             }));
-            const ops = novosProdutos.map(prod => ({
+            const ops = novosProdutos.map((prod) => ({
                 updateOne: {
                     filter: { oportunidadeId: id, numeroItem: prod.numeroItem },
                     update: { $set: prod },
-                    upsert: true
-                }
+                    upsert: true,
+                },
             }));
             await this.produtoModel.bulkWrite(ops);
             this.logger.log(`Sincronizados (upsert) ${novosProdutos.length} itens para a oportunidade ${id}`);
-            return { message: 'Itens sincronizados com sucesso', total: novosProdutos.length };
+            return {
+                message: 'Itens sincronizados com sucesso',
+                total: novosProdutos.length,
+            };
         }
         catch (e) {
             this.logger.error(`Erro ao sincronizar itens da oportunidade ${id}: ${e.message}`);

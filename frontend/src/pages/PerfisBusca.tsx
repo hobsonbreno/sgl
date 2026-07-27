@@ -14,6 +14,10 @@ export default function PerfisBusca() {
   const [unidadesUasg, setUnidadesUasg] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [municipiosList, setMunicipiosList] = useState<{ id: string; nome: string; uf: string }[]>([]);
+  
+  const [estadosBuscaFornecedores, setEstadosBuscaFornecedores] = useState('');
+  const [municipiosBuscaFornecedores, setMunicipiosBuscaFornecedores] = useState('');
+  const [municipiosFornecedoresList, setMunicipiosFornecedoresList] = useState<{ id: string; nome: string; uf: string }[]>([]);
 
   useEffect(() => {
     const fetchMunicipios = async () => {
@@ -43,6 +47,34 @@ export default function PerfisBusca() {
     return () => clearTimeout(timeout);
   }, [ufs]);
 
+  useEffect(() => {
+    const fetchMunicipiosFornecedores = async () => {
+      const u = estadosBuscaFornecedores.split(',').map(v => v.trim().toUpperCase()).filter(v => v.length === 2);
+      if (u.length === 0) {
+        setMunicipiosFornecedoresList([]);
+        return;
+      }
+      try {
+        const ufsParam = u.join('|');
+        const res = await fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${ufsParam}/municipios`);
+        if (res.ok) {
+          const data = await res.json();
+          const formatted = data.map((m: any) => ({
+            id: m.nome, // Para fornecedores, salvamos o NOME do município para usar na API de busca
+            nome: m.nome,
+            uf: m.microrregiao.mesorregiao.UF.sigla
+          }));
+          setMunicipiosFornecedoresList(formatted);
+        }
+      } catch(e) {
+        console.error('Erro ao buscar municípios fornecedores', e);
+      }
+    };
+    
+    const timeout = setTimeout(fetchMunicipiosFornecedores, 500);
+    return () => clearTimeout(timeout);
+  }, [estadosBuscaFornecedores]);
+
   const loadPerfis = async () => {
     try {
       const res = await fetch('http://localhost:7005/perfis-busca');
@@ -68,6 +100,9 @@ export default function PerfisBusca() {
       const org = orgaosCnpj.split(',').map(v => v.trim().replace(/\D/g, '')).filter(v => v !== '');
       const uasg = unidadesUasg.split(',').map(v => v.trim()).filter(v => v !== '');
       
+      const ufFornecedores = estadosBuscaFornecedores.split(',').map(v => v.trim().toUpperCase()).filter(v => v !== '');
+      const munFornecedores = municipiosBuscaFornecedores.split(',').map(v => v.trim()).filter(v => v !== '');
+      
       const payload = {
         nome,
         modalidades: m,
@@ -75,7 +110,9 @@ export default function PerfisBusca() {
         palavrasChave: p,
         municipiosIbge: mun,
         orgaosCnpj: org,
-        unidadesUasg: uasg
+        unidadesUasg: uasg,
+        estadosBuscaFornecedores: ufFornecedores,
+        municipiosBuscaFornecedores: munFornecedores
       };
       
       const url = editingId ? `http://localhost:7005/perfis-busca/${editingId}` : 'http://localhost:7005/perfis-busca';
@@ -105,6 +142,8 @@ export default function PerfisBusca() {
     setMunicipiosIbge(p.municipiosIbge ? p.municipiosIbge.join(', ') : '');
     setOrgaosCnpj(p.orgaosCnpj ? p.orgaosCnpj.join(', ') : '');
     setUnidadesUasg(p.unidadesUasg ? p.unidadesUasg.join(', ') : '');
+    setEstadosBuscaFornecedores(p.estadosBuscaFornecedores ? p.estadosBuscaFornecedores.join(', ') : '');
+    setMunicipiosBuscaFornecedores(p.municipiosBuscaFornecedores ? p.municipiosBuscaFornecedores.join(', ') : '');
   };
 
   const cancelEdit = () => {
@@ -116,6 +155,8 @@ export default function PerfisBusca() {
     setMunicipiosIbge('');
     setOrgaosCnpj('');
     setUnidadesUasg('');
+    setEstadosBuscaFornecedores('');
+    setMunicipiosBuscaFornecedores('');
   };
 
   const duplicateProfile = (p: any) => {
@@ -237,6 +278,75 @@ export default function PerfisBusca() {
                 </div>
               </div>
             </details>
+
+            <details style={{ marginBottom: '1.5rem', background: '#fffbeb', padding: '0.75rem', borderRadius: '6px', border: '1px solid #fde68a' }}>
+              <summary style={{ cursor: 'pointer', fontWeight: 600, color: '#92400e', fontSize: '0.9rem' }}>🔍 Localização Inteligente (Busca de Fornecedores na Web)</summary>
+              <div style={{ marginTop: '1rem' }}>
+                <p style={{ fontSize: '0.8rem', color: '#b45309', marginBottom: '1rem' }}>
+                  Restrinja em quais regiões o bot buscará lojas e distribuidores na internet (via API Google). 
+                  Isso ajuda a encontrar fornecedores mais próximos, economizando no frete.
+                </p>
+                <div className="form-group">
+                  <label>Estados (Siglas separadas por vírgula. Ex: SP, RJ)</label>
+                  <input type="text" className="form-control" value={estadosBuscaFornecedores} onChange={e => setEstadosBuscaFornecedores(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <label style={{ margin: 0 }}>Municípios Foco (Clique para selecionar)</label>
+                    {municipiosFornecedoresList.length > 0 && (
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button 
+                          type="button" 
+                          onClick={() => setMunicipiosBuscaFornecedores(municipiosFornecedoresList.map(m => m.id).join(', '))}
+                          style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', background: '#fef3c7', color: '#d97706', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 600 }}
+                        >
+                          Selecionar Todos
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={() => setMunicipiosBuscaFornecedores('')}
+                          style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 600 }}
+                        >
+                          Limpar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {municipiosFornecedoresList.length > 0 ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', maxHeight: '200px', overflowY: 'auto', border: '1px solid #fcd34d', padding: '0.5rem', borderRadius: '4px', background: '#fff' }}>
+                      {municipiosFornecedoresList.map(m => {
+                        const selectedArray = municipiosBuscaFornecedores.split(',').map(v => v.trim()).filter(Boolean);
+                        const isSelected = selectedArray.includes(m.id);
+                        return (
+                          <label key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', cursor: 'pointer', background: isSelected ? '#fef3c7' : '#fffbeb', padding: '0.4rem', borderRadius: '4px', border: isSelected ? '1px solid #fbbf24' : '1px solid transparent', transition: 'all 0.2s' }}>
+                            <input 
+                              type="checkbox" 
+                              checked={isSelected}
+                              onChange={(e) => {
+                                let newSelected = [...selectedArray];
+                                if (e.target.checked) {
+                                  newSelected.push(m.id);
+                                } else {
+                                  newSelected = newSelected.filter(id => id !== m.id);
+                                }
+                                setMunicipiosBuscaFornecedores(newSelected.join(', '));
+                              }}
+                              style={{ cursor: 'pointer' }}
+                            />
+                            {m.nome} - {m.uf}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div style={{ padding: '0.75rem', background: '#fef9c3', color: '#854d0e', fontSize: '0.85rem', borderRadius: '4px', border: '1px dashed #fde047' }}>
+                      Digite as siglas dos Estados acima para carregar as cidades da Inteligência de Mercado.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </details>
+            
             <div style={{ display: 'flex', gap: '1rem' }}>
               <button type="submit" className="btn-primary" disabled={loading} style={{ flex: 1 }}>
                 <Plus size={18} /> {editingId ? 'Salvar' : 'Adicionar Filtro'}
@@ -267,10 +377,19 @@ export default function PerfisBusca() {
                 <tr key={p._id}>
                   <td><strong>{p.nome}</strong></td>
                   <td>
-                    {p.ufs?.length > 0 && <div><small style={{ color: '#64748b' }}>UF: </small>{p.ufs.join(', ')}</div>}
+                    {p.ufs?.length > 0 && <div><small style={{ color: '#64748b' }}>UF PNCP: </small>{p.ufs.join(', ')}</div>}
                     {p.municipiosIbge?.length > 0 && <div><small style={{ color: '#64748b' }}>IBGE: </small>{p.municipiosIbge.join(', ')}</div>}
                     {p.orgaosCnpj?.length > 0 && <div><small style={{ color: '#64748b' }}>CNPJ: </small>{p.orgaosCnpj.join(', ')}</div>}
                     {p.unidadesUasg?.length > 0 && <div><small style={{ color: '#64748b' }}>UASG: </small>{p.unidadesUasg.join(', ')}</div>}
+                    
+                    {(p.estadosBuscaFornecedores?.length > 0 || p.municipiosBuscaFornecedores?.length > 0) && (
+                        <div style={{ marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px dashed #cbd5e1' }}>
+                            <strong style={{ fontSize: '0.75rem', color: '#b45309' }}>🤖 Bot Web:</strong>
+                            {p.estadosBuscaFornecedores?.length > 0 && <div><small style={{ color: '#d97706' }}>UF: </small><span style={{color: '#92400e', fontSize: '0.8rem'}}>{p.estadosBuscaFornecedores.join(', ')}</span></div>}
+                            {p.municipiosBuscaFornecedores?.length > 0 && <div><small style={{ color: '#d97706' }}>Cidades: </small><span style={{color: '#92400e', fontSize: '0.8rem'}}>{p.municipiosBuscaFornecedores.join(', ')}</span></div>}
+                        </div>
+                    )}
+
                     {!p.ufs?.length && !p.municipiosIbge?.length && !p.orgaosCnpj?.length && !p.unidadesUasg?.length && 'Nacional / Todos'}
                   </td>
                   <td>{p.modalidades.join(', ')}</td>

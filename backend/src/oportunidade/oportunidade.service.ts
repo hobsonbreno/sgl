@@ -105,13 +105,10 @@ export class OportunidadeService {
       throw new BadRequestException('Oportunidade sem número de controle PNCP');
     }
 
-    // Verifica se já existem produtos para esta oportunidade
+    // Sempre busca e faz upsert, pois o órgão pode ter adicionado mais itens ao edital depois da primeira sincronização.
     const produtosExistentes = await this.produtoModel
       .countDocuments({ oportunidadeId: id })
       .exec();
-    if (produtosExistentes > 0) {
-      return { message: 'Itens já sincronizados', total: produtosExistentes };
-    }
 
     try {
       const itensRaw = await this.pncpClientService.buscarItensDaContratacao(

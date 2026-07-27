@@ -25,6 +25,9 @@ export declare class Fornecedor {
         precoUnitario: number;
         precoEmbalagem?: number;
         fatorEmbalagem?: number;
+        nomeEmbalagem?: string;
+        observacao?: string;
+        desclassificado?: boolean;
         data: Date;
         oportunidadeId: string;
     }[];
@@ -182,6 +185,9 @@ export declare const FornecedorSchema: import("mongoose").Schema<Fornecedor, imp
         precoUnitario: number;
         precoEmbalagem?: number;
         fatorEmbalagem?: number;
+        nomeEmbalagem?: string;
+        observacao?: string;
+        desclassificado?: boolean;
         data: Date;
         oportunidadeId: string;
     }[], Fornecedor, import("mongoose").Document<unknown, {}, Fornecedor, {

@@ -19,12 +19,14 @@ exports.ConfiguracaoModule = ConfiguracaoModule;
 exports.ConfiguracaoModule = ConfiguracaoModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            mongoose_1.MongooseModule.forFeature([{ name: configuracao_schema_1.Configuracao.name, schema: configuracao_schema_1.ConfiguracaoSchema }]),
-            (0, common_1.forwardRef)(() => bot_module_1.BotModule)
+            mongoose_1.MongooseModule.forFeature([
+                { name: configuracao_schema_1.Configuracao.name, schema: configuracao_schema_1.ConfiguracaoSchema },
+            ]),
+            (0, common_1.forwardRef)(() => bot_module_1.BotModule),
         ],
         controllers: [configuracao_controller_1.ConfiguracaoController],
         providers: [configuracao_service_1.ConfiguracaoService],
-        exports: [configuracao_service_1.ConfiguracaoService]
+        exports: [configuracao_service_1.ConfiguracaoService],
     })
 ], ConfiguracaoModule);
 //# sourceMappingURL=configuracao.module.js.map

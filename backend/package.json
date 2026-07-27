@@ -17,7 +17,8 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "sync:receita": "ts-node src/receita-federal/scripts/seed-datalake.ts"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",
@@ -28,10 +29,13 @@
     "@nestjs/schedule": "^6.1.3",
     "@nestjs/swagger": "^11.4.6",
     "axios": "^1.18.1",
+    "csv-parse": "^7.0.1",
+    "iconv-lite": "^0.7.3",
     "mongoose": "^9.7.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "unzipper": "^0.12.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -43,6 +47,7 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^24.0.0",
     "@types/supertest": "^7.0.0",
+    "@types/unzipper": "^0.10.11",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",

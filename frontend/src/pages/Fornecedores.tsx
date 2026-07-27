@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Building2, Search, Edit2, X } from 'lucide-react';
+import { Plus, Building2, Search, Edit2, X, Trash2 } from 'lucide-react';
 
 export default function Fornecedores() {
   const [fornecedores, setFornecedores] = useState<any[]>([]);
@@ -215,6 +215,26 @@ export default function Fornecedores() {
     setLoading(false);
   };
 
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir este fornecedor? Esta ação não pode ser desfeita.')) return;
+    
+    try {
+      const res = await fetch(`http://localhost:7005/fornecedores/${id}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        loadFornecedores();
+        alert('Fornecedor excluído com sucesso!');
+      } else {
+        const err = await res.json();
+        alert(err.message || 'Erro ao excluir fornecedor.');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao excluir fornecedor.');
+    }
+  };
+
   return (
     <div style={{ paddingBottom: '3rem' }}>
       <h1 style={{ marginBottom: '1.5rem' }}>Fornecedores</h1>
@@ -366,12 +386,20 @@ export default function Fornecedores() {
                       </div>
                     </td>
                     <td>
-                      <button 
-                        onClick={() => openEditModal(f)}
-                        style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                      >
-                        <Edit2 size={16} /> Editar
-                      </button>
+                      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                        <button 
+                          onClick={() => openEditModal(f)}
+                          style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                        >
+                          <Edit2 size={16} /> Editar
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(f._id)}
+                          style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                        >
+                          <Trash2 size={16} /> Excluir
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

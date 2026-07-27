@@ -1,14 +1,17 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import mongoose, { Model } from 'mongoose';
+import { InjectModel, InjectConnection } from '@nestjs/mongoose';
+import mongoose, { Model, Connection } from 'mongoose';
 import { Cotacao, CotacaoDocument } from './cotacao.schema';
 import { FornecedorService } from '../fornecedor/fornecedor.service';
+import { SupplierDiscoveryService } from '../fornecedor/supplier-discovery.service';
 
 @Injectable()
 export class CotacaoService {
   constructor(
     @InjectModel(Cotacao.name) private model: Model<CotacaoDocument>,
     private fornecedorService: FornecedorService,
+    private supplierDiscoveryService: SupplierDiscoveryService,
+    @InjectConnection() private connection: Connection,
   ) {}
 
   async createOrGet(
@@ -17,17 +20,27 @@ export class CotacaoService {
   ): Promise<Cotacao> {
     const existe = await this.model.findOne({ oportunidadeId }).exec();
     if (existe) {
-      if (existe.itens.length === 0 && initialItems.length > 0) {
-        const itens = initialItems.map((i) => ({
-          produtoId: i._id,
-          descricaoItem: i.descricao,
-          quantidade: i.quantidade || 1,
-          unidadeMedida: i.unidadeMedida || 'UN',
-          valorUnitarioEstimado: i.valorUnitarioEstimado || 0,
-          precosFornecedores: [],
-        }));
-        existe.itens = itens as any;
-        await existe.save();
+      if (initialItems.length > 0) {
+        let changed = false;
+        for (const initialItem of initialItems) {
+          const itemJaExiste = existe.itens.some((it) => 
+            it.produtoId && it.produtoId.toString() === initialItem._id.toString()
+          );
+          if (!itemJaExiste) {
+            existe.itens.push({
+              produtoId: initialItem._id,
+              descricaoItem: initialItem.descricao,
+              quantidade: initialItem.quantidade || 1,
+              unidadeMedida: initialItem.unidadeMedida || 'UN',
+              valorUnitarioEstimado: initialItem.valorUnitarioEstimado || 0,
+              precosFornecedores: [],
+            } as any);
+            changed = true;
+          }
+        }
+        if (changed) {
+          await existe.save();
+        }
       }
       return existe;
     }
@@ -85,6 +98,7 @@ export class CotacaoService {
       permiteParcelamento?: boolean;
       observacao?: string;
       desclassificado?: boolean;
+      linkProduto?: string;
     },
   ) {
     const doc = await this.model.findById(cotacaoId).exec();
@@ -109,6 +123,7 @@ export class CotacaoService {
       item.precosFornecedores[fIdx].observacao = precoData.observacao;
       item.precosFornecedores[fIdx].desclassificado =
         precoData.desclassificado || false;
+      if (precoData.linkProduto) item.precosFornecedores[fIdx].linkProduto = precoData.linkProduto;
     } else {
       item.precosFornecedores.push({
         fornecedorId: new mongoose.Types.ObjectId(precoData.fornecedorId),
@@ -121,13 +136,14 @@ export class CotacaoService {
         permiteParcelamento: precoData.permiteParcelamento,
         observacao: precoData.observacao,
         desclassificado: precoData.desclassificado || false,
+        linkProduto: precoData.linkProduto,
       });
     }
 
     // Recalculate melhorPreco for this item
     let melhor: any;
     for (const p of item.precosFornecedores) {
-      if (p.desclassificado) continue;
+      if (p.desclassificado || p.precoUnitario <= 0) continue;
       if (!melhor) {
         melhor = p;
         continue;
@@ -188,7 +204,23 @@ export class CotacaoService {
       },
     );
 
+    await this.checkAndMoveKanban(doc);
+
     return this.findOne(cotacaoId);
+  }
+
+  private async checkAndMoveKanban(doc: any) {
+    const todosItensCotados = doc.itens.length > 0 && doc.itens.every((it: any) => it.melhorPreco && it.melhorPreco.precoUnitario > 0);
+    if (todosItensCotados) {
+      const op = await this.connection.collection('oportunidades').findOne({ _id: doc.oportunidadeId });
+      // Mover para FEITO (Concluído / Pronto para Pregão) se estiver nas fases iniciais
+      if (op && (op.kanbanStatus === 'FAZENDO' || op.kanbanStatus === 'A_FAZER')) {
+         await this.connection.collection('oportunidades').updateOne(
+           { _id: doc.oportunidadeId },
+           { $set: { kanbanStatus: 'FEITO' } }
+         );
+      }
+    }
   }
 
   async removePreco(cotacaoId: string, itemId: string, fornecedorId: string) {
@@ -213,6 +245,7 @@ export class CotacaoService {
     // Recalculate melhorPreco for this item
     let melhor: any;
     for (const p of item.precosFornecedores) {
+      if (p.desclassificado || p.precoUnitario <= 0) continue;
       if (!melhor) {
         melhor = p;
         continue;
@@ -254,5 +287,36 @@ export class CotacaoService {
 
     await doc.save();
     return this.findOne(cotacaoId);
+  }
+
+  async buscarPrecosWebAuto(cotacaoId: string, itemId: string, location?: string) {
+    const doc = await this.model.findById(cotacaoId).exec();
+    if (!doc) throw new NotFoundException('Cotação não encontrada');
+
+    const item = doc.itens.find((i) => i._id.toString() === itemId);
+    if (!item) throw new NotFoundException('Item não encontrado na cotação');
+
+    // 1. Bot dispara a busca
+    const fornecedoresWeb = await this.supplierDiscoveryService.discoverSuppliersForProduct(item.descricaoItem, location);
+
+    // 2. Registra na cotação
+    for (const f of fornecedoresWeb) {
+       // Verifica se já existe um preço validado pelo comprador (> 0)
+       const precoExistente = item.precosFornecedores.find(p => p.fornecedorId.toString() === f.id);
+       
+       if (precoExistente && precoExistente.precoUnitario > 0 && f.precoUnitario === 0) {
+           // Não sobrescreve um preço real que o comprador já preencheu com um 0.00 do bot
+           continue; 
+       }
+
+       await this.updatePreco(cotacaoId, itemId, {
+          fornecedorId: f.id,
+          precoUnitario: f.precoUnitario,
+          observacao: precoExistente ? precoExistente.observacao : 'Preço prospectado automaticamente pelo Robô',
+          linkProduto: f.linkProduto,
+       });
+    }
+
+    return { message: 'Busca web finalizada', encontrados: fornecedoresWeb.length };
   }
 }

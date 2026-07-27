@@ -1,0 +1,18 @@
+[Unit]
+Description=SGL Data Lake ETL - Sincronizacao Mensal da Receita Federal
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+# Substitua o caminho abaixo para a pasta real do seu projeto no Ubuntu
+WorkingDirectory=/opt/sgl/backend
+# O script precisa acessar o MongoDB que está rodando no Docker
+Environment="MONGO_URI=mongodb://localhost:7009/licitacoes"
+ExecStart=/usr/bin/npm run sync:receita
+
+# Logs e Segurança
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sgl-etl
+User=root

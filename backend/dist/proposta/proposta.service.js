@@ -30,7 +30,9 @@ let PropostaService = class PropostaService {
     }
     async criarProposta(oportunidadeId, payload) {
         const cotacao = await this.cotacaoModel.findOne({ oportunidadeId }).exec();
-        if (!cotacao || !cotacao.valorTotalMelhorCotacao || cotacao.valorTotalMelhorCotacao <= 0) {
+        if (!cotacao ||
+            !cotacao.valorTotalMelhorCotacao ||
+            cotacao.valorTotalMelhorCotacao <= 0) {
             throw new common_1.BadRequestException('Finalize a cotação antes de lançar a proposta');
         }
         const novaProposta = new this.propostaModel({
@@ -42,20 +44,29 @@ let PropostaService = class PropostaService {
             status: 'AGUARDANDO_RESPOSTA',
             dataLancamento: new Date(),
             dataAtualizacaoStatus: new Date(),
-            observacoes: payload.observacoes
+            observacoes: payload.observacoes,
         });
         const propostaSalva = await novaProposta.save();
-        await this.oportunidadeModel.findByIdAndUpdate(oportunidadeId, {
-            kanbanStatus: 'AGUARDANDO_RESPOSTA'
-        }).exec();
+        await this.oportunidadeModel
+            .findByIdAndUpdate(oportunidadeId, {
+            kanbanStatus: 'AGUARDANDO_RESPOSTA',
+        })
+            .exec();
         return propostaSalva;
     }
     async atualizarStatus(id, status) {
-        const permitidos = ['AGUARDANDO_RESPOSTA', 'VENCEDOR', 'PERDEU', 'CANCELADO'];
+        const permitidos = [
+            'AGUARDANDO_RESPOSTA',
+            'VENCEDOR',
+            'PERDEU',
+            'CANCELADO',
+        ];
         if (!permitidos.includes(status)) {
             throw new common_1.BadRequestException('Status inválido');
         }
-        const proposta = await this.propostaModel.findByIdAndUpdate(id, { status, dataAtualizacaoStatus: new Date() }, { new: true }).exec();
+        const proposta = await this.propostaModel
+            .findByIdAndUpdate(id, { status, dataAtualizacaoStatus: new Date() }, { new: true })
+            .exec();
         if (!proposta)
             throw new common_1.NotFoundException('Proposta não encontrada');
         return proposta;
@@ -87,7 +98,10 @@ let PropostaService = class PropostaService {
         return { data, total, totalPages, currentPage: page };
     }
     async buscarPorId(id) {
-        const proposta = await this.propostaModel.findById(id).populate('oportunidadeId').exec();
+        const proposta = await this.propostaModel
+            .findById(id)
+            .populate('oportunidadeId')
+            .exec();
         if (!proposta)
             throw new common_1.NotFoundException('Proposta não encontrada');
         return proposta;

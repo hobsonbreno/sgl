@@ -16,11 +16,17 @@ exports.PncpController = void 0;
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const pncp_client_service_1 = require("../../services/pncp-client/pncp-client.service");
+const compras_dados_abertos_service_1 = require("../../services/compras-dados-abertos/compras-dados-abertos.service");
 const pncp_dto_1 = require("../../dtos/pncp.dto");
 let PncpController = class PncpController {
     pncpClientService;
-    constructor(pncpClientService) {
+    comprasDadosAbertosService;
+    constructor(pncpClientService, comprasDadosAbertosService) {
         this.pncpClientService = pncpClientService;
+        this.comprasDadosAbertosService = comprasDadosAbertosService;
+    }
+    async inteligenciaPrecos(keyword, uf) {
+        return this.comprasDadosAbertosService.pesquisarHistoricoPrecos(keyword, uf);
     }
     async testBusca(modalidade, uf, dias = 10) {
         const hojeFinal = new Date();
@@ -41,17 +47,50 @@ let PncpController = class PncpController {
             codigoModalidadeContratacao: Number(modalidade),
             uf,
         });
-        return rawResult.map(raw => (0, pncp_dto_1.mapPncpParaOportunidade)(raw));
+        return rawResult.map((raw) => (0, pncp_dto_1.mapPncpParaOportunidade)(raw));
     }
 };
 exports.PncpController = PncpController;
 __decorate([
+    (0, common_1.Get)('inteligencia-precos'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Busca histórico de preços de contratos para inteligência competitiva',
+    }),
+    (0, swagger_1.ApiQuery)({ name: 'keyword', required: true, description: 'Palavra-chave do produto (ex: Frango)' }),
+    (0, swagger_1.ApiQuery)({ name: 'uf', required: true, description: 'Sigla do Estado (ex: CE)' }),
+    __param(0, (0, common_1.Query)('keyword')),
+    __param(1, (0, common_1.Query)('uf')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], PncpController.prototype, "inteligenciaPrecos", null);
+__decorate([
     (0, common_1.Get)('test-busca'),
-    (0, swagger_1.ApiOperation)({ summary: 'Testa a busca de oportunidades no PNCP (sem salvar no banco)' }),
-    (0, swagger_1.ApiQuery)({ name: 'uf', required: false, description: 'Sigla da UF (ex: CE)' }),
-    (0, swagger_1.ApiQuery)({ name: 'modalidade', required: true, description: 'Código da Modalidade (ex: 6 para Pregão Eletrônico)', type: Number }),
-    (0, swagger_1.ApiQuery)({ name: 'dias', required: false, description: 'Dias no futuro para a data final', type: Number }),
-    (0, swagger_1.ApiResponse)({ status: 200, description: 'Lista de oportunidades mapeadas', type: [pncp_dto_1.OportunidadeDto] }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Testa a busca de oportunidades no PNCP (sem salvar no banco)',
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'uf',
+        required: false,
+        description: 'Sigla da UF (ex: CE)',
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'modalidade',
+        required: true,
+        description: 'Código da Modalidade (ex: 6 para Pregão Eletrônico)',
+        type: Number,
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'dias',
+        required: false,
+        description: 'Dias no futuro para a data final',
+        type: Number,
+    }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Lista de oportunidades mapeadas',
+        type: [pncp_dto_1.OportunidadeDto],
+    }),
     __param(0, (0, common_1.Query)('modalidade')),
     __param(1, (0, common_1.Query)('uf')),
     __param(2, (0, common_1.Query)('dias')),
@@ -62,6 +101,7 @@ __decorate([
 exports.PncpController = PncpController = __decorate([
     (0, swagger_1.ApiTags)('PNCP Testes'),
     (0, common_1.Controller)('pncp'),
-    __metadata("design:paramtypes", [pncp_client_service_1.PncpClientService])
+    __metadata("design:paramtypes", [pncp_client_service_1.PncpClientService,
+        compras_dados_abertos_service_1.ComprasDadosAbertosService])
 ], PncpController);
 //# sourceMappingURL=pncp.controller.js.map

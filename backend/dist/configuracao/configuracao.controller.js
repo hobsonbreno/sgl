@@ -25,7 +25,8 @@ let ConfiguracaoController = class ConfiguracaoController {
     }
     async update(body) {
         if (body.horariosBuscaBot) {
-            if (!Array.isArray(body.horariosBuscaBot) || body.horariosBuscaBot.some((h) => !/^\d{2}:\d{2}$/.test(h))) {
+            if (!Array.isArray(body.horariosBuscaBot) ||
+                body.horariosBuscaBot.some((h) => !/^\d{2}:\d{2}$/.test(h))) {
                 throw new common_1.BadRequestException('Formato de horários inválido. Use um array de strings HH:mm');
             }
             return this.configuracaoService.setHorarios(body.horariosBuscaBot);

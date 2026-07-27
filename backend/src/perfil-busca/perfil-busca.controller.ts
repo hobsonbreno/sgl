@@ -40,6 +40,12 @@ export class CreatePerfilDto {
 
   @ApiProperty({ required: false, default: true })
   ativo?: boolean;
+
+  @ApiProperty({ required: false, type: [String] })
+  estadosBuscaFornecedores?: string[];
+
+  @ApiProperty({ required: false, type: [String] })
+  municipiosBuscaFornecedores?: string[];
 }
 
 @ApiTags('Perfis de Busca')

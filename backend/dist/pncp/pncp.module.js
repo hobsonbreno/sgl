@@ -11,15 +11,16 @@ const common_1 = require("@nestjs/common");
 const axios_1 = require("@nestjs/axios");
 const pncp_client_service_1 = require("./services/pncp-client/pncp-client.service");
 const pncp_controller_1 = require("./controllers/pncp/pncp.controller");
+const compras_dados_abertos_service_1 = require("./services/compras-dados-abertos/compras-dados-abertos.service");
 let PncpModule = class PncpModule {
 };
 exports.PncpModule = PncpModule;
 exports.PncpModule = PncpModule = __decorate([
     (0, common_1.Module)({
         imports: [axios_1.HttpModule],
-        providers: [pncp_client_service_1.PncpClientService],
+        providers: [pncp_client_service_1.PncpClientService, compras_dados_abertos_service_1.ComprasDadosAbertosService],
         controllers: [pncp_controller_1.PncpController],
-        exports: [pncp_client_service_1.PncpClientService],
+        exports: [pncp_client_service_1.PncpClientService, compras_dados_abertos_service_1.ComprasDadosAbertosService],
     })
 ], PncpModule);
 //# sourceMappingURL=pncp.module.js.map

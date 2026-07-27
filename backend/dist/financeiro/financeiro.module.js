@@ -25,12 +25,12 @@ exports.FinanceiroModule = FinanceiroModule = __decorate([
                 { name: financeiro_schema_1.TransacaoFinanceira.name, schema: financeiro_schema_1.TransacaoFinanceiraSchema },
                 { name: oportunidade_schema_1.Oportunidade.name, schema: oportunidade_schema_1.OportunidadeSchema },
                 { name: produto_schema_1.Produto.name, schema: produto_schema_1.ProdutoSchema },
-                { name: cotacao_schema_1.Cotacao.name, schema: cotacao_schema_1.CotacaoSchema }
-            ])
+                { name: cotacao_schema_1.Cotacao.name, schema: cotacao_schema_1.CotacaoSchema },
+            ]),
         ],
         controllers: [financeiro_controller_1.FinanceiroController],
         providers: [financeiro_service_1.FinanceiroService],
-        exports: [financeiro_service_1.FinanceiroService]
+        exports: [financeiro_service_1.FinanceiroService],
     })
 ], FinanceiroModule);
 //# sourceMappingURL=financeiro.module.js.map

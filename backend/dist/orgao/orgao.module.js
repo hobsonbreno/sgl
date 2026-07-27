@@ -17,7 +17,9 @@ let OrgaoModule = class OrgaoModule {
 exports.OrgaoModule = OrgaoModule;
 exports.OrgaoModule = OrgaoModule = __decorate([
     (0, common_1.Module)({
-        imports: [mongoose_1.MongooseModule.forFeature([{ name: orgao_schema_1.Orgao.name, schema: orgao_schema_1.OrgaoSchema }])],
+        imports: [
+            mongoose_1.MongooseModule.forFeature([{ name: orgao_schema_1.Orgao.name, schema: orgao_schema_1.OrgaoSchema }]),
+        ],
         controllers: [orgao_controller_1.OrgaoController],
         providers: [orgao_service_1.OrgaoService],
         exports: [mongoose_1.MongooseModule, orgao_service_1.OrgaoService],

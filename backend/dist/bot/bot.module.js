@@ -25,18 +25,20 @@ exports.BotModule = BotModule;
 exports.BotModule = BotModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            mongoose_1.MongooseModule.forFeature([{ name: bot_execucao_schema_1.BotExecucao.name, schema: bot_execucao_schema_1.BotExecucaoSchema }]),
+            mongoose_1.MongooseModule.forFeature([
+                { name: bot_execucao_schema_1.BotExecucao.name, schema: bot_execucao_schema_1.BotExecucaoSchema },
+            ]),
             pncp_module_1.PncpModule,
             perfil_busca_module_1.PerfilBuscaModule,
             fornecedor_module_1.FornecedorModule,
             oportunidade_module_1.OportunidadeModule,
             orgao_module_1.OrgaoModule,
             produto_module_1.ProdutoModule,
-            (0, common_1.forwardRef)(() => configuracao_module_1.ConfiguracaoModule)
+            (0, common_1.forwardRef)(() => configuracao_module_1.ConfiguracaoModule),
         ],
         providers: [bot_service_1.BotService],
         controllers: [bot_controller_1.BotController],
-        exports: [bot_service_1.BotService]
+        exports: [bot_service_1.BotService],
     })
 ], BotModule);
 //# sourceMappingURL=bot.module.js.map

@@ -53,27 +53,33 @@ let BotService = BotService_1 = class BotService {
     }
     async onApplicationBootstrap() {
         const config = await this.configService.getConfiguracao();
-        const horarios = config?.horariosBuscaBot && config.horariosBuscaBot.length > 0 ? config.horariosBuscaBot : ['08:00', '12:00', '18:00'];
+        const horarios = config?.horariosBuscaBot && config.horariosBuscaBot.length > 0
+            ? config.horariosBuscaBot
+            : ['08:00', '12:00', '18:00'];
         await this.registrarCronDinamicoMultiplos(horarios);
-        setTimeout(async () => {
-            try {
-                const hojeDate = new Date();
-                const dataHoje = `${hojeDate.getFullYear()}-${String(hojeDate.getMonth() + 1).padStart(2, '0')}-${String(hojeDate.getDate()).padStart(2, '0')}`;
-                const currentConfig = await this.configService.getConfiguracao();
-                if (currentConfig && currentConfig.ultimaExecucaoAutomaticaData !== dataHoje) {
-                    this.logger.log(`Recuperação pós-boot: Bot não rodou hoje (${dataHoje}). Iniciando busca diária...`);
-                    await this.executarBuscaDiaria(true);
+        setTimeout(() => {
+            void (async () => {
+                try {
+                    const hojeDate = new Date();
+                    const dataHoje = `${hojeDate.getFullYear()}-${String(hojeDate.getMonth() + 1).padStart(2, '0')}-${String(hojeDate.getDate()).padStart(2, '0')}`;
+                    const currentConfig = await this.configService.getConfiguracao();
+                    if (currentConfig &&
+                        currentConfig.ultimaExecucaoAutomaticaData !== dataHoje) {
+                        this.logger.log(`Recuperação pós-boot: Bot não rodou hoje (${dataHoje}). Iniciando busca diária...`);
+                        await this.executarBuscaDiaria(true);
+                    }
+                    else {
+                        this.logger.log(`Boot verificado: Bot já rodou hoje (${dataHoje}).`);
+                    }
                 }
-                else {
-                    this.logger.log(`Boot verificado: Bot já rodou hoje (${dataHoje}).`);
+                catch (err) {
+                    const errMsg = err instanceof Error ? err.message : String(err);
+                    this.logger.error('Erro na recuperação de boot: ' + errMsg);
                 }
-            }
-            catch (err) {
-                this.logger.error('Erro na recuperação de boot: ' + err.message);
-            }
+            })();
         }, 15000);
     }
-    async registrarCronDinamicoMultiplos(horarios) {
+    registrarCronDinamicoMultiplos(horarios) {
         if (this.schedulerRegistry.doesExist('cron', 'botBuscaDiaria')) {
             this.schedulerRegistry.deleteCronJob('botBuscaDiaria');
         }
@@ -103,116 +109,154 @@ let BotService = BotService_1 = class BotService {
         }
         this.emExecucao = true;
         this.eventsService.emitDashboardUpdate();
-        const perfis = await this.perfilBuscaModel.find({ ativo: true });
-        const resultados = [];
-        for (const perfil of perfis) {
-            this.logger.log(`Executando perfil: ${perfil.nome}`);
-            let totalEncontrados = 0;
-            let totalNovos = 0;
-            const erros = [];
-            const dataFinalDate = new Date();
-            dataFinalDate.setDate(dataFinalDate.getDate() + 30);
-            const yyyyF = dataFinalDate.getFullYear();
-            const mmF = String(dataFinalDate.getMonth() + 1).padStart(2, '0');
-            const ddF = String(dataFinalDate.getDate()).padStart(2, '0');
-            const dataFinal = `${yyyyF}${mmF}${ddF}`;
-            const dataInicialDate = new Date();
-            dataInicialDate.setDate(dataInicialDate.getDate() - 30);
-            const yyyyI = dataInicialDate.getFullYear();
-            const mmI = String(dataInicialDate.getMonth() + 1).padStart(2, '0');
-            const ddI = String(dataInicialDate.getDate()).padStart(2, '0');
-            const dataInicial = `${yyyyI}${mmI}${ddI}`;
-            for (const modalidade of perfil.modalidades) {
-                try {
-                    const rawContratacoes = await this.pncpClientService.buscarContratacoesComPropostaAberta({
-                        dataInicial,
-                        dataFinal,
-                        codigoModalidadeContratacao: modalidade,
-                        uf: perfil.ufs && perfil.ufs.length > 0 ? perfil.ufs[0] : undefined,
-                        codigoMunicipioIbge: perfil.municipiosIbge && perfil.municipiosIbge.length > 0 ? perfil.municipiosIbge[0] : undefined,
-                        cnpj: perfil.orgaosCnpj && perfil.orgaosCnpj.length > 0 ? perfil.orgaosCnpj[0] : undefined,
-                        codigoUnidadeAdministrativa: perfil.unidadesUasg && perfil.unidadesUasg.length > 0 ? perfil.unidadesUasg[0] : undefined,
-                    });
-                    for (const raw of rawContratacoes) {
-                        const opDto = (0, pncp_dto_1.mapPncpParaOportunidade)(raw);
-                        if (perfil.palavrasChave && perfil.palavrasChave.length > 0) {
-                            const normalizar = (t) => (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-                            const objetoCompra = normalizar(opDto.objetoCompra);
-                            let match = perfil.palavrasChave.some(p => {
-                                const keyword = normalizar(p);
-                                return keyword.length > 0 && objetoCompra.includes(keyword);
-                            });
-                            if (!match) {
-                                try {
-                                    const itensDaCompra = await this.pncpClientService.buscarItensDaContratacao(opDto.numeroControlePNCP);
-                                    match = itensDaCompra.some(item => {
-                                        const descItem = normalizar(item.descricao);
-                                        return perfil.palavrasChave.some(p => {
-                                            const keyword = normalizar(p);
-                                            return keyword.length > 0 && descItem.includes(keyword);
-                                        });
-                                    });
-                                    await new Promise(r => setTimeout(r, 600));
-                                }
-                                catch (err) {
-                                    this.logger.warn(`Erro na Deep Search de Itens para ${opDto.numeroControlePNCP}: ${err.message}`);
+        try {
+            const perfis = await this.perfilBuscaModel.find({ ativo: true });
+            const resultados = [];
+            for (const perfil of perfis) {
+                this.logger.log(`Executando perfil: ${perfil.nome}`);
+                let totalEncontrados = 0;
+                let totalNovos = 0;
+                const erros = [];
+                const dataFinalDate = new Date();
+                dataFinalDate.setDate(dataFinalDate.getDate() + 30);
+                const yyyyF = dataFinalDate.getFullYear();
+                const mmF = String(dataFinalDate.getMonth() + 1).padStart(2, '0');
+                const ddF = String(dataFinalDate.getDate()).padStart(2, '0');
+                const dataFinal = `${yyyyF}${mmF}${ddF}`;
+                const dataInicialDate = new Date();
+                dataInicialDate.setDate(dataInicialDate.getDate() - 30);
+                const yyyyI = dataInicialDate.getFullYear();
+                const mmI = String(dataInicialDate.getMonth() + 1).padStart(2, '0');
+                const ddI = String(dataInicialDate.getDate()).padStart(2, '0');
+                const dataInicial = `${yyyyI}${mmI}${ddI}`;
+                for (const modalidade of perfil.modalidades) {
+                    try {
+                        const rawContratacoes = await this.pncpClientService.buscarContratacoesComPropostaAberta({
+                            dataInicial,
+                            dataFinal,
+                            codigoModalidadeContratacao: modalidade,
+                            uf: perfil.ufs && perfil.ufs.length > 0 ? perfil.ufs[0] : undefined,
+                        });
+                        for (const raw of rawContratacoes) {
+                            if (perfil.municipiosIbge && perfil.municipiosIbge.length > 0) {
+                                const ibge = raw.unidadeOrgao?.codigoIbge;
+                                if (ibge && !perfil.municipiosIbge.includes(ibge)) {
+                                    continue;
                                 }
                             }
-                            if (!match)
-                                continue;
-                        }
-                        totalEncontrados++;
-                        const existe = await this.oportunidadeModel.findOne({ numeroControlePNCP: opDto.numeroControlePNCP });
-                        let oportunidadeId = '';
-                        if (!existe) {
-                            const novaOp = await this.oportunidadeModel.create(opDto);
-                            oportunidadeId = novaOp._id.toString();
-                            totalNovos++;
-                        }
-                        else {
-                            await this.oportunidadeModel.updateOne({ numeroControlePNCP: opDto.numeroControlePNCP }, {
-                                $set: {
-                                    situacaoCompraNome: opDto.situacaoCompraNome,
-                                    dataEncerramentoProposta: opDto.dataEncerramentoProposta,
-                                    valorTotalEstimado: opDto.valorTotalEstimado
+                            if (perfil.orgaosCnpj && perfil.orgaosCnpj.length > 0) {
+                                const cnpj = raw.orgaoEntidade?.cnpj;
+                                if (cnpj && !perfil.orgaosCnpj.includes(cnpj)) {
+                                    continue;
                                 }
-                            });
-                            oportunidadeId = existe._id.toString();
-                        }
-                        if (opDto.orgaoCnpj) {
-                            const orgaoExiste = await this.orgaoModel.findOne({ cnpj: opDto.orgaoCnpj });
-                            if (!orgaoExiste) {
-                                await this.orgaoModel.create({
-                                    cnpj: opDto.orgaoCnpj,
-                                    nome: opDto.orgaoNome,
-                                    origem: 'bot'
+                            }
+                            if (perfil.unidadesUasg && perfil.unidadesUasg.length > 0) {
+                                const uasg = raw.unidadeOrgao?.codigoUnidade;
+                                if (uasg && !perfil.unidadesUasg.includes(uasg)) {
+                                    continue;
+                                }
+                            }
+                            const opDto = (0, pncp_dto_1.mapPncpParaOportunidade)(raw);
+                            const fontesPermitidas = [
+                                'Secretaria do Planejamento e Gestão do Ceará',
+                                'Compras.gov.br',
+                                'MUNICIPIO DE FORTALEZA',
+                            ];
+                            const usuarioNome = raw.usuarioNome;
+                            if (usuarioNome) {
+                                const fonteValida = fontesPermitidas.some((f) => usuarioNome.toLowerCase().includes(f.toLowerCase()));
+                                if (!fonteValida) {
+                                    continue;
+                                }
+                            }
+                            if (perfil.palavrasChave && perfil.palavrasChave.length > 0) {
+                                const normalizar = (t) => (t || '')
+                                    .normalize('NFD')
+                                    .replace(/[\u0300-\u036f]/g, '')
+                                    .toLowerCase()
+                                    .trim();
+                                const objetoCompra = normalizar(opDto.objetoCompra);
+                                let match = perfil.palavrasChave.some((p) => {
+                                    const keyword = normalizar(p);
+                                    return keyword.length > 0 && objetoCompra.includes(keyword);
                                 });
+                                if (!match) {
+                                    try {
+                                        const itensDaCompra = await this.pncpClientService.buscarItensDaContratacao(opDto.numeroControlePNCP);
+                                        match = itensDaCompra.some((item) => {
+                                            const descItem = normalizar(item.descricao);
+                                            return perfil.palavrasChave.some((p) => {
+                                                const keyword = normalizar(p);
+                                                return keyword.length > 0 && descItem.includes(keyword);
+                                            });
+                                        });
+                                        await new Promise((r) => setTimeout(r, 600));
+                                    }
+                                    catch (err) {
+                                        const errMsg = err instanceof Error ? err.message : String(err);
+                                        this.logger.warn(`Erro na Deep Search de Itens para ${opDto.numeroControlePNCP}: ${errMsg}`);
+                                    }
+                                }
+                                if (!match)
+                                    continue;
+                            }
+                            totalEncontrados++;
+                            const existe = await this.oportunidadeModel.findOne({
+                                numeroControlePNCP: opDto.numeroControlePNCP,
+                            });
+                            if (!existe) {
+                                await this.oportunidadeModel.create(opDto);
+                                totalNovos++;
+                            }
+                            else {
+                                await this.oportunidadeModel.updateOne({ numeroControlePNCP: opDto.numeroControlePNCP }, {
+                                    $set: {
+                                        situacaoCompraNome: opDto.situacaoCompraNome,
+                                        dataEncerramentoProposta: opDto.dataEncerramentoProposta,
+                                        valorTotalEstimado: opDto.valorTotalEstimado,
+                                    },
+                                });
+                            }
+                            if (opDto.orgaoCnpj) {
+                                const orgaoExiste = await this.orgaoModel.findOne({
+                                    cnpj: opDto.orgaoCnpj,
+                                });
+                                if (!orgaoExiste) {
+                                    await this.orgaoModel.create({
+                                        cnpj: opDto.orgaoCnpj,
+                                        nome: opDto.orgaoNome,
+                                        origem: 'bot',
+                                    });
+                                }
                             }
                         }
                     }
+                    catch (err) {
+                        const errMsg = err instanceof Error ? err.message : String(err);
+                        this.logger.error(`Erro ao buscar modalidade ${modalidade} do perfil ${perfil.nome}: ${errMsg}`);
+                        erros.push(errMsg);
+                    }
                 }
-                catch (err) {
-                    this.logger.error(`Erro ao buscar modalidade ${modalidade} do perfil ${perfil.nome}: ${err.message}`);
-                    erros.push(err.message);
-                }
+                const execucao = await this.botExecucaoModel.create({
+                    perfilBuscaId: perfil._id,
+                    totalEncontrados,
+                    totalNovos,
+                    erros,
+                });
+                resultados.push(execucao);
             }
-            const execucao = await this.botExecucaoModel.create({
-                perfilBuscaId: perfil._id,
-                totalEncontrados,
-                totalNovos,
-                erros,
-            });
-            resultados.push(execucao);
+            if (isAutomatic) {
+                const hojeDate = new Date();
+                const dataHoje = `${hojeDate.getFullYear()}-${String(hojeDate.getMonth() + 1).padStart(2, '0')}-${String(hojeDate.getDate()).padStart(2, '0')}`;
+                await this.configService.setUltimaExecucao(dataHoje);
+                this.logger.log(`Busca automática concluída. Data registrada: ${dataHoje}`);
+            }
+            return resultados;
         }
-        if (isAutomatic) {
-            const hojeDate = new Date();
-            const dataHoje = `${hojeDate.getFullYear()}-${String(hojeDate.getMonth() + 1).padStart(2, '0')}-${String(hojeDate.getDate()).padStart(2, '0')}`;
-            await this.configService.setUltimaExecucao(dataHoje);
-            this.logger.log(`Busca automática concluída. Data registrada: ${dataHoje}`);
+        finally {
+            this.emExecucao = false;
+            this.eventsService.emitDashboardUpdate();
         }
-        this.emExecucao = false;
-        this.eventsService.emitDashboardUpdate();
-        return resultados;
     }
     isExecucao() {
         return this.emExecucao;

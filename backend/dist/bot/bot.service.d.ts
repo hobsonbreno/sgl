@@ -23,7 +23,7 @@ export declare class BotService implements OnApplicationBootstrap {
     private emExecucao;
     constructor(botExecucaoModel: Model<BotExecucaoDocument>, perfilBuscaModel: Model<PerfilBuscaDocument>, oportunidadeModel: Model<OportunidadeDocument>, orgaoModel: Model<OrgaoDocument>, produtoModel: Model<ProdutoDocument>, pncpClientService: PncpClientService, schedulerRegistry: SchedulerRegistry, configService: ConfiguracaoService, eventsService: EventsService);
     onApplicationBootstrap(): Promise<void>;
-    registrarCronDinamicoMultiplos(horarios: string[]): Promise<void>;
+    registrarCronDinamicoMultiplos(horarios: string[]): void;
     executarBuscaDiaria(isAutomatic?: boolean): Promise<(import("mongoose").Document<unknown, {}, import("mongoose").Document<unknown, {}, BotExecucao, {}, import("mongoose").DefaultSchemaOptions> & BotExecucao & {
         _id: import("mongoose").Types.ObjectId;
     } & {

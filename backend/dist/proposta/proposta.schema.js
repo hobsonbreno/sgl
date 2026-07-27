@@ -29,11 +29,19 @@ let Proposta = class Proposta {
 };
 exports.Proposta = Proposta;
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.default.Schema.Types.ObjectId, ref: 'Oportunidade', required: true }),
+    (0, mongoose_1.Prop)({
+        type: mongoose_2.default.Schema.Types.ObjectId,
+        ref: 'Oportunidade',
+        required: true,
+    }),
     __metadata("design:type", mongoose_2.default.Types.ObjectId)
 ], Proposta.prototype, "oportunidadeId", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.default.Schema.Types.ObjectId, ref: 'Cotacao', required: true }),
+    (0, mongoose_1.Prop)({
+        type: mongoose_2.default.Schema.Types.ObjectId,
+        ref: 'Cotacao',
+        required: true,
+    }),
     __metadata("design:type", mongoose_2.default.Types.ObjectId)
 ], Proposta.prototype, "cotacaoId", void 0);
 __decorate([
@@ -57,7 +65,10 @@ __decorate([
     __metadata("design:type", Array)
 ], Proposta.prototype, "documentosAnexos", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: true, enum: ['AGUARDANDO_RESPOSTA', 'VENCEDOR', 'PERDEU', 'CANCELADO'] }),
+    (0, mongoose_1.Prop)({
+        required: true,
+        enum: ['AGUARDANDO_RESPOSTA', 'VENCEDOR', 'PERDEU', 'CANCELADO'],
+    }),
     __metadata("design:type", String)
 ], Proposta.prototype, "status", void 0);
 __decorate([

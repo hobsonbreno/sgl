@@ -123,7 +123,8 @@ export class BotService implements OnApplicationBootstrap {
 
     this.emExecucao = true;
     this.eventsService.emitDashboardUpdate();
-    const perfis = await this.perfilBuscaModel.find({ ativo: true });
+    try {
+      const perfis = await this.perfilBuscaModel.find({ ativo: true });
 
     const resultados = [];
 
@@ -298,18 +299,19 @@ export class BotService implements OnApplicationBootstrap {
       resultados.push(execucao);
     }
 
-    if (isAutomatic) {
-      const hojeDate = new Date();
-      const dataHoje = `${hojeDate.getFullYear()}-${String(hojeDate.getMonth() + 1).padStart(2, '0')}-${String(hojeDate.getDate()).padStart(2, '0')}`;
-      await this.configService.setUltimaExecucao(dataHoje);
-      this.logger.log(
-        `Busca automática concluída. Data registrada: ${dataHoje}`,
-      );
+      if (isAutomatic) {
+        const hojeDate = new Date();
+        const dataHoje = `${hojeDate.getFullYear()}-${String(hojeDate.getMonth() + 1).padStart(2, '0')}-${String(hojeDate.getDate()).padStart(2, '0')}`;
+        await this.configService.setUltimaExecucao(dataHoje);
+        this.logger.log(
+          `Busca automática concluída. Data registrada: ${dataHoje}`,
+        );
+      }
+      return resultados;
+    } finally {
+      this.emExecucao = false;
+      this.eventsService.emitDashboardUpdate();
     }
-
-    this.emExecucao = false;
-    this.eventsService.emitDashboardUpdate();
-    return resultados;
   }
 
   isExecucao(): boolean {

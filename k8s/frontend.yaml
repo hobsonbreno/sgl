@@ -13,7 +13,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: seu-usuario-dockerhub/sgl-frontend:latest
+        image: hobson007breno/sgl-frontend:latest
         ports:
         - containerPort: 80
 ---

@@ -22,10 +22,12 @@ exports.DashboardModule = DashboardModule = __decorate([
         imports: [
             oportunidade_module_1.OportunidadeModule,
             (0, common_1.forwardRef)(() => bot_module_1.BotModule),
-            mongoose_1.MongooseModule.forFeature([{ name: bot_execucao_schema_1.BotExecucao.name, schema: bot_execucao_schema_1.BotExecucaoSchema }])
+            mongoose_1.MongooseModule.forFeature([
+                { name: bot_execucao_schema_1.BotExecucao.name, schema: bot_execucao_schema_1.BotExecucaoSchema },
+            ]),
         ],
         providers: [dashboard_service_1.DashboardService],
-        controllers: [dashboard_controller_1.DashboardController]
+        controllers: [dashboard_controller_1.DashboardController],
     })
 ], DashboardModule);
 //# sourceMappingURL=dashboard.module.js.map

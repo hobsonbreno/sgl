@@ -25,22 +25,13 @@ export declare class DashboardController {
         } & Required<{
             _id: import("mongoose").Types.ObjectId;
         }>)[];
-        ultimaExecucaoBot: (import("mongoose").Document<unknown, {}, import("mongoose").Document<unknown, {}, import("../bot/bot-execucao.schema").BotExecucao, {}, import("mongoose").DefaultSchemaOptions> & import("../bot/bot-execucao.schema").BotExecucao & {
-            _id: import("mongoose").Types.ObjectId;
-        } & {
-            __v: number;
-        } & {
-            id: string;
-        }, {}, import("mongoose").DefaultSchemaOptions> & import("mongoose").Document<unknown, {}, import("../bot/bot-execucao.schema").BotExecucao, {}, import("mongoose").DefaultSchemaOptions> & import("../bot/bot-execucao.schema").BotExecucao & {
-            _id: import("mongoose").Types.ObjectId;
-        } & {
-            __v: number;
-        } & {
-            id: string;
-        } & Required<{
-            _id: import("mongoose").Types.ObjectId;
-        }>) | null;
+        ultimaExecucaoBot: {
+            dataExecucao: Date;
+            totalNovos: number;
+            erros: string[];
+        } | null;
         botEmExecucao: boolean;
+        totalEconomiaGerada: any;
     }>;
     stream(): Observable<MessageEvent>;
 }

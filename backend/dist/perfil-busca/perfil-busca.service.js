@@ -41,7 +41,9 @@ let PerfilBuscaService = class PerfilBuscaService {
         if (data.modalidades && data.modalidades.length === 0) {
             throw new common_1.BadRequestException('Pelo menos 1 modalidade é obrigatória.');
         }
-        const doc = await this.model.findByIdAndUpdate(id, data, { new: true }).exec();
+        const doc = await this.model
+            .findByIdAndUpdate(id, data, { new: true })
+            .exec();
         if (!doc)
             throw new common_1.NotFoundException('Perfil não encontrado');
         return doc;

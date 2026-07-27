@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Put, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Put, Param, Query, Delete } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { FornecedorService } from './fornecedor.service';
 
@@ -51,5 +51,11 @@ export class FornecedorController {
   @ApiOperation({ summary: 'Atualizar fornecedor' })
   update(@Param('id') id: string, @Body() data: any) {
     return this.service.update(id, data);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Excluir fornecedor' })
+  remove(@Param('id') id: string) {
+    return this.service.remove(id);
   }
 }

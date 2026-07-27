@@ -13,7 +13,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: seu-usuario-dockerhub/sgl-backend:latest
+        image: hobson007breno/sgl-backend:latest
         ports:
         - containerPort: 3000
         env:

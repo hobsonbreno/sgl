@@ -17,7 +17,11 @@ let PerfilBuscaModule = class PerfilBuscaModule {
 exports.PerfilBuscaModule = PerfilBuscaModule;
 exports.PerfilBuscaModule = PerfilBuscaModule = __decorate([
     (0, common_1.Module)({
-        imports: [mongoose_1.MongooseModule.forFeature([{ name: perfil_busca_schema_1.PerfilBusca.name, schema: perfil_busca_schema_1.PerfilBuscaSchema }])],
+        imports: [
+            mongoose_1.MongooseModule.forFeature([
+                { name: perfil_busca_schema_1.PerfilBusca.name, schema: perfil_busca_schema_1.PerfilBuscaSchema },
+            ]),
+        ],
         providers: [perfil_busca_service_1.PerfilBuscaService],
         controllers: [perfil_busca_controller_1.PerfilBuscaController],
         exports: [mongoose_1.MongooseModule],

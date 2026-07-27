@@ -8,6 +8,8 @@ export declare class CreatePerfilDto {
     modalidades: number[];
     palavrasChave?: string[];
     ativo?: boolean;
+    estadosBuscaFornecedores?: string[];
+    municipiosBuscaFornecedores?: string[];
 }
 export declare class PerfilBuscaController {
     private readonly service;

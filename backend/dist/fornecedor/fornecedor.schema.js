@@ -91,7 +91,21 @@ __decorate([
     __metadata("design:type", String)
 ], Fornecedor.prototype, "origem", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: [{ descricaoItem: String, precoUnitario: Number, precoEmbalagem: Number, fatorEmbalagem: Number, data: Date, oportunidadeId: String }] }),
+    (0, mongoose_1.Prop)({
+        type: [
+            {
+                descricaoItem: String,
+                precoUnitario: Number,
+                precoEmbalagem: Number,
+                fatorEmbalagem: Number,
+                nomeEmbalagem: String,
+                observacao: String,
+                desclassificado: Boolean,
+                data: Date,
+                oportunidadeId: String,
+            },
+        ],
+    }),
     __metadata("design:type", Array)
 ], Fornecedor.prototype, "fornecedor_historico_precos", void 0);
 exports.Fornecedor = Fornecedor = __decorate([

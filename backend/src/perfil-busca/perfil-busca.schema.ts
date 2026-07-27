@@ -26,6 +26,12 @@ export class PerfilBusca {
   @Prop([String])
   palavrasChave: string[];
 
+  @Prop([String])
+  estadosBuscaFornecedores: string[];
+
+  @Prop([String])
+  municipiosBuscaFornecedores: string[];
+
   @Prop({ default: true })
   ativo: boolean;
 }

@@ -75,7 +75,9 @@ __decorate([
 ], OportunidadeController.prototype, "updateStatus", null);
 __decorate([
     (0, common_1.Post)(':id/sincronizar-itens'),
-    (0, swagger_1.ApiOperation)({ summary: 'Sincronizar itens reais do PNCP para a oportunidade' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Sincronizar itens reais do PNCP para a oportunidade',
+    }),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),

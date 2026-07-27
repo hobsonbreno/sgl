@@ -19,6 +19,9 @@ export declare class Cotacao {
             prazoPagamento?: number;
             permiteParcelamento?: boolean;
             observacao?: string;
+            desclassificado?: boolean;
+            justificativaDesclassificacao?: string;
+            linkProduto?: string;
         }[];
         melhorPreco?: {
             fornecedorId: mongoose.Types.ObjectId;
@@ -62,6 +65,9 @@ export declare const CotacaoSchema: mongoose.Schema<Cotacao, mongoose.Model<Cota
             prazoPagamento?: number;
             permiteParcelamento?: boolean;
             observacao?: string;
+            desclassificado?: boolean;
+            justificativaDesclassificacao?: string;
+            linkProduto?: string;
         }[];
         melhorPreco?: {
             fornecedorId: mongoose.Types.ObjectId;

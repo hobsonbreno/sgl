@@ -1,10 +1,43 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
@@ -15,14 +48,17 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.FornecedorService = void 0;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
+const mongoose = __importStar(require("mongoose"));
 const mongoose_2 = require("mongoose");
 const fornecedor_schema_1 = require("./fornecedor.schema");
 let FornecedorService = class FornecedorService {
     model;
     intelModel;
-    constructor(model, intelModel) {
+    connection;
+    constructor(model, intelModel, connection) {
         this.model = model;
         this.intelModel = intelModel;
+        this.connection = connection;
     }
     validarCNPJ(cnpj) {
         const limpo = cnpj.replace(/[^\d]+/g, '');
@@ -46,13 +82,18 @@ let FornecedorService = class FornecedorService {
         if (query.busca) {
             filters.$or = [
                 { razaoSocial: { $regex: query.busca, $options: 'i' } },
-                { cnpj: { $regex: query.busca, $options: 'i' } }
+                { cnpj: { $regex: query.busca, $options: 'i' } },
             ];
         }
         const page = Number(query.page) || 1;
         const limit = Number(query.limit) || 50;
         const skip = (page - 1) * limit;
-        const data = await this.model.find(filters).sort({ createdAt: -1 }).skip(skip).limit(limit).exec();
+        const data = await this.model
+            .find(filters)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .exec();
         const total = await this.model.countDocuments(filters).exec();
         const totalPages = Math.ceil(total / limit) || 1;
         return { data, total, totalPages, currentPage: page };
@@ -103,18 +144,43 @@ let FornecedorService = class FornecedorService {
         }
         return doc.save();
     }
+    async remove(id) {
+        const doc = await this.model.findById(id).exec();
+        if (!doc)
+            throw new common_1.NotFoundException('Fornecedor não encontrado');
+        const isCampea = await this.connection.collection('cotacaos').findOne({
+            "itens.melhorPreco.fornecedorId": new mongoose.Types.ObjectId(id)
+        });
+        if (isCampea) {
+            throw new common_1.BadRequestException('Não é possível excluir este fornecedor pois ele é o campeão de preço em uma ou mais cotações. Desclassifique-o ou remova seu lance nas cotações vinculadas antes de excluí-lo.');
+        }
+        await this.model.findByIdAndDelete(id).exec();
+        await this.connection.collection('cotacaos').updateMany({}, { $pull: { 'itens.$[].precosFornecedores': { fornecedorId: new mongoose.Types.ObjectId(id) } } });
+    }
     async registrarHistoricoPreco(fornecedorId, itemData) {
         await this.model.findByIdAndUpdate(fornecedorId, {
             $push: {
                 fornecedor_historico_precos: {
                     ...itemData,
-                    data: new Date()
-                }
-            }
+                    data: new Date(),
+                },
+            },
+        });
+    }
+    async removerHistoricoPreco(fornecedorId, descricaoItem, oportunidadeId) {
+        await this.model.findByIdAndUpdate(fornecedorId, {
+            $pull: {
+                fornecedor_historico_precos: {
+                    descricaoItem: descricaoItem,
+                    oportunidadeId: oportunidadeId,
+                },
+            },
         });
     }
     async getBaseProdutos(query = {}) {
-        const fornecedores = await this.model.find({ 'fornecedor_historico_precos.0': { $exists: true } }).exec();
+        const fornecedores = await this.model
+            .find({ 'fornecedor_historico_precos.0': { $exists: true } })
+            .exec();
         const produtosMap = new Map();
         const busca = query.busca ? query.busca.toLowerCase() : '';
         for (const f of fornecedores) {
@@ -126,21 +192,27 @@ let FornecedorService = class FornecedorService {
                 if (!produtosMap.has(pNome)) {
                     produtosMap.set(pNome, {
                         descricaoItem: pNome,
-                        cotacoes: []
+                        cotacoes: [],
                     });
                 }
                 const prod = produtosMap.get(pNome);
                 const existingCotacaoIdx = prod.cotacoes.findIndex((c) => c.fornecedorId.toString() === f._id.toString());
                 if (existingCotacaoIdx >= 0) {
-                    if (new Date(hist.data) > new Date(prod.cotacoes[existingCotacaoIdx].data)) {
+                    if (new Date(hist.data) >
+                        new Date(prod.cotacoes[existingCotacaoIdx].data)) {
                         prod.cotacoes[existingCotacaoIdx] = {
                             fornecedorId: f._id,
                             razaoSocial: f.razaoSocial,
                             precoUnitario: hist.precoUnitario,
                             precoEmbalagem: hist.precoEmbalagem,
                             fatorEmbalagem: hist.fatorEmbalagem,
+                            nomeEmbalagem: hist.nomeEmbalagem,
+                            observacao: hist.observacao,
+                            desclassificado: hist.desclassificado,
+                            site: f.site,
+                            portifolio: f.portifolio,
                             data: hist.data,
-                            oportunidadeId: hist.oportunidadeId
+                            oportunidadeId: hist.oportunidadeId,
                         };
                     }
                 }
@@ -151,22 +223,29 @@ let FornecedorService = class FornecedorService {
                         precoUnitario: hist.precoUnitario,
                         precoEmbalagem: hist.precoEmbalagem,
                         fatorEmbalagem: hist.fatorEmbalagem,
+                        nomeEmbalagem: hist.nomeEmbalagem,
+                        observacao: hist.observacao,
+                        desclassificado: hist.desclassificado,
+                        site: f.site,
+                        portifolio: f.portifolio,
                         data: hist.data,
-                        oportunidadeId: hist.oportunidadeId
+                        oportunidadeId: hist.oportunidadeId,
                     });
                 }
             }
         }
-        let baseProdutos = Array.from(produtosMap.values()).map(prod => {
+        let baseProdutos = Array.from(produtosMap.values()).map((prod) => {
             let campea = null;
             for (const c of prod.cotacoes) {
+                if (c.desclassificado)
+                    continue;
                 if (!campea || c.precoUnitario < campea.precoUnitario) {
                     campea = c;
                 }
             }
             return {
                 ...prod,
-                campea
+                campea,
             };
         });
         const page = Number(query.page) || 1;
@@ -175,22 +254,24 @@ let FornecedorService = class FornecedorService {
         const totalPages = Math.ceil(total / limit) || 1;
         const skip = (page - 1) * limit;
         baseProdutos = baseProdutos.slice(skip, skip + limit);
-        const descricoes = baseProdutos.map(p => p.descricaoItem);
-        const intelDocs = await this.intelModel.find({ descricaoItem: { $in: descricoes } }).exec();
-        const intelMap = new Map(intelDocs.map(doc => [doc.descricaoItem, doc]));
-        baseProdutos = baseProdutos.map(prod => {
+        const descricoes = baseProdutos.map((p) => p.descricaoItem);
+        const intelDocs = await this.intelModel
+            .find({ descricaoItem: { $in: descricoes } })
+            .exec();
+        const intelMap = new Map(intelDocs.map((doc) => [doc.descricaoItem, doc]));
+        baseProdutos = baseProdutos.map((prod) => {
             const intel = intelMap.get(prod.descricaoItem);
             return {
                 ...prod,
                 nossoLanceOficial: intel?.nossoLanceOficial || null,
-                valorCampeaoLicitacao: intel?.valorCampeaoLicitacao || null
+                valorCampeaoLicitacao: intel?.valorCampeaoLicitacao || null,
             };
         });
         return {
             data: baseProdutos,
             total,
             totalPages,
-            currentPage: page
+            currentPage: page,
         };
     }
     async updateProdutoBase(descricaoItem, data) {
@@ -206,7 +287,7 @@ let FornecedorService = class FornecedorService {
             return this.intelModel.create({
                 descricaoItem,
                 nossoLanceOficial: data.nossoLanceOficial,
-                valorCampeaoLicitacao: data.valorCampeaoLicitacao
+                valorCampeaoLicitacao: data.valorCampeaoLicitacao,
             });
         }
     }
@@ -216,7 +297,9 @@ exports.FornecedorService = FornecedorService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(fornecedor_schema_1.Fornecedor.name)),
     __param(1, (0, mongoose_1.InjectModel)(fornecedor_schema_1.ProdutoBase.name)),
+    __param(2, (0, mongoose_1.InjectConnection)()),
     __metadata("design:paramtypes", [mongoose_2.Model,
-        mongoose_2.Model])
+        mongoose_2.Model,
+        mongoose_2.Connection])
 ], FornecedorService);
 //# sourceMappingURL=fornecedor.service.js.map

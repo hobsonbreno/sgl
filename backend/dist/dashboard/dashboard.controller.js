@@ -26,7 +26,9 @@ let DashboardController = class DashboardController {
         return this.dashboardService.getResumo();
     }
     stream() {
-        return this.eventsService.getDashboardUpdates().pipe((0, rxjs_1.map)(() => ({ data: { type: 'update' } })));
+        return this.eventsService
+            .getDashboardUpdates()
+            .pipe((0, rxjs_1.map)(() => ({ data: { type: 'update' } })));
     }
 };
 exports.DashboardController = DashboardController;

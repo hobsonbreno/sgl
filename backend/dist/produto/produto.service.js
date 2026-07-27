@@ -30,17 +30,18 @@ let ProdutoService = class ProdutoService {
         if (query.oportunidadeId) {
             filtro.oportunidadeId = query.oportunidadeId;
         }
-        const rawData = await this.model.find(filtro)
+        const rawData = await this.model
+            .find(filtro)
             .populate({
             path: 'oportunidadeId',
             match: { kanbanStatus: { $ne: 'EXCLUIDA' } },
-            select: 'orgaoNome numeroControlePNCP kanbanStatus uf numeroCompraOrigem anoCompraOrigem'
+            select: 'orgaoNome numeroControlePNCP kanbanStatus uf numeroCompraOrigem anoCompraOrigem',
         })
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit)
             .exec();
-        const data = rawData.filter(d => d.oportunidadeId !== null);
+        const data = rawData.filter((d) => d.oportunidadeId !== null);
         const total = await this.model.countDocuments(filtro).exec();
         const totalPages = Math.ceil(total / limit) || 1;
         return { data, total, totalPages, currentPage: page };

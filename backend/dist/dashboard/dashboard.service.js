@@ -24,47 +24,99 @@ let DashboardService = class DashboardService {
     oportunidadeModel;
     botExecucaoModel;
     botService;
-    constructor(oportunidadeModel, botExecucaoModel, botService) {
+    connection;
+    constructor(oportunidadeModel, botExecucaoModel, botService, connection) {
         this.oportunidadeModel = oportunidadeModel;
         this.botExecucaoModel = botExecucaoModel;
         this.botService = botService;
+        this.connection = connection;
     }
     async getResumo() {
         const ontem = new Date();
         ontem.setDate(ontem.getDate() - 1);
-        const novasHoje = await this.oportunidadeModel.countDocuments({ createdAt: { $gte: ontem } }).exec();
-        const agregacao = await this.oportunidadeModel.aggregate([
+        const novasHoje = await this.oportunidadeModel
+            .countDocuments({ createdAt: { $gte: ontem } })
+            .exec();
+        const agregacao = await this.oportunidadeModel
+            .aggregate([
             {
                 $group: {
                     _id: '$kanbanStatus',
                     count: { $sum: 1 },
-                    valorTotal: { $sum: '$valorTotalEstimado' }
-                }
-            }
-        ]).exec();
+                    valorTotal: { $sum: '$valorTotalEstimado' },
+                },
+            },
+        ])
+            .exec();
         const porStatus = {};
         const valorTotalPorStatus = {};
-        agregacao.forEach(item => {
+        agregacao.forEach((item) => {
             const id = item._id || 'NAO_DEFINIDO';
             porStatus[id] = item.count;
             valorTotalPorStatus[id] = item.valorTotal || 0;
         });
         const hoje = new Date();
-        const prazosCriticos = await this.oportunidadeModel.find({
+        const prazosCriticos = await this.oportunidadeModel
+            .find({
             kanbanStatus: { $in: ['FAZENDO', 'FEITO', 'AGUARDANDO_RESPOSTA'] },
-            dataEncerramentoProposta: { $gte: hoje }
+            dataEncerramentoProposta: { $gte: hoje },
         })
             .sort({ dataEncerramentoProposta: 1 })
             .limit(10)
             .exec();
-        const ultimaExecucaoBot = await this.botExecucaoModel.findOne().sort({ dataExecucao: -1 }).exec();
+        const hojeStart = new Date();
+        hojeStart.setHours(0, 0, 0, 0);
+        const execucoesHoje = await this.botExecucaoModel
+            .find({ dataExecucao: { $gte: hojeStart } })
+            .sort({ dataExecucao: -1 })
+            .exec();
+        let ultimaExecucaoBot = null;
+        if (execucoesHoje.length > 0) {
+            ultimaExecucaoBot = {
+                dataExecucao: execucoesHoje[0].dataExecucao,
+                totalNovos: execucoesHoje.reduce((acc, curr) => acc + (curr.totalNovos || 0), 0),
+                erros: execucoesHoje.flatMap((curr) => curr.erros || []),
+            };
+        }
+        const savingsAgregacao = await this.connection.collection('cotacaos').aggregate([
+            { $unwind: "$itens" },
+            {
+                $match: {
+                    "itens.melhorPreco.precoUnitario": { $gt: 0 },
+                    "itens.valorUnitarioEstimado": { $gt: 0 }
+                }
+            },
+            {
+                $project: {
+                    economiaItem: {
+                        $multiply: [
+                            { $subtract: ["$itens.valorUnitarioEstimado", "$itens.melhorPreco.precoUnitario"] },
+                            { $ifNull: ["$itens.quantidade", 1] }
+                        ]
+                    }
+                }
+            },
+            {
+                $match: {
+                    economiaItem: { $gt: 0 }
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalEconomia: { $sum: "$economiaItem" }
+                }
+            }
+        ]).toArray();
+        const totalEconomiaGerada = savingsAgregacao.length > 0 ? savingsAgregacao[0].totalEconomia : 0;
         return {
             novasHoje,
             porStatus,
             valorTotalPorStatus,
             prazosCriticos,
             ultimaExecucaoBot,
-            botEmExecucao: this.botService.isExecucao()
+            botEmExecucao: this.botService.isExecucao(),
+            totalEconomiaGerada,
         };
     }
 };
@@ -74,8 +126,10 @@ exports.DashboardService = DashboardService = __decorate([
     __param(0, (0, mongoose_1.InjectModel)(oportunidade_schema_1.Oportunidade.name)),
     __param(1, (0, mongoose_1.InjectModel)(bot_execucao_schema_1.BotExecucao.name)),
     __param(2, (0, common_2.Inject)((0, common_2.forwardRef)(() => bot_service_1.BotService))),
+    __param(3, (0, mongoose_1.InjectConnection)()),
     __metadata("design:paramtypes", [mongoose_2.Model,
         mongoose_2.Model,
-        bot_service_1.BotService])
+        bot_service_1.BotService,
+        mongoose_2.Connection])
 ], DashboardService);
 //# sourceMappingURL=dashboard.service.js.map

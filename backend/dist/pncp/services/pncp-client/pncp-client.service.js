@@ -40,7 +40,7 @@ let PncpClientService = PncpClientService_1 = class PncpClientService {
                 break;
             }
             pagina++;
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            await new Promise((resolve) => setTimeout(resolve, 1500));
         }
         this.logger.log(`Total encontrado para modalidade ${filtros.codigoModalidadeContratacao}: ${resultados.length}`);
         return resultados;
@@ -60,16 +60,32 @@ let PncpClientService = PncpClientService_1 = class PncpClientService {
             return [];
         const cnpj = splitDash[0];
         const sequencial = splitDash[2];
-        const url = `https://pncp.gov.br/api/pncp/v1/orgaos/${cnpj}/compras/${ano}/${sequencial}/itens`;
+        const baseUrl = `https://pncp.gov.br/api/pncp/v1/orgaos/${cnpj}/compras/${ano}/${sequencial}/itens`;
         try {
-            const response = await (0, rxjs_1.firstValueFrom)(this.httpService.get(url, { timeout: 60000 }).pipe((0, rxjs_1.retry)({
-                count: 2,
-                delay: (error, retryCount) => {
-                    this.logger.warn(`Falha na requisição para ${url}. Tentativa ${retryCount}/2. Erro: ${error.message}`);
-                    return (0, rxjs_1.timer)(2000 * retryCount);
+            let todosItens = [];
+            let pagina = 1;
+            const tamanhoPagina = 500;
+            let temMais = true;
+            while (temMais) {
+                const url = `${baseUrl}?pagina=${pagina}&tamanhoPagina=${tamanhoPagina}`;
+                const response = await (0, rxjs_1.firstValueFrom)(this.httpService.get(url, { timeout: 60000 }).pipe((0, rxjs_1.retry)({
+                    count: 2,
+                    delay: (error, retryCount) => {
+                        this.logger.warn(`Falha na requisição para ${url}. Tentativa ${retryCount}/2. Erro: ${error.message}`);
+                        return (0, rxjs_1.timer)(2000 * retryCount);
+                    },
+                })));
+                const itensDaPagina = response?.data || [];
+                todosItens = todosItens.concat(itensDaPagina);
+                if (itensDaPagina.length < tamanhoPagina) {
+                    temMais = false;
                 }
-            })));
-            return response?.data || [];
+                else {
+                    pagina++;
+                    await new Promise((r) => setTimeout(r, 800));
+                }
+            }
+            return todosItens;
         }
         catch (e) {
             this.logger.error(`Erro ao buscar itens de ${numeroControlePNCP}: ${e.message}`);
@@ -87,7 +103,7 @@ let PncpClientService = PncpClientService_1 = class PncpClientService {
                     return (0, rxjs_1.timer)(10000 * retryCount);
                 }
                 return (0, rxjs_1.timer)(5000 * retryCount);
-            }
+            },
         }), (0, rxjs_1.catchError)((error) => {
             this.logger.error(`Erro fatal na requisição para ${url} após retries: ${error.message}`);
             throw error;

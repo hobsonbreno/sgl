@@ -1,0 +1,97 @@
+{
+  "search_metadata": {
+    "id": "6a656f27634a63679c3b35a5",
+    "status": "Success",
+    "json_endpoint": "https://serpapi.com/searches/6PyzqNwsP5RrVvzFkQ0Y1w/6a656f27634a63679c3b35a5.json",
+    "created_at": "2026-07-26 02:21:27 UTC",
+    "processed_at": "2026-07-26 02:21:27 UTC",
+    "google_local_url": "https://www.google.com/search?q=Donizete+Distribuidora&uule=j+WzIsMzIsbnVsbCwiQnJhemlsIixudWxsLG51bGwsbnVsbCxudWxsLG51bGxd&hl=pt&gl=br&udm=1",
+    "raw_html_file": "https://serpapi.com/searches/6PyzqNwsP5RrVvzFkQ0Y1w/6a656f27634a63679c3b35a5.html",
+    "total_time_taken": 2.19
+  },
+  "search_parameters": {
+    "engine": "google_local",
+    "q": "Donizete Distribuidora",
+    "location_requested": "Brazil",
+    "location_used": "Brazil",
+    "google_domain": "google.com",
+    "hl": "pt",
+    "gl": "br",
+    "device": "desktop"
+  },
+  "local_map": {
+    "gps_coordinates": {
+      "latitude": -4.959615024698014,
+      "longitude": -39.375
+    }
+  },
+  "local_results": [
+    {
+      "position": 1,
+      "rating": 4.5,
+      "reviews": 97,
+      "reviews_original": "(97)",
+      "links": {
+        "website": "http://www.donizete.com.br/contato",
+        "directions": "https://www.google.com/maps/dir//Donizete+-+2779,+Av.+Le%C3%A3o+Sampaio+-+Bulandeira,+Barbalha+-+CE,+63180-000/data=!4m6!4m5!1m1!4e2!1m2!1m1!1s0x7a177e1cc96a3c5:0xae153979472b4d0f?sa=X&ved=2ahUKEwjM65qbpO-VAxUkJ0QIHevGJgYQ48ADegQIGBAA&hl=pt&gl=br"
+      },
+      "place_id": "12543995530158230799",
+      "place_id_search": "https://serpapi.com/search.json?device=desktop&engine=google_local&gl=br&google_domain=google.com&hl=pt&location=Brazil&ludocid=12543995530158230799&q=Donizete+Distribuidora",
+      "provider_id": "/g/11c6wmf30j",
+      "gps_coordinates": {
+        "latitude": -7.287692,
+        "longitude": -39.319743
+      },
+      "title": "Donizete",
+      "type": "Fornecedor de bebidas",
+      "phone": "(88) 3695-3099",
+      "address": "Barbalha - CE",
+      "hours": "Fechado · Abre seg. às 07:00"
+    },
+    {
+      "position": 2,
+      "rating": 4.7,
+      "reviews": 23,
+      "reviews_original": "(23)",
+      "description": "\"A melhor distribuidora da região super indico!\"",
+      "links": {
+        "website": "http://www.donizete.com.br/",
+        "directions": "https://www.google.com/maps/dir//Donizete+Distribuidora+De+Alimentos+Ltda+-+Forquilha+-+ROD+BR+222+KM+210,+7000+GALP%C3%83O+C+-+Distrito+Industrial,+Forquilha+-+CE,+62115-000/data=!4m6!4m5!1m1!4e2!1m2!1m1!1s0x7eab67a78bd90db:0x1909dcb538a465da?sa=X&ved=2ahUKEwjM65qbpO-VAxUkJ0QIHevGJgYQ48ADegQIGRAA&hl=pt&gl=br"
+      },
+      "place_id": "1804215796636083674",
+      "place_id_search": "https://serpapi.com/search.json?device=desktop&engine=google_local&gl=br&google_domain=google.com&hl=pt&location=Brazil&ludocid=1804215796636083674&q=Donizete+Distribuidora",
+      "provider_id": "/g/11d_7ys9yz",
+      "gps_coordinates": {
+        "latitude": -3.794339,
+        "longitude": -40.275685
+      },
+      "title": "Donizete Distribuidora De Alimentos Ltda - Forquilha",
+      "type": "Distribuidor de bebidas",
+      "phone": "(85) 3695-3099",
+      "address": "Forquilha - CE",
+      "hours": "Fechado · Abre seg. às 08:00"
+    },
+    {
+      "position": 3,
+      "rating": 4.6,
+      "reviews": 25,
+      "reviews_original": "(25)",
+      "description": "\"Otimo atendimento acesso fácil e controlado\"",
+      "links": {
+        "website": "https://donizetedistribuidora.com.br/",
+        "directions": "https://www.google.com/maps/dir//DONIZETE+DISTRIBUIDORA+DE+ALIMENTOS+SA+-+R.+Raimundo+Matias,+377+-+Pedra,+Itaitinga+-+CE,+61760-000/data=!4m6!4m5!1m1!4e2!1m2!1m1!1s0x7c750b7c016cced:0x2c1b83a7f864af30?sa=X&ved=2ahUKEwjM65qbpO-VAxUkJ0QIHevGJgYQ48ADegQIGhAA&hl=pt&gl=br"
+      },
+      "place_id": "3178278719490142000",
+      "place_id_search": "https://serpapi.com/search.json?device=desktop&engine=google_local&gl=br&google_domain=google.com&hl=pt&location=Brazil&ludocid=3178278719490142000&q=Donizete+Distribuidora",
+      "provider_id": "/g/11f06l5pmq",
+      "gps_coordinates": {
+        "latitude": -3.891884,
+        "longitude": -38.505382
+      },
+      "title": "DONIZETE DISTRIBUIDORA DE ALIMENTOS SA",
+      "type": "Escritório da empresa",
+      "address": "Itaitinga - CE",
+      "hours": "Fechado · Abre seg. às 07:00"
+    }
+  ]
+}

@@ -22,20 +22,29 @@ let Cotacao = class Cotacao {
 };
 exports.Cotacao = Cotacao;
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.default.Schema.Types.ObjectId, ref: 'Oportunidade', required: true }),
+    (0, mongoose_1.Prop)({
+        type: mongoose_2.default.Schema.Types.ObjectId,
+        ref: 'Oportunidade',
+        required: true,
+    }),
     __metadata("design:type", mongoose_2.default.Types.ObjectId)
 ], Cotacao.prototype, "oportunidadeId", void 0);
 __decorate([
     (0, mongoose_1.Prop)({
-        type: [{
+        type: [
+            {
                 _id: { type: mongoose_2.default.Schema.Types.ObjectId, auto: true },
                 produtoId: { type: mongoose_2.default.Schema.Types.ObjectId, ref: 'Produto' },
                 descricaoItem: String,
                 quantidade: Number,
                 unidadeMedida: String,
                 valorUnitarioEstimado: Number,
-                precosFornecedores: [{
-                        fornecedorId: { type: mongoose_2.default.Schema.Types.ObjectId, ref: 'Fornecedor' },
+                precosFornecedores: [
+                    {
+                        fornecedorId: {
+                            type: mongoose_2.default.Schema.Types.ObjectId,
+                            ref: 'Fornecedor',
+                        },
                         precoUnitario: Number,
                         fatorEmbalagem: Number,
                         precoEmbalagem: Number,
@@ -43,13 +52,21 @@ __decorate([
                         freteIncluso: { type: Boolean, default: false },
                         prazoPagamento: { type: Number, default: 0 },
                         permiteParcelamento: { type: Boolean, default: false },
-                        observacao: String
-                    }],
+                        observacao: String,
+                        desclassificado: { type: Boolean, default: false },
+                        justificativaDesclassificacao: String,
+                        linkProduto: String,
+                    },
+                ],
                 melhorPreco: {
-                    fornecedorId: { type: mongoose_2.default.Schema.Types.ObjectId, ref: 'Fornecedor' },
-                    precoUnitario: Number
-                }
-            }]
+                    fornecedorId: {
+                        type: mongoose_2.default.Schema.Types.ObjectId,
+                        ref: 'Fornecedor',
+                    },
+                    precoUnitario: Number,
+                },
+            },
+        ],
     }),
     __metadata("design:type", Array)
 ], Cotacao.prototype, "itens", void 0);

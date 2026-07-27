@@ -8,6 +8,8 @@ export declare class PerfilBusca {
     unidadesUasg: string[];
     modalidades: number[];
     palavrasChave: string[];
+    estadosBuscaFornecedores: string[];
+    municipiosBuscaFornecedores: string[];
     ativo: boolean;
 }
 export declare const PerfilBuscaSchema: import("mongoose").Schema<PerfilBusca, import("mongoose").Model<PerfilBusca, any, any, any, any, any, PerfilBusca>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, PerfilBusca, import("mongoose").Document<unknown, {}, PerfilBusca, {
@@ -74,6 +76,24 @@ export declare const PerfilBuscaSchema: import("mongoose").Schema<PerfilBusca, i
         id: string;
     }>> | undefined;
     palavrasChave?: import("mongoose").SchemaDefinitionProperty<string[], PerfilBusca, import("mongoose").Document<unknown, {}, PerfilBusca, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<PerfilBusca & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>> | undefined;
+    estadosBuscaFornecedores?: import("mongoose").SchemaDefinitionProperty<string[], PerfilBusca, import("mongoose").Document<unknown, {}, PerfilBusca, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<PerfilBusca & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>> | undefined;
+    municipiosBuscaFornecedores?: import("mongoose").SchemaDefinitionProperty<string[], PerfilBusca, import("mongoose").Document<unknown, {}, PerfilBusca, {
         id: string;
     }, import("mongoose").DefaultSchemaOptions> & Omit<PerfilBusca & {
         _id: import("mongoose").Types.ObjectId;

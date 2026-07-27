@@ -100,14 +100,16 @@ export default function Dashboard() {
         <div style={{ position: 'absolute', right: '0%', top: '0%', width: '500px', height: '500px', background: 'radial-gradient(circle, rgba(59,130,246,0.15) 0%, rgba(15,23,42,0) 70%)', borderRadius: '50%', transform: 'translate(20%, -30%)' }}></div>
         <div style={{ position: 'absolute', right: '25%', bottom: '0%', width: '400px', height: '400px', background: 'radial-gradient(circle, rgba(16,185,129,0.1) 0%, rgba(15,23,42,0) 70%)', borderRadius: '50%', transform: 'translate(0%, 40%)' }}></div>
 
-        {resumo.botEmExecucao && (
-          <div style={{ zIndex: 1, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(16px)', border: '1px solid rgba(96, 165, 250, 0.4)', color: '#ffffff', padding: '0.75rem 1.5rem', borderRadius: '9999px', display: 'flex', alignItems: 'center', gap: '1rem', fontWeight: 700, boxShadow: '0 10px 25px rgba(0,0,0,0.3), inset 0 0 15px rgba(59, 130, 246, 0.2)' }}>
-            <div className="radar-sync-wrapper" style={{ background: 'rgba(59, 130, 246, 0.2)', padding: '0.5rem' }}>
-              <RefreshCw size={22} className="spin-animation" color="#60a5fa" /> 
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', zIndex: 1, alignItems: 'flex-end' }}>
+          {resumo.botEmExecucao && (
+            <div style={{ background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(16px)', border: '1px solid rgba(96, 165, 250, 0.4)', color: '#ffffff', padding: '0.75rem 1.5rem', borderRadius: '9999px', display: 'flex', alignItems: 'center', gap: '1rem', fontWeight: 700, boxShadow: '0 10px 25px rgba(0,0,0,0.3), inset 0 0 15px rgba(59, 130, 246, 0.2)' }}>
+              <div className="radar-sync-wrapper" style={{ background: 'rgba(59, 130, 246, 0.2)', padding: '0.5rem' }}>
+                <RefreshCw size={22} className="spin-animation" color="#60a5fa" /> 
+              </div>
+              <span className="sync-text-glow" style={{ color: '#93c5fd', letterSpacing: '0.5px' }}>Robô em Sincronização Ativa...</span>
             </div>
-            <span className="sync-text-glow" style={{ color: '#93c5fd', letterSpacing: '0.5px' }}>Robô em Sincronização Ativa...</span>
-          </div>
-        )}
+          )}
+        </div>
       </div>
       
       {/* CARDS DO KANBAN */}

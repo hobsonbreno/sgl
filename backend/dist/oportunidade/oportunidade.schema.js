@@ -31,6 +31,7 @@ let Oportunidade = class Oportunidade {
     situacaoCompraNome;
     kanbanStatus;
     dataMudancaStatus;
+    usuarioNome;
     itens;
 };
 exports.Oportunidade = Oportunidade;
@@ -110,6 +111,10 @@ __decorate([
     (0, mongoose_1.Prop)(),
     __metadata("design:type", Date)
 ], Oportunidade.prototype, "dataMudancaStatus", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], Oportunidade.prototype, "usuarioNome", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ type: [Object] }),
     __metadata("design:type", Array)

@@ -20,9 +20,11 @@ exports.OportunidadeModule = OportunidadeModule;
 exports.OportunidadeModule = OportunidadeModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            mongoose_1.MongooseModule.forFeature([{ name: oportunidade_schema_1.Oportunidade.name, schema: oportunidade_schema_1.OportunidadeSchema }]),
+            mongoose_1.MongooseModule.forFeature([
+                { name: oportunidade_schema_1.Oportunidade.name, schema: oportunidade_schema_1.OportunidadeSchema },
+            ]),
             pncp_module_1.PncpModule,
-            (0, common_1.forwardRef)(() => produto_module_1.ProdutoModule)
+            (0, common_1.forwardRef)(() => produto_module_1.ProdutoModule),
         ],
         controllers: [oportunidade_controller_1.OportunidadeController],
         providers: [oportunidade_service_1.OportunidadeService],

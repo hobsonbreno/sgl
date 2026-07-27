@@ -1,0 +1,11 @@
+[Unit]
+Description=Timer Mensal para SGL Data Lake ETL
+
+[Timer]
+# A Receita Federal costuma atualizar os dados nos primeiros dias do mês.
+# Vamos rodar todo dia 10 de cada mês, às 02:00 da madrugada.
+OnCalendar=*-*-10 02:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

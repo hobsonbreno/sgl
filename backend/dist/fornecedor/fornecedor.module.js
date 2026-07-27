@@ -10,20 +10,25 @@ exports.FornecedorModule = void 0;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const fornecedor_service_1 = require("./fornecedor.service");
+const supplier_discovery_service_1 = require("./supplier-discovery.service");
 const fornecedor_controller_1 = require("./fornecedor.controller");
+const perfil_busca_module_1 = require("../perfil-busca/perfil-busca.module");
 const fornecedor_schema_1 = require("./fornecedor.schema");
 let FornecedorModule = class FornecedorModule {
 };
 exports.FornecedorModule = FornecedorModule;
 exports.FornecedorModule = FornecedorModule = __decorate([
     (0, common_1.Module)({
-        imports: [mongoose_1.MongooseModule.forFeature([
+        imports: [
+            mongoose_1.MongooseModule.forFeature([
                 { name: fornecedor_schema_1.Fornecedor.name, schema: fornecedor_schema_1.FornecedorSchema },
-                { name: fornecedor_schema_1.ProdutoBase.name, schema: fornecedor_schema_1.ProdutoBaseSchema }
-            ])],
+                { name: fornecedor_schema_1.ProdutoBase.name, schema: fornecedor_schema_1.ProdutoBaseSchema },
+            ]),
+            perfil_busca_module_1.PerfilBuscaModule,
+        ],
         controllers: [fornecedor_controller_1.FornecedorController],
-        providers: [fornecedor_service_1.FornecedorService],
-        exports: [mongoose_1.MongooseModule, fornecedor_service_1.FornecedorService],
+        providers: [fornecedor_service_1.FornecedorService, supplier_discovery_service_1.SupplierDiscoveryService],
+        exports: [mongoose_1.MongooseModule, fornecedor_service_1.FornecedorService, supplier_discovery_service_1.SupplierDiscoveryService],
     })
 ], FornecedorModule);
 //# sourceMappingURL=fornecedor.module.js.map

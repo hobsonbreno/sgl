@@ -79,4 +79,14 @@ export class CotacaoController {
   ) {
     return this.cotacaoService.removePreco(id, itemId, fornecedorId);
   }
+
+  @Post('cotacoes/:id/itens/:itemId/buscar-web')
+  @ApiOperation({ summary: 'Buscar preços na web automaticamente para o item' })
+  buscarPrecosWeb(
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+    @Body() body?: { location?: string },
+  ) {
+    return this.cotacaoService.buscarPrecosWebAuto(id, itemId, body?.location);
+  }
 }

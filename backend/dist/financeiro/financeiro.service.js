@@ -36,7 +36,11 @@ let FinanceiroService = class FinanceiroService {
         return created.save();
     }
     async findAll() {
-        return this.transacaoModel.find().sort({ dataVencimento: 1 }).populate('oportunidadeId', 'orgaoNome objetoCompra numeroControlePNCP').exec();
+        return this.transacaoModel
+            .find()
+            .sort({ dataVencimento: 1 })
+            .populate('oportunidadeId', 'orgaoNome objetoCompra numeroControlePNCP')
+            .exec();
     }
     async findResumo() {
         const transacoes = await this.transacaoModel.find().exec();
@@ -44,7 +48,7 @@ let FinanceiroService = class FinanceiroService {
         let receitasPagas = 0;
         let despesasPendentes = 0;
         let despesasPagas = 0;
-        transacoes.forEach(t => {
+        transacoes.forEach((t) => {
             if (t.tipo === 'RECEITA') {
                 if (t.status === 'PAGO')
                     receitasPagas += t.valor;
@@ -58,24 +62,34 @@ let FinanceiroService = class FinanceiroService {
                     despesasPendentes += t.valor;
             }
         });
-        const oportunidades = await this.oportunidadeModel.find({ kanbanStatus: { $ne: 'EXCLUIDA' } }).exec();
+        const oportunidades = await this.oportunidadeModel
+            .find({ kanbanStatus: { $ne: 'EXCLUIDA' } })
+            .exec();
         const produtos = await this.produtoModel.find().exec();
         let valorNovasOportunidades = 0;
         let saldoProjetadoKanban = 0;
         let faturamentoAReceberKanban = 0;
         for (const op of oportunidades) {
             if (op.kanbanStatus === 'A_FAZER') {
-                valorNovasOportunidades += (op.valorTotalEstimado || 0);
+                valorNovasOportunidades += op.valorTotalEstimado || 0;
             }
             else if (op.kanbanStatus === 'FAZENDO') {
-                saldoProjetadoKanban += (op.valorTotalEstimado || 0);
+                saldoProjetadoKanban += op.valorTotalEstimado || 0;
             }
-            else if (['FEITO', 'NEGOCIACAO', 'HOMOLOGACAO', 'NEGOCIO_FECHADO', 'NEGOCIAÇÃO', 'HOMOLOGAÇÃO', 'NEGÓCIO FECHADO'].includes(op.kanbanStatus)) {
-                const prods = produtos.filter(p => p.oportunidadeId === op._id.toString());
+            else if ([
+                'FEITO',
+                'NEGOCIACAO',
+                'HOMOLOGACAO',
+                'NEGOCIO_FECHADO',
+                'NEGOCIAÇÃO',
+                'HOMOLOGAÇÃO',
+                'NEGÓCIO FECHADO',
+            ].includes(op.kanbanStatus)) {
+                const prods = produtos.filter((p) => p.oportunidadeId === op._id.toString());
                 let valorOp = 0;
-                prods.forEach(p => {
+                prods.forEach((p) => {
                     if (p.valorNossoLance !== undefined && p.valorNossoLance > 0) {
-                        valorOp += (p.valorNossoLance * (p.quantidade || 1));
+                        valorOp += p.valorNossoLance * (p.quantidade || 1);
                     }
                 });
                 faturamentoAReceberKanban += valorOp;
@@ -91,21 +105,25 @@ let FinanceiroService = class FinanceiroService {
             despesasPagas,
             saldoAtual,
             saldoProjetado,
-            valorNovasOportunidades
+            valorNovasOportunidades,
         };
     }
     async findNegociosFechados() {
-        const oportunidades = await this.oportunidadeModel.find({
-            kanbanStatus: { $in: ['NEGOCIO_FECHADO', 'NEGÓCIO FECHADO'] }
-        }).exec();
-        const ids = oportunidades.map(o => o._id.toString());
-        const produtos = await this.produtoModel.find({ oportunidadeId: { $in: ids } }).exec();
-        return oportunidades.map(op => {
-            const prods = produtos.filter(p => p.oportunidadeId === op._id.toString());
+        const oportunidades = await this.oportunidadeModel
+            .find({
+            kanbanStatus: { $in: ['NEGOCIO_FECHADO', 'NEGÓCIO FECHADO'] },
+        })
+            .exec();
+        const ids = oportunidades.map((o) => o._id.toString());
+        const produtos = await this.produtoModel
+            .find({ oportunidadeId: { $in: ids } })
+            .exec();
+        return oportunidades.map((op) => {
+            const prods = produtos.filter((p) => p.oportunidadeId === op._id.toString());
             let valorTotalLancado = 0;
-            prods.forEach(p => {
+            prods.forEach((p) => {
                 if (p.valorNossoLance !== undefined && p.valorNossoLance > 0) {
-                    valorTotalLancado += (p.valorNossoLance * (p.quantidade || 1));
+                    valorTotalLancado += p.valorNossoLance * (p.quantidade || 1);
                 }
             });
             return {
@@ -113,7 +131,7 @@ let FinanceiroService = class FinanceiroService {
                 orgaoNome: op.orgaoNome,
                 numeroControlePNCP: op.numeroControlePNCP,
                 objetoCompra: op.objetoCompra,
-                valorTotalLancado
+                valorTotalLancado,
             };
         });
     }
@@ -121,22 +139,28 @@ let FinanceiroService = class FinanceiroService {
         const op = await this.oportunidadeModel.findById(oportunidadeId).exec();
         if (!op)
             throw new Error('Oportunidade não encontrada');
-        const produtos = await this.produtoModel.find({ oportunidadeId: op._id.toString() }).exec();
+        const produtos = await this.produtoModel
+            .find({ oportunidadeId: op._id.toString() })
+            .exec();
         let valorTotalLancado = 0;
-        produtos.forEach(p => {
+        produtos.forEach((p) => {
             if (p.valorNossoLance !== undefined && p.valorNossoLance > 0) {
-                valorTotalLancado += (p.valorNossoLance * (p.quantidade || 1));
+                valorTotalLancado += p.valorNossoLance * (p.quantidade || 1);
             }
         });
         if (valorTotalLancado <= 0) {
             throw new Error('Não há lances válidos registrados para esta oportunidade.');
         }
-        const cotacao = await this.cotacaoModel.findOne({ oportunidadeId: op._id }).exec();
+        const cotacao = await this.cotacaoModel
+            .findOne({ oportunidadeId: op._id })
+            .exec();
         let custoTotal = 0;
         if (cotacao && cotacao.itens) {
-            cotacao.itens.forEach(item => {
+            cotacao.itens.forEach((item) => {
                 if (item.melhorPreco && item.melhorPreco.precoUnitario) {
-                    custoTotal += (Number(item.melhorPreco.precoUnitario) * Number(item.quantidade || 1));
+                    custoTotal +=
+                        Number(item.melhorPreco.precoUnitario) *
+                            Number(item.quantidade || 1);
                 }
             });
         }
@@ -146,9 +170,13 @@ let FinanceiroService = class FinanceiroService {
             descricao: `Faturamento Negócio: ${op.numeroControlePNCP}`,
             valor: valorTotalLancado,
             dataVencimento: new Date(),
-            status: 'PENDENTE'
+            status: 'PENDENTE',
         });
-        await this.transacaoModel.updateMany({ oportunidadeId: op._id, tipo: 'RECEITA' }, { status: 'PAGO', dataPagamento: new Date(), descricao: `Recebimento de Negócio: ${op.numeroControlePNCP}` });
+        await this.transacaoModel.updateMany({ oportunidadeId: op._id, tipo: 'RECEITA' }, {
+            status: 'PAGO',
+            dataPagamento: new Date(),
+            descricao: `Recebimento de Negócio: ${op.numeroControlePNCP}`,
+        });
         if (custoTotal > 0) {
             await this.create({
                 oportunidadeId: op._id,
@@ -164,17 +192,21 @@ let FinanceiroService = class FinanceiroService {
         return op;
     }
     async findArquivados() {
-        const oportunidades = await this.oportunidadeModel.find({
-            kanbanStatus: { $in: ['ARQUIVADO', 'ARQUIVADOS'] }
-        }).exec();
-        const ids = oportunidades.map(o => o._id.toString());
-        const produtos = await this.produtoModel.find({ oportunidadeId: { $in: ids } }).exec();
-        return oportunidades.map(op => {
-            const prods = produtos.filter(p => p.oportunidadeId === op._id.toString());
+        const oportunidades = await this.oportunidadeModel
+            .find({
+            kanbanStatus: { $in: ['ARQUIVADO', 'ARQUIVADOS'] },
+        })
+            .exec();
+        const ids = oportunidades.map((o) => o._id.toString());
+        const produtos = await this.produtoModel
+            .find({ oportunidadeId: { $in: ids } })
+            .exec();
+        return oportunidades.map((op) => {
+            const prods = produtos.filter((p) => p.oportunidadeId === op._id.toString());
             let valorTotalLancado = 0;
-            prods.forEach(p => {
+            prods.forEach((p) => {
                 if (p.valorNossoLance !== undefined && p.valorNossoLance > 0) {
-                    valorTotalLancado += (p.valorNossoLance * (p.quantidade || 1));
+                    valorTotalLancado += p.valorNossoLance * (p.quantidade || 1);
                 }
             });
             return {
@@ -182,7 +214,7 @@ let FinanceiroService = class FinanceiroService {
                 orgaoNome: op.orgaoNome,
                 numeroControlePNCP: op.numeroControlePNCP,
                 objetoCompra: op.objetoCompra,
-                valorTotalLancado
+                valorTotalLancado,
             };
         });
     }
@@ -190,8 +222,12 @@ let FinanceiroService = class FinanceiroService {
         const op = await this.oportunidadeModel.findById(oportunidadeId).exec();
         if (!op)
             throw new Error('Oportunidade não encontrada');
-        await this.transacaoModel.deleteMany({ oportunidadeId: op._id, tipo: 'RECEITA' }).exec();
-        await this.transacaoModel.deleteMany({ oportunidadeId: op._id, tipo: 'DESPESA' }).exec();
+        await this.transacaoModel
+            .deleteMany({ oportunidadeId: op._id, tipo: 'RECEITA' })
+            .exec();
+        await this.transacaoModel
+            .deleteMany({ oportunidadeId: op._id, tipo: 'DESPESA' })
+            .exec();
         op.kanbanStatus = 'NEGOCIO_FECHADO';
         await op.save();
         return op;
@@ -200,7 +236,9 @@ let FinanceiroService = class FinanceiroService {
         if (updateDto.status === 'PAGO' && !updateDto.dataPagamento) {
             updateDto.dataPagamento = new Date();
         }
-        return this.transacaoModel.findByIdAndUpdate(id, updateDto, { new: true }).exec();
+        return this.transacaoModel
+            .findByIdAndUpdate(id, updateDto, { new: true })
+            .exec();
     }
     async remove(id) {
         return this.transacaoModel.findByIdAndDelete(id).exec();

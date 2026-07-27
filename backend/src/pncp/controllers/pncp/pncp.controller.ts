@@ -1,12 +1,29 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { PncpClientService } from '../../services/pncp-client/pncp-client.service';
+import { ComprasDadosAbertosService } from '../../services/compras-dados-abertos/compras-dados-abertos.service';
 import { mapPncpParaOportunidade, OportunidadeDto } from '../../dtos/pncp.dto';
 
 @ApiTags('PNCP Testes')
 @Controller('pncp')
 export class PncpController {
-  constructor(private readonly pncpClientService: PncpClientService) {}
+  constructor(
+    private readonly pncpClientService: PncpClientService,
+    private readonly comprasDadosAbertosService: ComprasDadosAbertosService
+  ) {}
+
+  @Get('inteligencia-precos')
+  @ApiOperation({
+    summary: 'Busca histórico de preços de contratos para inteligência competitiva',
+  })
+  @ApiQuery({ name: 'keyword', required: true, description: 'Palavra-chave do produto (ex: Frango)' })
+  @ApiQuery({ name: 'uf', required: true, description: 'Sigla do Estado (ex: CE)' })
+  async inteligenciaPrecos(
+    @Query('keyword') keyword: string,
+    @Query('uf') uf: string,
+  ) {
+    return this.comprasDadosAbertosService.pesquisarHistoricoPrecos(keyword, uf);
+  }
 
   @Get('test-busca')
   @ApiOperation({

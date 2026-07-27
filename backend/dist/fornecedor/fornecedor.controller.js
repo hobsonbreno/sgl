@@ -43,6 +43,9 @@ let FornecedorController = class FornecedorController {
     update(id, data) {
         return this.service.update(id, data);
     }
+    remove(id) {
+        return this.service.remove(id);
+    }
 };
 exports.FornecedorController = FornecedorController;
 __decorate([
@@ -63,7 +66,9 @@ __decorate([
 ], FornecedorController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)('produtos/base'),
-    (0, swagger_1.ApiOperation)({ summary: 'Obter base geral de produtos cotados com empresas campeãs' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Obter base geral de produtos cotados com empresas campeãs',
+    }),
     __param(0, (0, common_1.Query)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -86,6 +91,14 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], FornecedorController.prototype, "update", null);
+__decorate([
+    (0, common_1.Delete)(':id'),
+    (0, swagger_1.ApiOperation)({ summary: 'Excluir fornecedor' }),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], FornecedorController.prototype, "remove", null);
 exports.FornecedorController = FornecedorController = __decorate([
     (0, swagger_1.ApiTags)('Fornecedores'),
     (0, common_1.Controller)('fornecedores'),

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { InjectModel, InjectConnection } from '@nestjs/mongoose';
+import { Model, Connection } from 'mongoose';
 import {
   Oportunidade,
   OportunidadeDocument,
@@ -17,6 +17,7 @@ export class DashboardService {
     @InjectModel(BotExecucao.name)
     private botExecucaoModel: Model<BotExecucaoDocument>,
     @Inject(forwardRef(() => BotService)) private botService: BotService,
+    @InjectConnection() private connection: Connection,
   ) {}
 
   async getResumo() {
@@ -78,6 +79,40 @@ export class DashboardService {
       };
     }
 
+    // Calcular Economia Gerada Total nas Cotacoes
+    const savingsAgregacao = await this.connection.collection('cotacaos').aggregate([
+      { $unwind: "$itens" },
+      { 
+        $match: { 
+          "itens.melhorPreco.precoUnitario": { $gt: 0 },
+          "itens.valorUnitarioEstimado": { $gt: 0 }
+        }
+      },
+      {
+        $project: {
+          economiaItem: {
+            $multiply: [
+              { $subtract: ["$itens.valorUnitarioEstimado", "$itens.melhorPreco.precoUnitario"] },
+              { $ifNull: ["$itens.quantidade", 1] }
+            ]
+          }
+        }
+      },
+      {
+        $match: {
+          economiaItem: { $gt: 0 }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalEconomia: { $sum: "$economiaItem" }
+        }
+      }
+    ]).toArray();
+
+    const totalEconomiaGerada = savingsAgregacao.length > 0 ? savingsAgregacao[0].totalEconomia : 0;
+
     return {
       novasHoje,
       porStatus,
@@ -85,6 +120,7 @@ export class DashboardService {
       prazosCriticos,
       ultimaExecucaoBot,
       botEmExecucao: this.botService.isExecucao(),
+      totalEconomiaGerada,
     };
   }
 }

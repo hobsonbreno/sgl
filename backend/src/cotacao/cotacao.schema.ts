@@ -36,6 +36,8 @@ export class Cotacao {
             permiteParcelamento: { type: Boolean, default: false },
             observacao: String,
             desclassificado: { type: Boolean, default: false },
+            justificativaDesclassificacao: String,
+            linkProduto: String,
           },
         ],
         melhorPreco: {
@@ -66,6 +68,8 @@ export class Cotacao {
       permiteParcelamento?: boolean;
       observacao?: string;
       desclassificado?: boolean;
+      justificativaDesclassificacao?: string;
+      linkProduto?: string;
     }[];
     melhorPreco?: {
       fornecedorId: mongoose.Types.ObjectId;

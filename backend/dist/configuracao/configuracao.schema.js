@@ -31,13 +31,16 @@ __decorate([
     __metadata("design:type", String)
 ], Configuracao.prototype, "ultimaExecucaoAutomaticaData", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: [{ id: String, nome: String }], default: [
+    (0, mongoose_1.Prop)({
+        type: [{ id: String, nome: String }],
+        default: [
             { id: 'A_FAZER', nome: 'A FAZER' },
             { id: 'FAZENDO', nome: 'FAZENDO' },
             { id: 'FEITO', nome: 'FEITO' },
             { id: 'AGUARDANDO_RESPOSTA', nome: 'AGUARDANDO RESPOSTA' },
-            { id: 'EXCLUIDA', nome: 'EXCLUÍDA' }
-        ] }),
+            { id: 'EXCLUIDA', nome: 'EXCLUÍDA' },
+        ],
+    }),
     __metadata("design:type", Array)
 ], Configuracao.prototype, "colunasKanban", void 0);
 exports.Configuracao = Configuracao = __decorate([

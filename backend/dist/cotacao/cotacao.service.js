@@ -51,46 +51,60 @@ const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = __importStar(require("mongoose"));
 const cotacao_schema_1 = require("./cotacao.schema");
 const fornecedor_service_1 = require("../fornecedor/fornecedor.service");
+const supplier_discovery_service_1 = require("../fornecedor/supplier-discovery.service");
 let CotacaoService = class CotacaoService {
     model;
     fornecedorService;
-    constructor(model, fornecedorService) {
+    supplierDiscoveryService;
+    connection;
+    constructor(model, fornecedorService, supplierDiscoveryService, connection) {
         this.model = model;
         this.fornecedorService = fornecedorService;
+        this.supplierDiscoveryService = supplierDiscoveryService;
+        this.connection = connection;
     }
     async createOrGet(oportunidadeId, initialItems = []) {
         const existe = await this.model.findOne({ oportunidadeId }).exec();
         if (existe) {
-            if (existe.itens.length === 0 && initialItems.length > 0) {
-                const itens = initialItems.map(i => ({
-                    produtoId: i._id,
-                    descricaoItem: i.descricao,
-                    quantidade: i.quantidade || 1,
-                    unidadeMedida: i.unidadeMedida || 'UN',
-                    valorUnitarioEstimado: i.valorUnitarioEstimado || 0,
-                    precosFornecedores: []
-                }));
-                existe.itens = itens;
-                await existe.save();
+            if (initialItems.length > 0) {
+                let changed = false;
+                for (const initialItem of initialItems) {
+                    const itemJaExiste = existe.itens.some((it) => it.produtoId && it.produtoId.toString() === initialItem._id.toString());
+                    if (!itemJaExiste) {
+                        existe.itens.push({
+                            produtoId: initialItem._id,
+                            descricaoItem: initialItem.descricao,
+                            quantidade: initialItem.quantidade || 1,
+                            unidadeMedida: initialItem.unidadeMedida || 'UN',
+                            valorUnitarioEstimado: initialItem.valorUnitarioEstimado || 0,
+                            precosFornecedores: [],
+                        });
+                        changed = true;
+                    }
+                }
+                if (changed) {
+                    await existe.save();
+                }
             }
             return existe;
         }
-        const itens = initialItems.map(i => ({
+        const itens = initialItems.map((i) => ({
             produtoId: i._id,
             descricaoItem: i.descricao,
             quantidade: i.quantidade || 1,
             unidadeMedida: i.unidadeMedida || 'UN',
             valorUnitarioEstimado: i.valorUnitarioEstimado || 0,
-            precosFornecedores: []
+            precosFornecedores: [],
         }));
         const nova = new this.model({
             oportunidadeId,
-            itens
+            itens,
         });
         return nova.save();
     }
     async findOne(id) {
-        const doc = await this.model.findById(id)
+        const doc = await this.model
+            .findById(id)
             .populate('itens.precosFornecedores.fornecedorId')
             .populate('itens.produtoId')
             .exec();
@@ -99,7 +113,8 @@ let CotacaoService = class CotacaoService {
         return doc;
     }
     async findByOportunidade(oportunidadeId) {
-        const doc = await this.model.findOne({ oportunidadeId })
+        const doc = await this.model
+            .findOne({ oportunidadeId })
             .populate('itens.precosFornecedores.fornecedorId')
             .populate('itens.produtoId')
             .exec();
@@ -111,10 +126,10 @@ let CotacaoService = class CotacaoService {
         const doc = await this.model.findById(cotacaoId).exec();
         if (!doc)
             throw new common_1.NotFoundException('Cotação não encontrada');
-        const item = doc.itens.find(i => i._id.toString() === itemId);
+        const item = doc.itens.find((i) => i._id.toString() === itemId);
         if (!item)
             throw new common_1.NotFoundException('Item não encontrado na cotação');
-        const fIdx = item.precosFornecedores.findIndex(p => p.fornecedorId.toString() === precoData.fornecedorId);
+        const fIdx = item.precosFornecedores.findIndex((p) => p.fornecedorId.toString() === precoData.fornecedorId);
         if (fIdx >= 0) {
             item.precosFornecedores[fIdx].precoUnitario = precoData.precoUnitario;
             item.precosFornecedores[fIdx].fatorEmbalagem = precoData.fatorEmbalagem;
@@ -122,8 +137,13 @@ let CotacaoService = class CotacaoService {
             item.precosFornecedores[fIdx].nomeEmbalagem = precoData.nomeEmbalagem;
             item.precosFornecedores[fIdx].freteIncluso = precoData.freteIncluso;
             item.precosFornecedores[fIdx].prazoPagamento = precoData.prazoPagamento;
-            item.precosFornecedores[fIdx].permiteParcelamento = precoData.permiteParcelamento;
+            item.precosFornecedores[fIdx].permiteParcelamento =
+                precoData.permiteParcelamento;
             item.precosFornecedores[fIdx].observacao = precoData.observacao;
+            item.precosFornecedores[fIdx].desclassificado =
+                precoData.desclassificado || false;
+            if (precoData.linkProduto)
+                item.precosFornecedores[fIdx].linkProduto = precoData.linkProduto;
         }
         else {
             item.precosFornecedores.push({
@@ -135,11 +155,15 @@ let CotacaoService = class CotacaoService {
                 freteIncluso: precoData.freteIncluso,
                 prazoPagamento: precoData.prazoPagamento,
                 permiteParcelamento: precoData.permiteParcelamento,
-                observacao: precoData.observacao
+                observacao: precoData.observacao,
+                desclassificado: precoData.desclassificado || false,
+                linkProduto: precoData.linkProduto,
             });
         }
         let melhor;
         for (const p of item.precosFornecedores) {
+            if (p.desclassificado || p.precoUnitario <= 0)
+                continue;
             if (!melhor) {
                 melhor = p;
                 continue;
@@ -165,33 +189,56 @@ let CotacaoService = class CotacaoService {
                 }
             }
         }
-        item.melhorPreco = melhor ? { fornecedorId: melhor.fornecedorId, precoUnitario: melhor.precoUnitario } : undefined;
-        doc.valorTotalMelhorCotacao = parseFloat(doc.itens.reduce((total, it) => {
+        item.melhorPreco = melhor
+            ? {
+                fornecedorId: melhor.fornecedorId,
+                precoUnitario: melhor.precoUnitario,
+            }
+            : undefined;
+        doc.valorTotalMelhorCotacao = parseFloat(doc.itens
+            .reduce((total, it) => {
             if (it.melhorPreco && !isNaN(it.melhorPreco.precoUnitario)) {
-                return total + (it.melhorPreco.precoUnitario * (it.quantidade || 1));
+                return total + it.melhorPreco.precoUnitario * (it.quantidade || 1);
             }
             return total;
-        }, 0).toFixed(2));
+        }, 0)
+            .toFixed(2));
         await doc.save();
         await this.fornecedorService.registrarHistoricoPreco(precoData.fornecedorId, {
             descricaoItem: item.descricaoItem,
             precoUnitario: precoData.precoUnitario,
             precoEmbalagem: precoData.precoEmbalagem,
             fatorEmbalagem: precoData.fatorEmbalagem,
-            oportunidadeId: doc.oportunidadeId.toString()
+            nomeEmbalagem: precoData.nomeEmbalagem,
+            observacao: precoData.observacao,
+            desclassificado: precoData.desclassificado,
+            oportunidadeId: doc.oportunidadeId.toString(),
         });
+        await this.checkAndMoveKanban(doc);
         return this.findOne(cotacaoId);
+    }
+    async checkAndMoveKanban(doc) {
+        const todosItensCotados = doc.itens.length > 0 && doc.itens.every((it) => it.melhorPreco && it.melhorPreco.precoUnitario > 0);
+        if (todosItensCotados) {
+            const op = await this.connection.collection('oportunidades').findOne({ _id: doc.oportunidadeId });
+            if (op && (op.kanbanStatus === 'FAZENDO' || op.kanbanStatus === 'A_FAZER')) {
+                await this.connection.collection('oportunidades').updateOne({ _id: doc.oportunidadeId }, { $set: { kanbanStatus: 'FEITO' } });
+            }
+        }
     }
     async removePreco(cotacaoId, itemId, fornecedorId) {
         const doc = await this.model.findById(cotacaoId).exec();
         if (!doc)
             throw new common_1.NotFoundException('Cotação não encontrada');
-        const item = doc.itens.find(i => i._id.toString() === itemId);
+        const item = doc.itens.find((i) => i._id.toString() === itemId);
         if (!item)
             throw new common_1.NotFoundException('Item não encontrado na cotação');
-        item.precosFornecedores = item.precosFornecedores.filter(p => p.fornecedorId.toString() !== fornecedorId);
+        item.precosFornecedores = item.precosFornecedores.filter((p) => p.fornecedorId.toString() !== fornecedorId);
+        await this.fornecedorService.removerHistoricoPreco(fornecedorId, item.descricaoItem, doc.oportunidadeId.toString());
         let melhor;
         for (const p of item.precosFornecedores) {
+            if (p.desclassificado || p.precoUnitario <= 0)
+                continue;
             if (!melhor) {
                 melhor = p;
                 continue;
@@ -217,22 +264,52 @@ let CotacaoService = class CotacaoService {
                 }
             }
         }
-        item.melhorPreco = melhor ? { fornecedorId: melhor.fornecedorId, precoUnitario: melhor.precoUnitario } : undefined;
+        item.melhorPreco = melhor
+            ? {
+                fornecedorId: melhor.fornecedorId,
+                precoUnitario: melhor.precoUnitario,
+            }
+            : undefined;
         doc.valorTotalMelhorCotacao = doc.itens.reduce((total, it) => {
             if (it.melhorPreco && !isNaN(it.melhorPreco.precoUnitario)) {
-                return total + (it.melhorPreco.precoUnitario * (it.quantidade || 1));
+                return total + it.melhorPreco.precoUnitario * (it.quantidade || 1);
             }
             return total;
         }, 0);
         await doc.save();
         return this.findOne(cotacaoId);
     }
+    async buscarPrecosWebAuto(cotacaoId, itemId, location) {
+        const doc = await this.model.findById(cotacaoId).exec();
+        if (!doc)
+            throw new common_1.NotFoundException('Cotação não encontrada');
+        const item = doc.itens.find((i) => i._id.toString() === itemId);
+        if (!item)
+            throw new common_1.NotFoundException('Item não encontrado na cotação');
+        const fornecedoresWeb = await this.supplierDiscoveryService.discoverSuppliersForProduct(item.descricaoItem, location);
+        for (const f of fornecedoresWeb) {
+            const precoExistente = item.precosFornecedores.find(p => p.fornecedorId.toString() === f.id);
+            if (precoExistente && precoExistente.precoUnitario > 0 && f.precoUnitario === 0) {
+                continue;
+            }
+            await this.updatePreco(cotacaoId, itemId, {
+                fornecedorId: f.id,
+                precoUnitario: f.precoUnitario,
+                observacao: precoExistente ? precoExistente.observacao : 'Preço prospectado automaticamente pelo Robô',
+                linkProduto: f.linkProduto,
+            });
+        }
+        return { message: 'Busca web finalizada', encontrados: fornecedoresWeb.length };
+    }
 };
 exports.CotacaoService = CotacaoService;
 exports.CotacaoService = CotacaoService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(cotacao_schema_1.Cotacao.name)),
+    __param(3, (0, mongoose_1.InjectConnection)()),
     __metadata("design:paramtypes", [mongoose_2.Model,
-        fornecedor_service_1.FornecedorService])
+        fornecedor_service_1.FornecedorService,
+        supplier_discovery_service_1.SupplierDiscoveryService,
+        mongoose_2.Connection])
 ], CotacaoService);
 //# sourceMappingURL=cotacao.service.js.map

@@ -19,7 +19,14 @@ const cotacao_service_1 = require("./cotacao.service");
 class UpdatePrecoDto {
     fornecedorId;
     precoUnitario;
+    fatorEmbalagem;
+    precoEmbalagem;
+    nomeEmbalagem;
+    freteIncluso;
+    prazoPagamento;
+    permiteParcelamento;
     observacao;
+    desclassificado;
 }
 exports.UpdatePrecoDto = UpdatePrecoDto;
 class CreateCotacaoDto {
@@ -34,8 +41,15 @@ let CotacaoController = class CotacaoController {
     createOrGet(oportunidadeId, data) {
         return this.cotacaoService.createOrGet(oportunidadeId, data.itens);
     }
-    findByOportunidade(oportunidadeId) {
-        return this.cotacaoService.findByOportunidade(oportunidadeId);
+    async findByOportunidade(oportunidadeId) {
+        try {
+            return await this.cotacaoService.findByOportunidade(oportunidadeId);
+        }
+        catch (e) {
+            if (e.status === 404)
+                return null;
+            throw e;
+        }
     }
     findOne(id) {
         return this.cotacaoService.findOne(id);
@@ -45,6 +59,9 @@ let CotacaoController = class CotacaoController {
     }
     removePreco(id, itemId, fornecedorId) {
         return this.cotacaoService.removePreco(id, itemId, fornecedorId);
+    }
+    buscarPrecosWeb(id, itemId, body) {
+        return this.cotacaoService.buscarPrecosWebAuto(id, itemId, body?.location);
     }
 };
 exports.CotacaoController = CotacaoController;
@@ -63,7 +80,7 @@ __decorate([
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], CotacaoController.prototype, "findByOportunidade", null);
 __decorate([
     (0, common_1.Get)('cotacoes/:id'),
@@ -75,7 +92,9 @@ __decorate([
 ], CotacaoController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Patch)('cotacoes/:id/itens/:itemId/preco'),
-    (0, swagger_1.ApiOperation)({ summary: 'Atualizar ou adicionar preço de fornecedor para um item' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Atualizar ou adicionar preço de fornecedor para um item',
+    }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Param)('itemId')),
     __param(2, (0, common_1.Body)()),
@@ -93,6 +112,16 @@ __decorate([
     __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", void 0)
 ], CotacaoController.prototype, "removePreco", null);
+__decorate([
+    (0, common_1.Post)('cotacoes/:id/itens/:itemId/buscar-web'),
+    (0, swagger_1.ApiOperation)({ summary: 'Buscar preços na web automaticamente para o item' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('itemId')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object]),
+    __metadata("design:returntype", void 0)
+], CotacaoController.prototype, "buscarPrecosWeb", null);
 exports.CotacaoController = CotacaoController = __decorate([
     (0, swagger_1.ApiTags)('Cotações'),
     (0, common_1.Controller)(),

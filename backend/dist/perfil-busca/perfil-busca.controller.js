@@ -25,6 +25,8 @@ class CreatePerfilDto {
     modalidades;
     palavrasChave;
     ativo;
+    estadosBuscaFornecedores;
+    municipiosBuscaFornecedores;
 }
 exports.CreatePerfilDto = CreatePerfilDto;
 __decorate([
@@ -59,6 +61,14 @@ __decorate([
     (0, swagger_1.ApiProperty)({ required: false, default: true }),
     __metadata("design:type", Boolean)
 ], CreatePerfilDto.prototype, "ativo", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false, type: [String] }),
+    __metadata("design:type", Array)
+], CreatePerfilDto.prototype, "estadosBuscaFornecedores", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false, type: [String] }),
+    __metadata("design:type", Array)
+], CreatePerfilDto.prototype, "municipiosBuscaFornecedores", void 0);
 let PerfilBuscaController = class PerfilBuscaController {
     service;
     constructor(service) {

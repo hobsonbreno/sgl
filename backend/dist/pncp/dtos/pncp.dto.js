@@ -29,6 +29,7 @@ class UnidadeOrgaoRawDto {
     ufSigla;
     municipioNome;
     codigoUnidade;
+    codigoIbge;
 }
 exports.UnidadeOrgaoRawDto = UnidadeOrgaoRawDto;
 __decorate([
@@ -43,6 +44,10 @@ __decorate([
     (0, swagger_1.ApiProperty)({ required: false }),
     __metadata("design:type", String)
 ], UnidadeOrgaoRawDto.prototype, "codigoUnidade", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false }),
+    __metadata("design:type", String)
+], UnidadeOrgaoRawDto.prototype, "codigoIbge", void 0);
 class PncpContratacaoRawDto {
     numeroControlePNCP;
     dataEncerramentoProposta;
@@ -57,6 +62,7 @@ class PncpContratacaoRawDto {
     situacaoCompraNome;
     objetoCompra;
     linkSistemaOrigem;
+    usuarioNome;
 }
 exports.PncpContratacaoRawDto = PncpContratacaoRawDto;
 __decorate([
@@ -111,6 +117,10 @@ __decorate([
     (0, swagger_1.ApiProperty)({ required: false }),
     __metadata("design:type", String)
 ], PncpContratacaoRawDto.prototype, "linkSistemaOrigem", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false }),
+    __metadata("design:type", String)
+], PncpContratacaoRawDto.prototype, "usuarioNome", void 0);
 class OportunidadeDto {
     numeroControlePNCP;
     tipo;
@@ -130,6 +140,7 @@ class OportunidadeDto {
     linkSistemaOrigem;
     situacaoCompraNome;
     kanbanStatus;
+    usuarioNome;
 }
 exports.OportunidadeDto = OportunidadeDto;
 __decorate([
@@ -204,6 +215,10 @@ __decorate([
     (0, swagger_1.ApiProperty)(),
     __metadata("design:type", String)
 ], OportunidadeDto.prototype, "kanbanStatus", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false }),
+    __metadata("design:type", String)
+], OportunidadeDto.prototype, "usuarioNome", void 0);
 function mapPncpParaOportunidade(raw) {
     const isDispensa = raw.modalidadeId === 8 || raw.modalidadeId === 9;
     return {
@@ -220,11 +235,16 @@ function mapPncpParaOportunidade(raw) {
         anoCompraOrigem: raw.anoCompra || 0,
         objetoCompra: raw.objetoCompra || '',
         valorTotalEstimado: raw.valorTotalEstimado || 0,
-        dataAberturaProposta: raw.dataAberturaProposta ? new Date(raw.dataAberturaProposta) : undefined,
-        dataEncerramentoProposta: raw.dataEncerramentoProposta ? new Date(raw.dataEncerramentoProposta) : undefined,
+        dataAberturaProposta: raw.dataAberturaProposta
+            ? new Date(raw.dataAberturaProposta)
+            : undefined,
+        dataEncerramentoProposta: raw.dataEncerramentoProposta
+            ? new Date(raw.dataEncerramentoProposta)
+            : undefined,
         linkSistemaOrigem: raw.linkSistemaOrigem || '',
         situacaoCompraNome: raw.situacaoCompraNome || '',
-        kanbanStatus: 'A_FAZER'
+        kanbanStatus: 'A_FAZER',
+        usuarioNome: raw.usuarioNome || '',
     };
 }
 //# sourceMappingURL=pncp.dto.js.map

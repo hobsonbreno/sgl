@@ -20,6 +20,7 @@ export declare class Oportunidade {
     situacaoCompraNome: string;
     kanbanStatus: string;
     dataMudancaStatus: Date;
+    usuarioNome: string;
     itens: any[];
 }
 export declare const OportunidadeSchema: import("mongoose").Schema<Oportunidade, import("mongoose").Model<Oportunidade, any, any, any, any, any, Oportunidade>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, Oportunidade, import("mongoose").Document<unknown, {}, Oportunidade, {
@@ -194,6 +195,15 @@ export declare const OportunidadeSchema: import("mongoose").Schema<Oportunidade,
         id: string;
     }>> | undefined;
     dataMudancaStatus?: import("mongoose").SchemaDefinitionProperty<Date, Oportunidade, import("mongoose").Document<unknown, {}, Oportunidade, {
+        id: string;
+    }, import("mongoose").DefaultSchemaOptions> & Omit<Oportunidade & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & import("mongoose").HydratedDocumentOverrides<{
+        id: string;
+    }>> | undefined;
+    usuarioNome?: import("mongoose").SchemaDefinitionProperty<string, Oportunidade, import("mongoose").Document<unknown, {}, Oportunidade, {
         id: string;
     }, import("mongoose").DefaultSchemaOptions> & Omit<Oportunidade & {
         _id: import("mongoose").Types.ObjectId;
