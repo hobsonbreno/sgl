@@ -25,6 +25,7 @@ const proposta_module_1 = require("./proposta/proposta.module");
 const configuracao_module_1 = require("./configuracao/configuracao.module");
 const events_module_1 = require("./events/events.module");
 const financeiro_module_1 = require("./financeiro/financeiro.module");
+const receita_federal_module_1 = require("./receita-federal/receita-federal.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -46,6 +47,7 @@ exports.AppModule = AppModule = __decorate([
             configuracao_module_1.ConfiguracaoModule,
             events_module_1.EventsModule,
             financeiro_module_1.FinanceiroModule,
+            receita_federal_module_1.ReceitaFederalModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

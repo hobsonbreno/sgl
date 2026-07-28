@@ -62,114 +62,151 @@ let SupplierDiscoveryService = SupplierDiscoveryService_1 = class SupplierDiscov
     }
     async discoverSuppliersForProduct(descricao, location) {
         const query = this.sanitizeQuery(descricao);
-        this.logger.log(`Iniciando Descoberta B2B Raiz (Google + BrasilAPI) para: ${query}`);
-        const keys = this.getSerpApiKeys();
-        if (keys.length === 0) {
-            this.logger.warn('Nenhuma chave da SerpApi configurada. O robô precisa dela para pesquisar no Google.');
-            return [];
-        }
-        const apiKey = keys[0];
+        this.logger.log(`Iniciando Descoberta B2B para: ${query} | Location: ${location}`);
         const ativo = await this.perfilBuscaModel.findOne({ ativo: true }).exec();
         const ufsPermitidas = ativo?.estadosBuscaFornecedores?.map(u => this.normalizeStr(u)) || [];
         const municipiosPermitidos = ativo?.municipiosBuscaFornecedores?.map(m => this.normalizeStr(m)) || [];
         const ufAlvo = ufsPermitidas.length > 0 ? ufsPermitidas[0] : 'CE';
-        const municipioAlvo = municipiosPermitidos.length > 0 ? municipiosPermitidos[0] : '';
-        const regiaoQuery = municipioAlvo ? `(${municipioAlvo} ${ufAlvo})` : `(${ufAlvo})`;
-        const localQuery = `site:cnpj.biz OR site:casadosdados.com.br (Atacadista OR Indústria OR Fábrica OR Distribuidora) (${query}) ${regiaoQuery}`;
-        let cnpjsEncontrados = new Set();
-        try {
-            this.logger.log(`Pesquisando no Google: ${localQuery}`);
-            const serpUrl = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(localQuery)}&api_key=${apiKey}&hl=pt&gl=br&num=20`;
-            const res = await fetch(serpUrl);
-            const data = await res.json();
-            if (data.error) {
-                this.logger.error(`Erro do SerpApi: ${data.error}`);
-                return [];
-            }
-            const results = data.organic_results || [];
-            for (const r of results) {
-                const textToSearch = (r.snippet || '') + ' ' + (r.title || '');
-                const cnpjMatch = textToSearch.match(/\d{2}\.\d{3}\.\d{3}\/\d{4}\-\d{2}|\d{14}/);
-                if (cnpjMatch) {
-                    let cleanCnpj = cnpjMatch[0].replace(/\D/g, '');
-                    if (cleanCnpj.length === 14) {
-                        cnpjsEncontrados.add(cleanCnpj);
-                    }
-                }
-            }
+        const minicipioAlvo = municipiosPermitidos.length > 0 && municipiosPermitidos[0] !== '' ? municipiosPermitidos[0] : '';
+        let isManualOverride = false;
+        let manualQuery = '';
+        if (location && location.toUpperCase().startsWith('BUSCAR:')) {
+            isManualOverride = true;
+            manualQuery = location.replace(/BUSCAR:/i, '').trim();
+            this.logger.log(`Modo Manual (Override) ativado. Buscando empresa: ${manualQuery}`);
         }
-        catch (e) {
-            this.logger.error(`Erro ao consultar Google (SerpApi): ${e.message}`);
-        }
-        if (cnpjsEncontrados.size === 0) {
-            this.logger.warn(`Nenhum CNPJ raiz encontrado na web para ${query} em ${regiaoQuery}.`);
-            return [];
-        }
-        this.logger.log(`Encontrados ${cnpjsEncontrados.size} CNPJs na Web. Limpando dados na Receita Federal (BrasilAPI)...`);
         const fornecedoresRelevantes = [];
-        const palavrasChaveNicho = ['ATACADISTA', 'DISTRIBUIDOR', 'DISTRIBUICAO', 'INDUSTRIA', 'FABRICA', 'MERCANTIL', 'ATACADO', 'COMERCIO'];
-        for (const cnpj of Array.from(cnpjsEncontrados)) {
-            try {
-                const resBrasilApi = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
-                if (!resBrasilApi.ok)
-                    continue;
-                const dadosCnpj = await resBrasilApi.json();
-                const municipioEmpresa = this.normalizeStr(dadosCnpj.municipio);
-                const ufEmpresa = this.normalizeStr(dadosCnpj.uf);
-                if (ufsPermitidas.length > 0 && !ufsPermitidas.includes(ufEmpresa))
-                    continue;
-                if (municipiosPermitidos.length > 0 && !municipiosPermitidos.includes(municipioEmpresa))
-                    continue;
-                let cnaes = [dadosCnpj.cnae_fiscal_descricao];
-                if (dadosCnpj.cnaes_secundarios) {
-                    cnaes = cnaes.concat(dadosCnpj.cnaes_secundarios.map((c) => c.descricao));
-                }
-                const textoCnaes = this.normalizeStr(cnaes.join(' '));
-                const nichoValido = palavrasChaveNicho.some(palavra => textoCnaes.includes(palavra));
-                if (!nichoValido) {
-                    continue;
-                }
-                let fornecedor = await this.fornecedorModel.findOne({ cnpj: cnpj }).exec();
-                const telefoneExtraido = dadosCnpj.ddd_telefone_1
-                    ? `(${dadosCnpj.ddd_telefone_1.substring(0, 2)}) ${dadosCnpj.ddd_telefone_1.substring(2, 7)}-${dadosCnpj.ddd_telefone_1.substring(7)}`
-                    : '(00) 00000-0000';
-                const emailExtraido = dadosCnpj.email || 'Nao informado';
-                if (!fornecedor) {
-                    fornecedor = await this.fornecedorModel.create({
-                        razaoSocial: dadosCnpj.razao_social,
-                        cnpj: cnpj,
-                        cep: dadosCnpj.cep,
-                        origem: 'bot',
-                        telefone: telefoneExtraido,
-                        email: emailExtraido,
-                        site: '',
-                        portifolio: '',
-                        endereco: dadosCnpj.logradouro + (dadosCnpj.numero ? `, ${dadosCnpj.numero}` : ''),
-                        bairro: dadosCnpj.bairro,
-                        cidade: dadosCnpj.municipio,
-                        uf: dadosCnpj.uf,
-                        categorias: [dadosCnpj.cnae_fiscal_descricao]
+        const regexNicho = /ATACADISTA|DISTRIBUIDORA|INDÚSTRIA|INDUSTRIA|FÁBRICA|FABRICA/i;
+        try {
+            this.logger.log(`Consultando Data Lake Local...`);
+            const empresaDataLakeModel = this.fornecedorModel.db.model('EmpresaDataLake');
+            const mongoQuery = { situacao_cadastral: '02', uf: ufAlvo };
+            if (isManualOverride) {
+                const regexManual = new RegExp(manualQuery, 'i');
+                mongoQuery.$or = [
+                    { razao_social: regexManual },
+                    { nome_fantasia: regexManual }
+                ];
+            }
+            else {
+                const regexQuery = new RegExp(query, 'i');
+                mongoQuery.$or = [
+                    { razao_social: regexQuery },
+                    { cnae_descricao: regexQuery }
+                ];
+            }
+            const empresasEncontradas = await empresaDataLakeModel.find(mongoQuery).limit(30).exec();
+            if (empresasEncontradas.length > 0) {
+                this.logger.log(`Encontradas ${empresasEncontradas.length} empresas no banco local! Processando...`);
+                for (const empresa of empresasEncontradas) {
+                    if (!isManualOverride && empresa.cnae_descricao && !regexNicho.test(empresa.cnae_descricao) && !regexNicho.test(empresa.razao_social || '')) {
+                        continue;
+                    }
+                    let fornecedor = await this.fornecedorModel.findOne({ cnpj: empresa.cnpj }).exec();
+                    const razaoOuFantasia = empresa.razao_social || `Empresa ${empresa.cnpj}`;
+                    const telefoneFmt = empresa.telefone ? `(${empresa.telefone.substring(0, 2)}) ${empresa.telefone.substring(2, 6)}-${empresa.telefone.substring(6)}` : '(00) 00000-0000';
+                    if (!fornecedor) {
+                        fornecedor = await this.fornecedorModel.create({
+                            razaoSocial: razaoOuFantasia,
+                            cnpj: empresa.cnpj,
+                            cep: empresa.cep || '',
+                            origem: 'bot',
+                            telefone: telefoneFmt,
+                            email: empresa.email || 'Nao informado',
+                            site: '',
+                            portifolio: '',
+                            endereco: `${empresa.logradouro || ''}, ${empresa.numero || ''}`,
+                            bairro: empresa.bairro || '',
+                            cidade: empresa.municipio || ufAlvo,
+                            uf: empresa.uf || ufAlvo,
+                            categorias: [empresa.cnae_descricao || empresa.cnae_principal]
+                        });
+                        this.logger.log(`✅ Novo Fornecedor (via Data Lake) cadastrado: ${fornecedor.razaoSocial}`);
+                    }
+                    const precoUnit = (query.length * 1.5) + (Math.random() * 5);
+                    fornecedoresRelevantes.push({
+                        razaoSocial: fornecedor.razaoSocial,
+                        id: fornecedor._id.toString(),
+                        precoUnitario: precoUnit,
+                        linkProduto: `https://cnpj.biz/${empresa.cnpj.replace(/\\D/g, '')}`
                     });
-                    this.logger.log(`✅ Novo Fornecedor Raiz cadastrado: ${fornecedor.razaoSocial}`);
+                }
+            }
+        }
+        catch (err) {
+            this.logger.warn(`Erro ao consultar Data Lake: ${err.message}`);
+        }
+        if (fornecedoresRelevantes.length === 0) {
+            this.logger.log(`Data Lake vazio ou sem matches. Recorrendo à SerpApi...`);
+            const keys = this.getSerpApiKeys();
+            if (keys.length > 0) {
+                const apiKey = keys[Math.floor(Math.random() * keys.length)];
+                let searchQuery = '';
+                if (isManualOverride) {
+                    searchQuery = `site:cnpj.biz OR site:casadosdados.com.br "${manualQuery}" ${ufAlvo} ${minicipioAlvo}`;
                 }
                 else {
-                    if (fornecedor.telefone === '(00) 00000-0000' && telefoneExtraido !== '(00) 00000-0000') {
-                        fornecedor.telefone = telefoneExtraido;
-                    }
-                    if (!fornecedor.email && emailExtraido !== 'Nao informado') {
-                        fornecedor.email = emailExtraido;
-                    }
-                    await fornecedor.save();
+                    searchQuery = `site:cnpj.biz OR site:casadosdados.com.br ("atacadista" OR "distribuidor" OR "industria") "${query}" ${ufAlvo} ${minicipioAlvo}`;
                 }
-                const precoUnit = (query.length * 1.5) + (Math.random() * 5);
-                fornecedoresRelevantes.push({
-                    razaoSocial: fornecedor.razaoSocial,
-                    id: fornecedor._id.toString(),
-                    precoUnitario: precoUnit,
-                    linkProduto: `https://cnpj.biz/${cnpj}`
-                });
+                try {
+                    const axios = require('axios');
+                    const response = await axios.get('https://serpapi.com/search', {
+                        params: {
+                            q: searchQuery,
+                            engine: 'google',
+                            api_key: apiKey,
+                            num: 10,
+                            hl: 'pt',
+                            gl: 'br'
+                        }
+                    });
+                    const results = response.data.organic_results || [];
+                    this.logger.log(`SerpApi encontrou ${results.length} resultados orgânicos.`);
+                    for (const res of results) {
+                        const snippet = (res.snippet || '') + ' ' + (res.title || '');
+                        const cnpjMatch = snippet.match(/\d{2}\.\d{3}\.\d{3}\/\d{4}\-\d{2}/);
+                        const telefoneMatch = snippet.match(/\(?\d{2}\)?\s?(?:9\d{4}|\d{4})\-\d{4}/);
+                        if (cnpjMatch) {
+                            const cnpjStr = cnpjMatch[0];
+                            const telefoneFmt = telefoneMatch ? telefoneMatch[0] : '(00) 00000-0000';
+                            let razaoOuFantasia = res.title.split('-')[0].replace(/CNPJ|Biz|Casa dos Dados/gi, '').trim();
+                            if (razaoOuFantasia.length < 3)
+                                razaoOuFantasia = `Empresa ${cnpjStr}`;
+                            let fornecedor = await this.fornecedorModel.findOne({ cnpj: cnpjStr }).exec();
+                            if (!fornecedor) {
+                                fornecedor = await this.fornecedorModel.create({
+                                    razaoSocial: razaoOuFantasia,
+                                    cnpj: cnpjStr,
+                                    cep: '',
+                                    origem: 'bot',
+                                    telefone: telefoneFmt,
+                                    email: 'Nao informado',
+                                    site: res.link || '',
+                                    portifolio: '',
+                                    endereco: '',
+                                    bairro: '',
+                                    cidade: minicipioAlvo || ufAlvo,
+                                    uf: ufAlvo,
+                                    categorias: [query]
+                                });
+                                this.logger.log(`✅ Novo Fornecedor (via SerpApi) cadastrado: ${fornecedor.razaoSocial}`);
+                            }
+                            const precoUnit = (query.length * 1.5) + (Math.random() * 5);
+                            fornecedoresRelevantes.push({
+                                razaoSocial: fornecedor.razaoSocial,
+                                id: fornecedor._id.toString(),
+                                precoUnitario: precoUnit,
+                                linkProduto: res.link
+                            });
+                        }
+                    }
+                }
+                catch (err) {
+                    this.logger.error(`Erro na requisição SerpApi: ${err.message}`);
+                }
             }
-            catch (err) {
+            else {
+                this.logger.warn('Nenhuma chave SerpApi configurada nas variáveis de ambiente.');
             }
         }
         return fornecedoresRelevantes;
