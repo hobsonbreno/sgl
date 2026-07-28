@@ -144,27 +144,35 @@ export class SupplierDiscoveryService {
       const keys = this.getSerpApiKeys();
       if (keys.length > 0) {
         const apiKey = keys[Math.floor(Math.random() * keys.length)];
-        let searchQuery = '';
+        let searchQueriesToTry = [];
         if (isManualOverride) {
-           searchQuery = `site:cnpj.biz OR site:casadosdados.com.br "${manualQuery}" ${ufAlvo} ${minicipioAlvo}`;
+           searchQueriesToTry.push(`site:cnpj.biz OR site:casadosdados.com.br "${manualQuery}" ${ufAlvo} ${minicipioAlvo}`.trim());
+           if (minicipioAlvo) searchQueriesToTry.push(`site:cnpj.biz OR site:casadosdados.com.br "${manualQuery}" ${ufAlvo}`.trim());
         } else {
-           searchQuery = `site:cnpj.biz OR site:casadosdados.com.br ("atacadista" OR "distribuidor" OR "industria") "${query}" ${ufAlvo} ${minicipioAlvo}`;
+           searchQueriesToTry.push(`site:cnpj.biz OR site:casadosdados.com.br ("atacadista" OR "distribuidor" OR "industria") "${query}" ${ufAlvo} ${minicipioAlvo}`.trim());
+           if (minicipioAlvo) searchQueriesToTry.push(`site:cnpj.biz OR site:casadosdados.com.br ("atacadista" OR "distribuidor" OR "industria") "${query}" ${ufAlvo}`.trim());
         }
         
         try {
           const axios = require('axios');
-          const response = await axios.get('https://serpapi.com/search', {
-            params: {
-              q: searchQuery,
-              engine: 'google',
-              api_key: apiKey,
-              num: 10,
-              hl: 'pt',
-              gl: 'br'
+          let results = [];
+          for (const searchQuery of searchQueriesToTry) {
+            this.logger.log(`SerpApi searchQuery: ${searchQuery}`);
+            const response = await axios.get('https://serpapi.com/search', {
+              params: {
+                q: searchQuery,
+                engine: 'google',
+                api_key: apiKey,
+                num: 10,
+                hl: 'pt',
+                gl: 'br'
+              }
+            });
+            results = response.data.organic_results || [];
+            if (results.length > 0) {
+              break; // Se encontrou, para de alargar a busca
             }
-          });
-
-          const results = response.data.organic_results || [];
+          }
           this.logger.log(`SerpApi encontrou ${results.length} resultados orgânicos.`);
 
           for (const res of results) {
