@@ -23,7 +23,8 @@ spec:
           value: "https://pncp.gov.br/api/consulta"
         - name: TZ
           value: "America/Sao_Paulo"
-        # Adicione outras variáveis do seu .env aqui (ou crie um ConfigMap depois)
+        - name: SERPAPI_KEYS
+          value: "8338d71376668694f8360ccb68aa678af450deaa344450f1cac387332f0f7a4a"
 ---
 apiVersion: v1
 kind: Service

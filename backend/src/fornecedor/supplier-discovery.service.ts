@@ -169,12 +169,20 @@ export class SupplierDiscoveryService {
 
           for (const res of results) {
             const snippet = (res.snippet || '') + ' ' + (res.title || '');
-            // Extrai CNPJ usando regex
+            // Extrai CNPJ formatado ou apenas digitos
             const cnpjMatch = snippet.match(/\d{2}\.\d{3}\.\d{3}\/\d{4}\-\d{2}/);
+            const linkCnpjMatch = res.link ? res.link.match(/\d{14}/) : null;
             const telefoneMatch = snippet.match(/\(?\d{2}\)?\s?(?:9\d{4}|\d{4})\-\d{4}/);
             
+            let cnpjStr = '';
             if (cnpjMatch) {
-              const cnpjStr = cnpjMatch[0];
+              cnpjStr = cnpjMatch[0];
+            } else if (linkCnpjMatch) {
+              const raw = linkCnpjMatch[0];
+              cnpjStr = `${raw.substring(0,2)}.${raw.substring(2,5)}.${raw.substring(5,8)}/${raw.substring(8,12)}-${raw.substring(12,14)}`;
+            }
+
+            if (cnpjStr) {
               const telefoneFmt = telefoneMatch ? telefoneMatch[0] : '(00) 00000-0000';
               // Tenta limpar o nome da empresa
               let razaoOuFantasia = res.title.split('-')[0].replace(/CNPJ|Biz|Casa dos Dados/gi, '').trim();
