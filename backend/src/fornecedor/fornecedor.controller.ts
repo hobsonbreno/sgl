@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Put, Param, Query, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Put,
+  Param,
+  Query,
+  Delete,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { FornecedorService } from './fornecedor.service';
 

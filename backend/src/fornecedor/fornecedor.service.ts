@@ -109,26 +109,29 @@ export class FornecedorService {
   async remove(id: string): Promise<void> {
     const doc = await this.model.findById(id).exec();
     if (!doc) throw new NotFoundException('Fornecedor não encontrado');
-    
+
     // Validate if the supplier is a "campeão" (winning) in any quotation
     const isCampea = await this.connection.collection('cotacaos').findOne({
-      "itens.melhorPreco.fornecedorId": new mongoose.Types.ObjectId(id)
+      'itens.melhorPreco.fornecedorId': new mongoose.Types.ObjectId(id),
     });
-    
+
     if (isCampea) {
       throw new BadRequestException(
-        'Não é possível excluir este fornecedor pois ele é o campeão de preço em uma ou mais cotações. Desclassifique-o ou remova seu lance nas cotações vinculadas antes de excluí-lo.'
+        'Não é possível excluir este fornecedor pois ele é o campeão de preço em uma ou mais cotações. Desclassifique-o ou remova seu lance nas cotações vinculadas antes de excluí-lo.',
       );
     }
-    
+
     // Delete the supplier
     await this.model.findByIdAndDelete(id).exec();
-    
+
     // Cascading delete: remove all price references of this supplier from all Cotacoes
-    await this.connection.collection('cotacaos').updateMany(
-      {},
-      { $pull: { 'itens.$[].precosFornecedores': { fornecedorId: new mongoose.Types.ObjectId(id) } } } as any
-    );
+    await this.connection.collection('cotacaos').updateMany({}, {
+      $pull: {
+        'itens.$[].precosFornecedores': {
+          fornecedorId: new mongoose.Types.ObjectId(id),
+        },
+      },
+    } as any);
   }
 
   async registrarHistoricoPreco(

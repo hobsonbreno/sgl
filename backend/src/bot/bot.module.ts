@@ -10,6 +10,7 @@ import { OportunidadeModule } from '../oportunidade/oportunidade.module';
 import { OrgaoModule } from '../orgao/orgao.module';
 import { ProdutoModule } from '../produto/produto.module';
 import { ConfiguracaoModule } from '../configuracao/configuracao.module';
+import { ObservabilityModule } from '../observability/observability.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { ConfiguracaoModule } from '../configuracao/configuracao.module';
     OrgaoModule,
     ProdutoModule,
     forwardRef(() => ConfiguracaoModule),
+    ObservabilityModule,
   ],
   providers: [BotService],
   controllers: [BotController],
