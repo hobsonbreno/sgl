@@ -412,16 +412,7 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                              const updatedRes = await fetch(`http://192.168.1.16:30000/cotacoes/${cotacaoId}`);
                              const updatedData = await updatedRes.json();
                              setCotacao(updatedData);
-                             // Reload suppliers so new ones appear in dropdown and cards
-                             const resForn = await fetch('http://192.168.1.16:30000/fornecedores');
-                             const dataForn = await resForn.json();
-                             if (dataForn.data) {
-                                // Assuming there's a setFornecedoresDisponiveis prop or we handle it if not.
-                                // Wait, OportunidadeDetalhe.tsx defines setFornecedoresDisponiveis but AccordionItem does not have it.
-                                // We can just call window.location.reload() for a quick fix or pass loadData to AccordionItem.
-                             }
                           }
-                          window.location.reload();
                        } else {
                           alert('Erro ao buscar fornecedores na web.');
                        }
