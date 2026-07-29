@@ -13,7 +13,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: hobson007breno/sgl-backend:1be0a8e4
+        image: hobson007breno/sgl-backend:deb3bf4f
         ports:
         - containerPort: 3000
         env:
