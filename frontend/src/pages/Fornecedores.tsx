@@ -61,17 +61,31 @@ export default function Fornecedores() {
     
     setLoading(true);
     try {
-      const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${apenasNumeros}`);
+      const res = await fetch(`http://192.168.1.16:30000/fornecedores/enriquecer-cnpj/${apenasNumeros}`);
       if (res.ok) {
         const data = await res.json();
-        const razao = data.razao_social || data.nome_fantasia || '';
-        const cats = data.cnae_fiscal_descricao || '';
-        if (isEdit) {
-          setEditRazaoSocial(razao);
-          if (cats && !editCategorias) setEditCategorias(cats);
-        } else {
-          setRazaoSocial(razao);
-          if (cats && !categorias) setCategorias(cats);
+        if (data.found) {
+          if (isEdit) {
+            setEditRazaoSocial(data.razaoSocial);
+            if (data.categorias && !editCategorias) setEditCategorias(data.categorias);
+            if (data.telefone && !editTelefone) setEditTelefone(data.telefone);
+            if (data.email && !editEmail) setEditEmail(data.email);
+            if (data.cep && !editCep) setEditCep(data.cep);
+            if (data.endereco && !editEndereco) setEditEndereco(data.endereco);
+            if (data.bairro && !editBairro) setEditBairro(data.bairro);
+            if (data.cidade && !editCidade) setEditCidade(data.cidade);
+            if (data.uf && !editUf) setEditUf(data.uf);
+          } else {
+            setRazaoSocial(data.razaoSocial);
+            if (data.categorias && !categorias) setCategorias(data.categorias);
+            if (data.telefone && !telefone) setTelefone(data.telefone);
+            if (data.email && !email) setEmail(data.email);
+            if (data.cep && !cep) setCep(data.cep);
+            if (data.endereco && !endereco) setEndereco(data.endereco);
+            if (data.bairro && !bairro) setBairro(data.bairro);
+            if (data.cidade && !cidade) setCidade(data.cidade);
+            if (data.uf && !uf) setUf(data.uf);
+          }
         }
       }
     } catch (e) {

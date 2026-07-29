@@ -11,18 +11,37 @@ import {
   ProdutoBase,
   ProdutoBaseSchema,
 } from './fornecedor.schema';
+import {
+  ProdutoCnaeMap,
+  ProdutoCnaeMapSchema,
+} from './produto-cnae-map.schema';
+import { ProductMatchingService } from './product-matching.service';
+import { CnpjEnrichmentService } from './cnpj-enrichment.service';
+import { CnpjEnrichmentController } from './cnpj-enrichment.controller';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: Fornecedor.name, schema: FornecedorSchema },
       { name: ProdutoBase.name, schema: ProdutoBaseSchema },
+      { name: ProdutoCnaeMap.name, schema: ProdutoCnaeMapSchema },
     ]),
     PerfilBuscaModule,
     ReceitaFederalModule,
   ],
-  controllers: [FornecedorController],
-  providers: [FornecedorService, SupplierDiscoveryService],
-  exports: [MongooseModule, FornecedorService, SupplierDiscoveryService],
+  controllers: [FornecedorController, CnpjEnrichmentController],
+  providers: [
+    FornecedorService,
+    SupplierDiscoveryService,
+    ProductMatchingService,
+    CnpjEnrichmentService,
+  ],
+  exports: [
+    MongooseModule,
+    FornecedorService,
+    SupplierDiscoveryService,
+    ProductMatchingService,
+    CnpjEnrichmentService,
+  ],
 })
 export class FornecedorModule {}

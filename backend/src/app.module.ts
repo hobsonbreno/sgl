@@ -17,6 +17,7 @@ import { ConfiguracaoModule } from './configuracao/configuracao.module';
 import { EventsModule } from './events/events.module';
 import { FinanceiroModule } from './financeiro/financeiro.module';
 import { ReceitaFederalModule } from './receita-federal/receita-federal.module';
+import { ObservabilityModule } from './observability/observability.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { ReceitaFederalModule } from './receita-federal/receita-federal.module';
     EventsModule,
     FinanceiroModule,
     ReceitaFederalModule,
+    ObservabilityModule,
   ],
   controllers: [AppController],
   providers: [AppService],
