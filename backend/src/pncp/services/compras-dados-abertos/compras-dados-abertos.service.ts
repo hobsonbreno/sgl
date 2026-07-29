@@ -50,13 +50,13 @@ export class ComprasDadosAbertosService {
         oppMap.set(op._id.toString(), op);
       }
 
-      let precoMinimo = 999999;
-      let precoMaximo = 0;
-      let somaPrecos = 0;
-      let countPrecos = 0;
+      let precosBrutos: number[] = [];
       const vencedores = new Map<string, number>();
 
       let processar = (filtroUF: string | null) => {
+        precosBrutos = [];
+        vencedores.clear();
+
         for (const prod of produtosAchados) {
           const op = oppMap.get(prod.oportunidadeId);
           if (!op) continue;
@@ -64,11 +64,7 @@ export class ComprasDadosAbertosService {
 
           const valor = prod.valorUnitarioEstimado || 0;
           if (valor > 0) {
-            if (valor < precoMinimo) precoMinimo = valor;
-            if (valor > precoMaximo) precoMaximo = valor;
-            somaPrecos += valor;
-            countPrecos++;
-
+            precosBrutos.push(valor);
             const fornecedor = op.orgaoNome || 'Órgão Licitante (Aberto)';
             vencedores.set(fornecedor, (vencedores.get(fornecedor) || 0) + 1);
           }
@@ -79,11 +75,11 @@ export class ComprasDadosAbertosService {
       processar(uf);
 
       // Fallback Nacional
-      if (countPrecos === 0) {
+      if (precosBrutos.length === 0) {
         this.logger.log(`Nenhum item com valor unitário encontrado para ${keyword} em ${uf}. Buscando média nacional como fallback...`);
         processar(null); // Passa null para UF, aceitando qualquer estado
 
-        if (countPrecos === 0) {
+        if (precosBrutos.length === 0) {
            return {
              sucesso: true,
              semDados: true,
@@ -95,7 +91,18 @@ export class ComprasDadosAbertosService {
         }
       }
 
-      const precoMedio = somaPrecos / countPrecos;
+      // 4. Remover Outliers usando a Mediana
+      precosBrutos.sort((a, b) => a - b);
+      const median = precosBrutos[Math.floor(precosBrutos.length / 2)];
+      
+      // Remove valores absurdamente altos (ex: compras por "Lote" de 5000 unidades) ou baixos
+      const precosFiltrados = precosBrutos.filter(p => p >= median * 0.2 && p <= median * 5);
+      const precosFinais = precosFiltrados.length > 0 ? precosFiltrados : precosBrutos;
+
+      const precoMinimo = Math.min(...precosFinais);
+      const precoMaximo = Math.max(...precosFinais);
+      const somaPrecos = precosFinais.reduce((a, b) => a + b, 0);
+      const precoMedio = somaPrecos / precosFinais.length;
 
       // Ordenar os maiores "vencedores" (ou órgãos que mais compram isso)
       const topVencedores = Array.from(vencedores.entries())
