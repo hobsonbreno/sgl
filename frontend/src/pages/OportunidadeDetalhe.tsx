@@ -354,13 +354,16 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                      setIsIntelligenceLoading(true);
                      try {
                        let keyword = 'Produto';
-                       const desc: string = item.descricao || '';
+                       const desc: string = item.descricaoItem || item.descricao || item.descricaoCurta || '';
                        const words: string[] = desc.split(/[ -]+/); // divide por espaço ou hífen
                        const validWord = words.find((w: string) => /^[a-zA-ZÀ-ÿ]{3,}$/.test(w));
                        if (validWord) {
                          keyword = validWord;
                        } else {
                          keyword = words[0] || 'Produto';
+                       }
+                       if (!keyword || keyword.trim() === '') {
+                          keyword = 'Produto';
                        }
                        
                        // Busca a UF real configurada no Robô

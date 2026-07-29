@@ -21,6 +21,10 @@ export class ComprasDadosAbertosService {
     );
 
     try {
+      if (!keyword || keyword.trim() === '' || keyword.toLowerCase() === 'produto') {
+         return { sucesso: true, semDados: true, precoMinimo: null, precoMaximo: null, precoMedio: null, topVencedores: [] };
+      }
+
       const regex = new RegExp(keyword, 'i');
       
       // 1. Encontra todos os PRODUTOS que batem com a keyword no Data Lake
