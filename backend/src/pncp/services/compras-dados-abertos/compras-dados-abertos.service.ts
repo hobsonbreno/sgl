@@ -1,6 +1,7 @@
 import { Injectable, Logger, HttpException } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
+import { retryWithBackoff } from '../../../receita-federal/utils/retry-with-backoff';
 
 @Injectable()
 export class ComprasDadosAbertosService {
@@ -31,8 +32,14 @@ export class ComprasDadosAbertosService {
         this.logger.log(`Consultando histórico na UF ${uf} (Modalidade ${modalidade}) via PNCP...`);
 
         try {
-          const response = await firstValueFrom(
-            this.httpService.get(url, { timeout: 10000 }),
+          const response = await retryWithBackoff(
+            () => this.httpService.axiosRef.get(url, { timeout: 15000 }),
+            {
+              maxRetries: 3,
+              baseDelayMs: 2000,
+              onRetry: (attempt, err) =>
+                this.logger.warn(`Modalidade ${modalidade}: tentativa ${attempt} falhou (${err.message}), retentando...`),
+            },
           );
           if (response.data?.data) {
             contratacoes = contratacoes.concat(response.data.data);
