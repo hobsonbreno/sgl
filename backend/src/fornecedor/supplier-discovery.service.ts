@@ -114,6 +114,10 @@ export class SupplierDiscoveryService {
     const municipiosPermitidos =
       ativo?.municipiosBuscaFornecedores?.map((m) => this.normalizeStr(m)) ||
       [];
+    const nichosStr = 
+      ativo?.nichosFornecedores && ativo.nichosFornecedores.length > 0
+        ? `(${ativo.nichosFornecedores.map(n => `"${n.trim()}"`).join(' OR ')})`
+        : '("atacadista" OR "distribuidor" OR "industria" OR "produtor" OR "fabrica")';
 
     const ufAlvo = ufsPermitidas.length > 0 ? ufsPermitidas[0] : 'CE';
     const minicipioAlvo =
@@ -270,11 +274,11 @@ export class SupplierDiscoveryService {
             );
         } else {
           searchQueriesToTry.push(
-            `site:cnpj.biz OR site:casadosdados.com.br ("atacadista" OR "distribuidor" OR "industria" OR "produtor" OR "fabrica") "${query}" ${ufAlvo} ${minicipioAlvo}`.trim(),
+            `site:cnpj.biz OR site:casadosdados.com.br ${nichosStr} "${query}" ${ufAlvo} ${minicipioAlvo}`.trim(),
           );
           if (minicipioAlvo)
             searchQueriesToTry.push(
-              `site:cnpj.biz OR site:casadosdados.com.br ("atacadista" OR "distribuidor" OR "industria" OR "produtor" OR "fabrica") "${query}" ${ufAlvo}`.trim(),
+              `site:cnpj.biz OR site:casadosdados.com.br ${nichosStr} "${query}" ${ufAlvo}`.trim(),
             );
         }
 

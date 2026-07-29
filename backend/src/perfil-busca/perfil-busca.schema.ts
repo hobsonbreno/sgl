@@ -32,6 +32,9 @@ export class PerfilBusca {
   @Prop([String])
   municipiosBuscaFornecedores: string[];
 
+  @Prop([String])
+  nichosFornecedores: string[];
+
   @Prop({ default: true })
   ativo: boolean;
 }
