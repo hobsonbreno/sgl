@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - fix/supplier-discovery-override
       - feature/inteligencia-mercado-fornecedores
     paths:
       - 'backend/**'
@@ -14,10 +15,14 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -31,13 +36,17 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Calculate short SHA
+        id: vars
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
       - name: Build and Push Backend
         uses: docker/build-push-action@v5
         with:
           context: ./backend
           file: ./backend/Dockerfile
           push: true
-          tags: hobson007breno/sgl-backend:latest
+          tags: hobson007breno/sgl-backend:${{ env.sha_short }},hobson007breno/sgl-backend:latest
 
       - name: Build and Push Frontend
         uses: docker/build-push-action@v5
@@ -45,7 +54,7 @@ jobs:
           context: ./frontend
           file: ./frontend/Dockerfile
           push: true
-          tags: hobson007breno/sgl-frontend:latest
+          tags: hobson007breno/sgl-frontend:${{ env.sha_short }},hobson007breno/sgl-frontend:latest
 
       - name: Build and Push Market Intelligence
         uses: docker/build-push-action@v5
@@ -53,4 +62,18 @@ jobs:
           context: ./market-intelligence
           file: ./market-intelligence/Dockerfile
           push: true
-          tags: hobson007breno/sgl-market-intelligence:latest
+          tags: hobson007breno/sgl-market-intelligence:${{ env.sha_short }},hobson007breno/sgl-market-intelligence:latest
+
+      - name: Update Kubernetes manifests
+        run: |
+          sed -i "s|image: hobson007breno/sgl-backend:.*|image: hobson007breno/sgl-backend:${{ env.sha_short }}|g" k8s/backend.yaml
+          sed -i "s|image: hobson007breno/sgl-frontend:.*|image: hobson007breno/sgl-frontend:${{ env.sha_short }}|g" k8s/frontend.yaml
+          sed -i "s|image: hobson007breno/sgl-market-intelligence:.*|image: hobson007breno/sgl-market-intelligence:${{ env.sha_short }}|g" k8s/market-intelligence.yaml
+
+      - name: Commit and push manifest updates
+        run: |
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'actions@github.com'
+          git add k8s/*.yaml
+          git commit -m "chore(gitops): update image tags to ${{ env.sha_short }} [skip ci]" || echo "No changes to commit"
+          git push

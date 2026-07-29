@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, HttpException } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 
@@ -10,8 +10,10 @@ export class ComprasDadosAbertosService {
   constructor(private readonly httpService: HttpService) {}
 
   async pesquisarHistoricoPrecos(keyword: string, uf: string): Promise<any> {
-    this.logger.log(`Iniciando pesquisa de inteligência competitiva para: ${keyword} em ${uf}`);
-    
+    this.logger.log(
+      `Iniciando pesquisa de inteligência competitiva para: ${keyword} em ${uf}`,
+    );
+
     try {
       const dataFinal = new Date();
       const dataInicial = new Date();
@@ -22,16 +24,22 @@ export class ComprasDadosAbertosService {
       };
 
       const url = `https://pncp.gov.br/api/consulta/v1/contratacoes?dataInicial=${formataData(dataInicial)}&dataFinal=${formataData(dataFinal)}&uf=${uf}&pagina=1`;
-      
-      this.logger.log(`Consultando contratos recentes na UF ${uf} via PNCP: ${url}`);
-      
-      const response = await firstValueFrom(this.httpService.get(url, { timeout: 10000 }));
-      
+
+      this.logger.log(
+        `Consultando contratos recentes na UF ${uf} via PNCP: ${url}`,
+      );
+
+      const response = await firstValueFrom(
+        this.httpService.get(url, { timeout: 10000 }),
+      );
+
       const contratacoes = response.data?.data || [];
-      
+
       // Filtrar contratos que contêm a palavra chave no objeto
-      const contratosValidos = contratacoes.filter((c: any) => 
-         c.objetoCompra && c.objetoCompra.toLowerCase().includes(keyword.toLowerCase())
+      const contratosValidos = contratacoes.filter(
+        (c: any) =>
+          c.objetoCompra &&
+          c.objetoCompra.toLowerCase().includes(keyword.toLowerCase()),
       );
 
       let precoMinimo = 999999;
@@ -41,62 +49,62 @@ export class ComprasDadosAbertosService {
       const vencedores = new Map<string, number>(); // Nome -> Quantidade de vitórias
 
       for (const contrato of contratosValidos) {
-          const valor = contrato.valorTotalEstimado || 0;
-          if (valor > 0) {
-              if (valor < precoMinimo) precoMinimo = valor;
-              if (valor > precoMaximo) precoMaximo = valor;
-              somaPrecos += valor;
-              countPrecos++;
-          }
-          const fornecedor = contrato.nomeFornecedor || contrato.orgaoEntidade?.razaoSocial || 'Fornecedor Sigiloso';
-          vencedores.set(fornecedor, (vencedores.get(fornecedor) || 0) + 1);
+        const valor = contrato.valorTotalEstimado || 0;
+        if (valor > 0) {
+          if (valor < precoMinimo) precoMinimo = valor;
+          if (valor > precoMaximo) precoMaximo = valor;
+          somaPrecos += valor;
+          countPrecos++;
+        }
+        const fornecedor =
+          contrato.nomeFornecedor ||
+          contrato.orgaoEntidade?.razaoSocial ||
+          'Fornecedor Sigiloso';
+        vencedores.set(fornecedor, (vencedores.get(fornecedor) || 0) + 1);
       }
 
       if (countPrecos === 0) {
-          // Gerar um baseline realista baseado na inteligência de mercado
-          this.logger.log(`Nenhum contrato exato na Pág 1 para ${keyword} em ${uf}. Usando baseline regional de mercado.`);
-          
-          // Gerador determinístico de preço baseado no tamanho da string para dar um valor realista
-          const baseHash = keyword.length * 2.3 + 10; 
-          const precoMedioMock = baseHash;
-          const precoMinimoMock = baseHash * 0.85;
-          const precoMaximoMock = baseHash * 1.25;
+        this.logger.log(
+          `Nenhum contrato exato encontrado para ${keyword} em ${uf}.`,
+        );
 
-          return {
-             sucesso: true,
-             precoMinimo: precoMinimoMock,
-             precoMaximo: precoMaximoMock,
-             precoMedio: precoMedioMock,
-             topVencedores: [
-                { nome: "Granja Regina (Vencedor Frequente)", vitorias: 5 },
-                { nome: "JBS Aves Ltda.", vitorias: 4 },
-                { nome: "Distribuidora Alvorada", vitorias: 3 },
-                { nome: "Comércio Alimentos Silva", vitorias: 2 }
-             ]
-          };
+        return {
+          sucesso: true,
+          semDados: true,
+          precoMinimo: null,
+          precoMaximo: null,
+          precoMedio: null,
+          topVencedores: [],
+        };
       }
 
       const precoMedio = somaPrecos / countPrecos;
-      
+
       // Ordenar os maiores vencedores
       const topVencedores = Array.from(vencedores.entries())
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 5)
-          .map(entry => ({ nome: entry[0], vitorias: entry[1] }));
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map((entry) => ({ nome: entry[0], vitorias: entry[1] }));
 
-      this.logger.log(`Inteligência gerada para ${keyword}: Média R$ ${precoMedio.toFixed(2)}`);
+      this.logger.log(
+        `Inteligência gerada para ${keyword}: Média R$ ${precoMedio.toFixed(2)}`,
+      );
 
       return {
-          sucesso: true,
-          precoMinimo,
-          precoMaximo,
-          precoMedio,
-          topVencedores
+        sucesso: true,
+        precoMinimo,
+        precoMaximo,
+        precoMedio,
+        topVencedores,
       };
-
     } catch (error) {
-      this.logger.error(`Erro ao consultar API do PNCP para Inteligência: ${error.message}`);
-      return { sucesso: false, erro: error.message };
+      this.logger.error(
+        `Erro ao consultar API do PNCP para Inteligência: ${error.message}`,
+      );
+      throw new HttpException(
+        `Erro de comunicação com a API do PNCP: ${error.message}`,
+        502,
+      );
     }
   }
 }
