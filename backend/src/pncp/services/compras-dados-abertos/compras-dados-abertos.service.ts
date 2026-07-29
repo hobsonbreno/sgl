@@ -1,6 +1,7 @@
 import { Injectable, Logger, HttpException } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
+import { retryWithBackoff } from '../../../receita-federal/utils/retry-with-backoff';
 
 @Injectable()
 export class ComprasDadosAbertosService {
@@ -23,17 +24,36 @@ export class ComprasDadosAbertosService {
         return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
       };
 
-      const url = `https://pncp.gov.br/api/consulta/v1/contratacoes?dataInicial=${formataData(dataInicial)}&dataFinal=${formataData(dataFinal)}&uf=${uf}&pagina=1`;
+      let contratacoes: any[] = [];
+      const modalidades = [6, 8]; // 6: Pregão Eletrônico, 8: Dispensa de Licitação
 
-      this.logger.log(
-        `Consultando contratos recentes na UF ${uf} via PNCP: ${url}`,
-      );
+      for (const modalidade of modalidades) {
+        // Busca as últimas 4 páginas (200 contratações recentes) por modalidade
+        for (let pagina = 1; pagina <= 4; pagina++) {
+          const url = `https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao?dataInicial=${formataData(dataInicial)}&dataFinal=${formataData(dataFinal)}&uf=${uf}&codigoModalidadeContratacao=${modalidade}&pagina=${pagina}`;
+          this.logger.log(`Consultando histórico na UF ${uf} (Modalidade ${modalidade}, pág ${pagina}) via PNCP...`);
 
-      const response = await firstValueFrom(
-        this.httpService.get(url, { timeout: 10000 }),
-      );
-
-      const contratacoes = response.data?.data || [];
+          try {
+            const response = await retryWithBackoff(
+              () => this.httpService.axiosRef.get(url, { timeout: 15000 }),
+              {
+                maxRetries: 3,
+                baseDelayMs: 2000,
+                onRetry: (attempt, err) =>
+                  this.logger.warn(`Modalidade ${modalidade} Pág ${pagina}: tentativa ${attempt} falhou (${err.message}), retentando...`),
+              },
+            );
+            if (response.data?.data) {
+              contratacoes = contratacoes.concat(response.data.data);
+            }
+          } catch (err: any) {
+            if (err.response?.status === 404 || err.response?.status === 422) {
+              break; // Se deu 404 na pagina, não tem mais páginas
+            }
+            this.logger.warn(`Erro na modalidade ${modalidade}, Pág ${pagina}: ${err.message}`);
+          }
+        }
+      }
 
       // Filtrar contratos que contêm a palavra chave no objeto
       const contratosValidos = contratacoes.filter(

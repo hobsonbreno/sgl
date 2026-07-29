@@ -29,6 +29,13 @@ export class SupplierDiscoveryService {
     private cnpjEnrichmentService: CnpjEnrichmentService,
   ) {}
 
+  private isBlacklisted(nome: string): boolean {
+    if (!nome) return false;
+    const blacklist = ['CORREIOS', 'CAIXA ECONOMICA', 'BANCO DO BRASIL', 'MERCADO LIVRE', 'AMAZON', 'SHOPEE', 'MAGAZINE LUIZA', 'AMERICANAS', 'BNDES', 'RECEITA FEDERAL', 'GOVERNO'];
+    const upper = nome.toUpperCase();
+    return blacklist.some(b => upper.includes(b));
+  }
+
   private normalizeStr(str: string): string {
     if (!str) return '';
     return str
@@ -114,6 +121,10 @@ export class SupplierDiscoveryService {
     const municipiosPermitidos =
       ativo?.municipiosBuscaFornecedores?.map((m) => this.normalizeStr(m)) ||
       [];
+    const nichosStr = 
+      ativo?.nichosFornecedores && ativo.nichosFornecedores.length > 0
+        ? `(${ativo.nichosFornecedores.map(n => `"${n.trim()}"`).join(' OR ')})`
+        : '("atacadista" OR "distribuidor" OR "industria" OR "produtor" OR "fabrica")';
 
     const ufAlvo = ufsPermitidas.length > 0 ? ufsPermitidas[0] : 'CE';
     const minicipioAlvo =
@@ -270,11 +281,11 @@ export class SupplierDiscoveryService {
             );
         } else {
           searchQueriesToTry.push(
-            `site:cnpj.biz OR site:casadosdados.com.br ("atacadista" OR "distribuidor" OR "industria" OR "produtor" OR "fabrica") "${query}" ${ufAlvo} ${minicipioAlvo}`.trim(),
+            `site:cnpj.biz OR site:casadosdados.com.br ${nichosStr} "${query}" ${ufAlvo} ${minicipioAlvo}`.trim(),
           );
           if (minicipioAlvo)
             searchQueriesToTry.push(
-              `site:cnpj.biz OR site:casadosdados.com.br ("atacadista" OR "distribuidor" OR "industria" OR "produtor" OR "fabrica") "${query}" ${ufAlvo}`.trim(),
+              `site:cnpj.biz OR site:casadosdados.com.br ${nichosStr} "${query}" ${ufAlvo}`.trim(),
             );
         }
 
@@ -344,6 +355,12 @@ export class SupplierDiscoveryService {
                 if (!telefoneFmt && telefoneMatch)
                   telefoneFmt = telefoneMatch[0];
                 if (!telefoneFmt) telefoneFmt = '(00) 00000-0000';
+
+                // VALIDAÇÃO DA BLACKLIST
+                if (this.isBlacklisted(razaoOuFantasia)) {
+                  this.logger.log(`SerpApi: Fornecedor ignorado por Blacklist Institucional: ${razaoOuFantasia}`);
+                  continue;
+                }
 
                 fornecedor = await this.fornecedorModel.create({
                   razaoSocial: razaoOuFantasia,

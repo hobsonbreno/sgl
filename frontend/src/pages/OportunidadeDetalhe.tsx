@@ -353,7 +353,15 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                   onClick={async () => {
                      setIsIntelligenceLoading(true);
                      try {
-                       const keyword = (item.descricao || '').split(' ')[0] || 'Produto';
+                       let keyword = 'Produto';
+                       const desc: string = item.descricao || '';
+                       const words: string[] = desc.split(/[ -]+/); // divide por espaço ou hífen
+                       const validWord = words.find((w: string) => /^[a-zA-ZÀ-ÿ]{3,}$/.test(w));
+                       if (validWord) {
+                         keyword = validWord;
+                       } else {
+                         keyword = words[0] || 'Produto';
+                       }
                        
                        // Busca a UF real configurada no Robô
                        let uf = 'CE'; // fallback
@@ -375,11 +383,11 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                           const data = await res.json();
                           setIntelligenceData(data);
                        } else {
-                          alert('Erro ao consultar a API de Dados Abertos.');
+                          setIntelligenceData({ error: "Nenhum histórico de preço encontrado." });
                        }
                      } catch(e) {
                         console.error(e);
-                        alert('Erro na requisição ao Compras.gov.');
+                        setIntelligenceData({ error: "Nenhum histórico de preço encontrado." });
                      } finally {
                         setIsIntelligenceLoading(false);
                      }
@@ -412,16 +420,7 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                              const updatedRes = await fetch(`http://192.168.1.16:30000/cotacoes/${cotacaoId}`);
                              const updatedData = await updatedRes.json();
                              setCotacao(updatedData);
-                             // Reload suppliers so new ones appear in dropdown and cards
-                             const resForn = await fetch('http://192.168.1.16:30000/fornecedores');
-                             const dataForn = await resForn.json();
-                             if (dataForn.data) {
-                                // Assuming there's a setFornecedoresDisponiveis prop or we handle it if not.
-                                // Wait, OportunidadeDetalhe.tsx defines setFornecedoresDisponiveis but AccordionItem does not have it.
-                                // We can just call window.location.reload() for a quick fix or pass loadData to AccordionItem.
-                             }
                           }
-                          window.location.reload();
                        } else {
                           alert('Erro ao buscar fornecedores na web.');
                        }
@@ -490,7 +489,13 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
               </div>
             </div>
 
-            {intelligenceData && (
+            {intelligenceData && intelligenceData.error ? (
+              <div style={{ marginBottom: '1.5rem', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '1rem' }}>
+                <h5 style={{ margin: '0', color: '#b91c1c', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <AlertCircle size={16} /> {intelligenceData.error}
+                </h5>
+              </div>
+            ) : intelligenceData && (
               <div style={{ marginBottom: '1.5rem', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '1rem' }}>
                 <h5 style={{ margin: '0 0 0.5rem 0', color: '#b45309', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <AlertCircle size={16} /> Relatório de Inteligência PNCP (Últimos 6 Meses - UF: CE)

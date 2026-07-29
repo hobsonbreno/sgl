@@ -17,6 +17,7 @@ export default function PerfisBusca() {
   
   const [estadosBuscaFornecedores, setEstadosBuscaFornecedores] = useState('');
   const [municipiosBuscaFornecedores, setMunicipiosBuscaFornecedores] = useState('');
+  const [nichosFornecedores, setNichosFornecedores] = useState('');
   const [municipiosFornecedoresList, setMunicipiosFornecedoresList] = useState<{ id: string; nome: string; uf: string }[]>([]);
 
   useEffect(() => {
@@ -102,6 +103,7 @@ export default function PerfisBusca() {
       
       const ufFornecedores = estadosBuscaFornecedores.split(',').map(v => v.trim().toUpperCase()).filter(v => v !== '');
       const munFornecedores = municipiosBuscaFornecedores.split(',').map(v => v.trim()).filter(v => v !== '');
+      const nichosFornecedoresArr = nichosFornecedores.split(',').map(v => v.trim()).filter(v => v !== '');
       
       const payload = {
         nome,
@@ -112,7 +114,8 @@ export default function PerfisBusca() {
         orgaosCnpj: org,
         unidadesUasg: uasg,
         estadosBuscaFornecedores: ufFornecedores,
-        municipiosBuscaFornecedores: munFornecedores
+        municipiosBuscaFornecedores: munFornecedores,
+        nichosFornecedores: nichosFornecedoresArr
       };
       
       const url = editingId ? `http://192.168.1.16:30000/perfis-busca/${editingId}` : 'http://192.168.1.16:30000/perfis-busca';
@@ -144,6 +147,7 @@ export default function PerfisBusca() {
     setUnidadesUasg(p.unidadesUasg ? p.unidadesUasg.join(', ') : '');
     setEstadosBuscaFornecedores(p.estadosBuscaFornecedores ? p.estadosBuscaFornecedores.join(', ') : '');
     setMunicipiosBuscaFornecedores(p.municipiosBuscaFornecedores ? p.municipiosBuscaFornecedores.join(', ') : '');
+    setNichosFornecedores(p.nichosFornecedores ? p.nichosFornecedores.join(', ') : '');
   };
 
   const cancelEdit = () => {
@@ -157,6 +161,7 @@ export default function PerfisBusca() {
     setUnidadesUasg('');
     setEstadosBuscaFornecedores('');
     setMunicipiosBuscaFornecedores('');
+    setNichosFornecedores('');
   };
 
   const duplicateProfile = (p: any) => {
@@ -291,6 +296,11 @@ export default function PerfisBusca() {
                   <input type="text" className="form-control" value={estadosBuscaFornecedores} onChange={e => setEstadosBuscaFornecedores(e.target.value)} />
                 </div>
                 <div className="form-group">
+                  <label>Tipos de Fornecedor (Nichos / Palavras-chave do Robô)</label>
+                  <input type="text" className="form-control" value={nichosFornecedores} onChange={e => setNichosFornecedores(e.target.value)} placeholder="atacadista, distribuidor, industria, fabrica" />
+                  <small style={{ color: '#b45309' }}>Se deixar em branco, o robô usará os termos padrão de fábrica/atacado.</small>
+                </div>
+                <div className="form-group">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                     <label style={{ margin: 0 }}>Municípios Foco (Clique para selecionar)</label>
                     {municipiosFornecedoresList.length > 0 && (
@@ -387,6 +397,7 @@ export default function PerfisBusca() {
                             <strong style={{ fontSize: '0.75rem', color: '#b45309' }}>🤖 Bot Web:</strong>
                             {p.estadosBuscaFornecedores?.length > 0 && <div><small style={{ color: '#d97706' }}>UF: </small><span style={{color: '#92400e', fontSize: '0.8rem'}}>{p.estadosBuscaFornecedores.join(', ')}</span></div>}
                             {p.municipiosBuscaFornecedores?.length > 0 && <div><small style={{ color: '#d97706' }}>Cidades: </small><span style={{color: '#92400e', fontSize: '0.8rem'}}>{p.municipiosBuscaFornecedores.join(', ')}</span></div>}
+                            {p.nichosFornecedores?.length > 0 && <div><small style={{ color: '#d97706' }}>Nichos: </small><span style={{color: '#92400e', fontSize: '0.8rem'}}>{p.nichosFornecedores.join(', ')}</span></div>}
                         </div>
                     )}
 
