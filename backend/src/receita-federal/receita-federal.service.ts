@@ -9,6 +9,7 @@ import * as https from 'https';
 import * as unzipper from 'unzipper';
 import { parse } from 'csv-parse';
 import * as iconv from 'iconv-lite';
+import { retryWithBackoff } from './utils/retry-with-backoff';
 
 @Injectable()
 export class ReceitaFederalService {
@@ -78,28 +79,39 @@ export class ReceitaFederalService {
   ): Promise<Map<string, string>> {
     this.logger.log(`Carregando dicionário na memória: ${nome}...`);
     const map = new Map<string, string>();
-    return new Promise((resolve, reject) => {
-      https.get(url, (res) => {
-        if (res.statusCode !== 200)
-          return reject(`Falha no download de ${nome}`);
-        const unzip = res.pipe(unzipper.Parse());
-        unzip.on('entry', async (entry) => {
-          const csvParser = entry
-            .pipe(iconv.decodeStream('win1252'))
-            .pipe(parse({ delimiter: ';', relax_quotes: true, quote: '"' }));
-          for await (const row of csvParser) {
-            map.set(String(row[0]).trim(), String(row[1]).trim());
-          }
-          entry.autodrain();
-        });
-        unzip.on('close', () => {
-          this.logger.log(
-            `Dicionário ${nome} carregado: ${map.size} registros.`,
-          );
-          resolve(map);
-        });
-      });
-    });
+    return retryWithBackoff(
+      () =>
+        new Promise((resolve, reject) => {
+          const req = https.get(url, (res) => {
+            if (res.statusCode !== 200)
+              return reject(new Error(`Falha no download de ${nome} (Status ${res.statusCode})`));
+            const unzip = res.pipe(unzipper.Parse());
+            unzip.on('entry', async (entry) => {
+              const csvParser = entry
+                .pipe(iconv.decodeStream('win1252'))
+                .pipe(parse({ delimiter: ';', relax_quotes: true, quote: '"' }));
+              for await (const row of csvParser) {
+                map.set(String(row[0]).trim(), String(row[1]).trim());
+              }
+              entry.autodrain();
+            });
+            unzip.on('close', () => {
+              this.logger.log(
+                `Dicionário ${nome} carregado: ${map.size} registros.`,
+              );
+              resolve(map);
+            });
+            unzip.on('error', (err) => reject(err));
+          });
+          req.on('error', (err) => reject(err));
+        }),
+      {
+        maxRetries: 5,
+        baseDelayMs: 3000,
+        onRetry: (attempt, err) =>
+          this.logger.warn(`Tentativa ${attempt} falhou para ${nome} (${err.message}), tentando de novo...`),
+      },
+    );
   }
 
   private async processEstabelecimentos(
@@ -110,13 +122,17 @@ export class ReceitaFederalService {
     mapCnaes: Map<string, string>,
   ) {
     this.logger.log(`Baixando Estabelecimentos: ${url}`);
-    return new Promise((resolve, reject) => {
-      https
-        .get(url, (res) => {
-          if (res.statusCode !== 200) return resolve(false); // Pode dar 404 se não houver o arquivo 9
-          const unzip = res.pipe(unzipper.Parse());
+    return retryWithBackoff(
+      () =>
+        new Promise((resolve, reject) => {
+          const req = https.get(url, (res) => {
+            if (res.statusCode !== 200) {
+              if (res.statusCode === 404) return resolve(false);
+              return reject(new Error(`Falha no download de ${url} (Status ${res.statusCode})`));
+            }
+            const unzip = res.pipe(unzipper.Parse());
 
-          unzip.on('entry', async (entry) => {
+            unzip.on('entry', async (entry) => {
             const csvParser = entry
               .pipe(iconv.decodeStream('win1252'))
               .pipe(parse({ delimiter: ';', relax_quotes: true, quote: '"' }));
@@ -183,20 +199,32 @@ export class ReceitaFederalService {
             entry.autodrain();
           });
           unzip.on('close', () => resolve(true));
-        })
-        .on('error', () => resolve(false));
-    });
+          unzip.on('error', (err) => reject(err));
+        });
+        req.on('error', (err) => reject(err));
+      }),
+      {
+        maxRetries: 5,
+        baseDelayMs: 3000,
+        onRetry: (attempt, err) =>
+          this.logger.warn(`Tentativa ${attempt} falhou para Estabelecimentos (${err.message}), tentando de novo...`),
+      },
+    );
   }
 
   private async processEmpresas(url: string, setCnpjBasicos: Set<string>) {
     this.logger.log(`Baixando Empresas: ${url}`);
-    return new Promise((resolve, reject) => {
-      https
-        .get(url, (res) => {
-          if (res.statusCode !== 200) return resolve(false);
-          const unzip = res.pipe(unzipper.Parse());
+    return retryWithBackoff(
+      () =>
+        new Promise((resolve, reject) => {
+          const req = https.get(url, (res) => {
+            if (res.statusCode !== 200) {
+              if (res.statusCode === 404) return resolve(false);
+              return reject(new Error(`Falha no download de ${url} (Status ${res.statusCode})`));
+            }
+            const unzip = res.pipe(unzipper.Parse());
 
-          unzip.on('entry', async (entry) => {
+            unzip.on('entry', async (entry) => {
             const csvParser = entry
               .pipe(iconv.decodeStream('win1252'))
               .pipe(parse({ delimiter: ';', relax_quotes: true, quote: '"' }));
@@ -241,8 +269,16 @@ export class ReceitaFederalService {
             entry.autodrain();
           });
           unzip.on('close', () => resolve(true));
-        })
-        .on('error', () => resolve(false));
-    });
+          unzip.on('error', (err) => reject(err));
+        });
+        req.on('error', (err) => reject(err));
+      }),
+      {
+        maxRetries: 5,
+        baseDelayMs: 3000,
+        onRetry: (attempt, err) =>
+          this.logger.warn(`Tentativa ${attempt} falhou para Empresas (${err.message}), tentando de novo...`),
+      },
+    );
   }
 }

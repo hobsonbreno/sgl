@@ -23,17 +23,28 @@ export class ComprasDadosAbertosService {
         return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
       };
 
-      const url = `https://pncp.gov.br/api/consulta/v1/contratacoes?dataInicial=${formataData(dataInicial)}&dataFinal=${formataData(dataFinal)}&uf=${uf}&pagina=1`;
+      let contratacoes: any[] = [];
+      const modalidades = [6, 8]; // 6: Pregão Eletrônico, 8: Dispensa de Licitação
 
-      this.logger.log(
-        `Consultando contratos recentes na UF ${uf} via PNCP: ${url}`,
-      );
+      for (const modalidade of modalidades) {
+        const url = `https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao?dataInicial=${formataData(dataInicial)}&dataFinal=${formataData(dataFinal)}&uf=${uf}&codigoModalidadeContratacao=${modalidade}&pagina=1`;
+        this.logger.log(`Consultando histórico na UF ${uf} (Modalidade ${modalidade}) via PNCP...`);
 
-      const response = await firstValueFrom(
-        this.httpService.get(url, { timeout: 10000 }),
-      );
-
-      const contratacoes = response.data?.data || [];
+        try {
+          const response = await firstValueFrom(
+            this.httpService.get(url, { timeout: 10000 }),
+          );
+          if (response.data?.data) {
+            contratacoes = contratacoes.concat(response.data.data);
+          }
+        } catch (err: any) {
+          if (err.response?.status === 404 || err.response?.status === 422) {
+            // Nenhum contrato ou parâmetro inválido nesta modalidade, ignora e segue
+            continue;
+          }
+          this.logger.warn(`Erro na modalidade ${modalidade}: ${err.message}`);
+        }
+      }
 
       // Filtrar contratos que contêm a palavra chave no objeto
       const contratosValidos = contratacoes.filter(

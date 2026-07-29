@@ -19,9 +19,9 @@ async function bootstrap() {
     // Executando o Pipeline Completo da Receita Federal
     await receitaFederalService.runETLPipeline();
 
-    logger.log('Sincronização concluída com sucesso!');
-  } catch (error) {
-    logger.error('Erro fatal durante a sincronização:', error);
+    logger.log('[SeedDataLake] Pipeline concluído com sucesso.');
+  } catch (err) {
+    logger.error(`[SeedDataLake] Pipeline falhou após retries: ${(err as any).message}`);
     process.exit(1);
   } finally {
     await app.close();

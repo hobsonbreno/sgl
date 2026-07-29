@@ -29,6 +29,13 @@ export class SupplierDiscoveryService {
     private cnpjEnrichmentService: CnpjEnrichmentService,
   ) {}
 
+  private isBlacklisted(nome: string): boolean {
+    if (!nome) return false;
+    const blacklist = ['CORREIOS', 'CAIXA ECONOMICA', 'BANCO DO BRASIL', 'MERCADO LIVRE', 'AMAZON', 'SHOPEE', 'MAGAZINE LUIZA', 'AMERICANAS', 'BNDES', 'RECEITA FEDERAL', 'GOVERNO'];
+    const upper = nome.toUpperCase();
+    return blacklist.some(b => upper.includes(b));
+  }
+
   private normalizeStr(str: string): string {
     if (!str) return '';
     return str
@@ -348,6 +355,12 @@ export class SupplierDiscoveryService {
                 if (!telefoneFmt && telefoneMatch)
                   telefoneFmt = telefoneMatch[0];
                 if (!telefoneFmt) telefoneFmt = '(00) 00000-0000';
+
+                // VALIDAÇÃO DA BLACKLIST
+                if (this.isBlacklisted(razaoOuFantasia)) {
+                  this.logger.log(`SerpApi: Fornecedor ignorado por Blacklist Institucional: ${razaoOuFantasia}`);
+                  continue;
+                }
 
                 fornecedor = await this.fornecedorModel.create({
                   razaoSocial: razaoOuFantasia,

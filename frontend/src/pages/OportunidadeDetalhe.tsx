@@ -375,11 +375,11 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                           const data = await res.json();
                           setIntelligenceData(data);
                        } else {
-                          alert('Erro ao consultar a API de Dados Abertos.');
+                          setIntelligenceData({ error: "Nenhum histórico de preço encontrado." });
                        }
                      } catch(e) {
                         console.error(e);
-                        alert('Erro na requisição ao Compras.gov.');
+                        setIntelligenceData({ error: "Nenhum histórico de preço encontrado." });
                      } finally {
                         setIsIntelligenceLoading(false);
                      }
@@ -481,7 +481,13 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
               </div>
             </div>
 
-            {intelligenceData && (
+            {intelligenceData && intelligenceData.error ? (
+              <div style={{ marginBottom: '1.5rem', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '1rem' }}>
+                <h5 style={{ margin: '0', color: '#b91c1c', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <AlertCircle size={16} /> {intelligenceData.error}
+                </h5>
+              </div>
+            ) : intelligenceData && (
               <div style={{ marginBottom: '1.5rem', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '1rem' }}>
                 <h5 style={{ margin: '0 0 0.5rem 0', color: '#b45309', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <AlertCircle size={16} /> Relatório de Inteligência PNCP (Últimos 6 Meses - UF: CE)
