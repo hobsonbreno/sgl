@@ -353,7 +353,15 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                   onClick={async () => {
                      setIsIntelligenceLoading(true);
                      try {
-                       const keyword = (item.descricao || '').split(' ')[0] || 'Produto';
+                       let keyword = 'Produto';
+                       const desc = item.descricao || '';
+                       const words = desc.split(/[ -]+/); // divide por espaço ou hífen
+                       const validWord = words.find(w => /^[a-zA-ZÀ-ÿ]{3,}$/.test(w));
+                       if (validWord) {
+                         keyword = validWord;
+                       } else {
+                         keyword = words[0] || 'Produto';
+                       }
                        
                        // Busca a UF real configurada no Robô
                        let uf = 'CE'; // fallback

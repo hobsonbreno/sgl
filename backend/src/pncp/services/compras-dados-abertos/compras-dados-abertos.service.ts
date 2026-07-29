@@ -28,28 +28,30 @@ export class ComprasDadosAbertosService {
       const modalidades = [6, 8]; // 6: Pregão Eletrônico, 8: Dispensa de Licitação
 
       for (const modalidade of modalidades) {
-        const url = `https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao?dataInicial=${formataData(dataInicial)}&dataFinal=${formataData(dataFinal)}&uf=${uf}&codigoModalidadeContratacao=${modalidade}&pagina=1`;
-        this.logger.log(`Consultando histórico na UF ${uf} (Modalidade ${modalidade}) via PNCP...`);
+        // Busca as últimas 4 páginas (200 contratações recentes) por modalidade
+        for (let pagina = 1; pagina <= 4; pagina++) {
+          const url = `https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao?dataInicial=${formataData(dataInicial)}&dataFinal=${formataData(dataFinal)}&uf=${uf}&codigoModalidadeContratacao=${modalidade}&pagina=${pagina}`;
+          this.logger.log(`Consultando histórico na UF ${uf} (Modalidade ${modalidade}, pág ${pagina}) via PNCP...`);
 
-        try {
-          const response = await retryWithBackoff(
-            () => this.httpService.axiosRef.get(url, { timeout: 15000 }),
-            {
-              maxRetries: 3,
-              baseDelayMs: 2000,
-              onRetry: (attempt, err) =>
-                this.logger.warn(`Modalidade ${modalidade}: tentativa ${attempt} falhou (${err.message}), retentando...`),
-            },
-          );
-          if (response.data?.data) {
-            contratacoes = contratacoes.concat(response.data.data);
+          try {
+            const response = await retryWithBackoff(
+              () => this.httpService.axiosRef.get(url, { timeout: 15000 }),
+              {
+                maxRetries: 3,
+                baseDelayMs: 2000,
+                onRetry: (attempt, err) =>
+                  this.logger.warn(`Modalidade ${modalidade} Pág ${pagina}: tentativa ${attempt} falhou (${err.message}), retentando...`),
+              },
+            );
+            if (response.data?.data) {
+              contratacoes = contratacoes.concat(response.data.data);
+            }
+          } catch (err: any) {
+            if (err.response?.status === 404 || err.response?.status === 422) {
+              break; // Se deu 404 na pagina, não tem mais páginas
+            }
+            this.logger.warn(`Erro na modalidade ${modalidade}, Pág ${pagina}: ${err.message}`);
           }
-        } catch (err: any) {
-          if (err.response?.status === 404 || err.response?.status === 422) {
-            // Nenhum contrato ou parâmetro inválido nesta modalidade, ignora e segue
-            continue;
-          }
-          this.logger.warn(`Erro na modalidade ${modalidade}: ${err.message}`);
         }
       }
 
