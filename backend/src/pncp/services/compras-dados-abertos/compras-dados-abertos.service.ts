@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { HttpService } from '@nestjs/axios';
 import { Oportunidade } from '../../../oportunidade/oportunidade.schema';
+import { Produto } from '../../../produto/produto.schema';
 
 @Injectable()
 export class ComprasDadosAbertosService {
@@ -10,7 +11,8 @@ export class ComprasDadosAbertosService {
 
   constructor(
     private readonly httpService: HttpService,
-    @InjectModel(Oportunidade.name) private oportunidadeModel: Model<Oportunidade>
+    @InjectModel(Oportunidade.name) private oportunidadeModel: Model<Oportunidade>,
+    @InjectModel(Produto.name) private produtoModel: Model<Produto>
   ) {}
 
   async pesquisarHistoricoPrecos(keyword: string, uf: string): Promise<any> {
@@ -19,72 +21,63 @@ export class ComprasDadosAbertosService {
     );
 
     try {
-      // Busca oportunidades no banco local (Data Lake) que possuem itens com a palavra-chave
       const regex = new RegExp(keyword, 'i');
-      const oportunidades = await this.oportunidadeModel.find({
-        uf: uf,
-        'itens.descricao': { $regex: regex }
-      }).limit(300).lean();
+      
+      // 1. Encontra todos os PRODUTOS que batem com a keyword no Data Lake
+      const produtosAchados = await this.produtoModel.find({
+        descricao: { $regex: regex }
+      }).limit(1000).lean();
+
+      if (!produtosAchados.length) {
+        return { sucesso: true, semDados: true, precoMinimo: null, precoMaximo: null, precoMedio: null, topVencedores: [] };
+      }
+
+      // 2. Extrai os IDs únicos das Oportunidades
+      const oppIds = [...new Set(produtosAchados.map(p => p.oportunidadeId))];
+
+      // 3. Busca as Oportunidades correspondentes
+      const oportunidadesDb = await this.oportunidadeModel.find({
+        _id: { $in: oppIds }
+      }).lean();
+
+      // Mapeia Oportunidade por ID
+      const oppMap = new Map();
+      for (const op of oportunidadesDb) {
+        oppMap.set(op._id.toString(), op);
+      }
 
       let precoMinimo = 999999;
       let precoMaximo = 0;
       let somaPrecos = 0;
       let countPrecos = 0;
-      const vencedores = new Map<string, number>(); // Nome -> Quantidade de vitórias
+      const vencedores = new Map<string, number>();
 
-      for (const opt of oportunidades) {
-        // Encontra os itens específicos dentro da oportunidade
-        const itensValidos = (opt.itens || []).filter((i: any) => 
-          (i.descricao && regex.test(i.descricao)) || 
-          (i.descricaoItem && regex.test(i.descricaoItem))
-        );
+      let processar = (filtroUF: string | null) => {
+        for (const prod of produtosAchados) {
+          const op = oppMap.get(prod.oportunidadeId);
+          if (!op) continue;
+          if (filtroUF && op.uf !== filtroUF) continue;
 
-        for (const item of itensValidos) {
-          const valor = item.valorUnitarioEstimado || 0;
+          const valor = prod.valorUnitarioEstimado || 0;
           if (valor > 0) {
             if (valor < precoMinimo) precoMinimo = valor;
             if (valor > precoMaximo) precoMaximo = valor;
             somaPrecos += valor;
             countPrecos++;
-          }
-        }
 
-        // Tenta extrair o nome do órgão como "vencedor" (ou fornecedor se houver no futuro)
-        if (itensValidos.length > 0) {
-          const fornecedor = (opt as any).orgaoEntidade?.razaoSocial || 'Órgão Licitante (Aberto)';
-          vencedores.set(fornecedor, (vencedores.get(fornecedor) || 0) + 1);
-        }
-      }
-
-      if (countPrecos === 0) {
-        this.logger.log(
-          `Nenhum item com valor unitário encontrado para ${keyword} em ${uf}. Buscando média nacional como fallback...`,
-        );
-
-        // Fallback: Tenta sem filtrar por UF
-        const oportunidadesNacionais = await this.oportunidadeModel.find({
-          'itens.descricao': { $regex: regex }
-        }).limit(300).lean();
-
-        for (const opt of oportunidadesNacionais) {
-          const itensValidos = (opt.itens || []).filter((i: any) => 
-            (i.descricao && regex.test(i.descricao)) || 
-            (i.descricaoItem && regex.test(i.descricaoItem))
-          );
-          for (const item of itensValidos) {
-            const valor = item.valorUnitarioEstimado || 0;
-            if (valor > 0) {
-              if (valor < precoMinimo) precoMinimo = valor;
-              if (valor > precoMaximo) precoMaximo = valor;
-              somaPrecos += valor;
-              countPrecos++;
-            }
-          }
-          if (itensValidos.length > 0) {
-            const fornecedor = (opt as any).orgaoEntidade?.razaoSocial || 'Órgão Licitante (Aberto)';
+            const fornecedor = op.orgaoNome || 'Órgão Licitante (Aberto)';
             vencedores.set(fornecedor, (vencedores.get(fornecedor) || 0) + 1);
           }
         }
+      };
+
+      // Tenta filtrar pela UF especificada
+      processar(uf);
+
+      // Fallback Nacional
+      if (countPrecos === 0) {
+        this.logger.log(`Nenhum item com valor unitário encontrado para ${keyword} em ${uf}. Buscando média nacional como fallback...`);
+        processar(null); // Passa null para UF, aceitando qualquer estado
 
         if (countPrecos === 0) {
            return {
