@@ -5,11 +5,15 @@ import { PncpController } from './controllers/pncp/pncp.controller';
 import { ComprasDadosAbertosService } from './services/compras-dados-abertos/compras-dados-abertos.service';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Oportunidade, OportunidadeSchema } from '../oportunidade/oportunidade.schema';
+import { Produto, ProdutoSchema } from '../produto/produto.schema';
 
 @Module({
   imports: [
     HttpModule,
-    MongooseModule.forFeature([{ name: Oportunidade.name, schema: OportunidadeSchema }])
+    MongooseModule.forFeature([
+      { name: Oportunidade.name, schema: OportunidadeSchema },
+      { name: Produto.name, schema: ProdutoSchema }
+    ])
   ],
   providers: [PncpClientService, ComprasDadosAbertosService],
   controllers: [PncpController],
