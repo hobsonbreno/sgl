@@ -369,6 +369,16 @@ export class SupplierDiscoveryService {
                 );
               }
 
+              // VALIDAÇÃO ESTRITA DE REGIÃO (Ignora fornecedores de outros estados/cidades, ex: Maranhão)
+              if (ufsPermitidas.length > 0 && fornecedor.uf && !ufsPermitidas.includes(this.normalizeStr(fornecedor.uf))) {
+                this.logger.log(`SerpApi: Fornecedor ${fornecedor.cnpj} ignorado (UF '${fornecedor.uf}' fora da permitida)`);
+                continue;
+              }
+              if (municipiosPermitidos.length > 0 && municipiosPermitidos[0] !== '' && fornecedor.cidade && !municipiosPermitidos.includes(this.normalizeStr(fornecedor.cidade))) {
+                this.logger.log(`SerpApi: Fornecedor ${fornecedor.cnpj} ignorado (Município '${fornecedor.cidade}' fora do permitido)`);
+                continue;
+              }
+
               const precoUnit = 0;
               fornecedoresRelevantes.push({
                 razaoSocial: fornecedor.razaoSocial,

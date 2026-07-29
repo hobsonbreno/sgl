@@ -354,8 +354,22 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                      setIsIntelligenceLoading(true);
                      try {
                        const keyword = (item.descricao || '').split(' ')[0] || 'Produto';
-                       // Usa o estado local ou 'CE' como fallback
-                       const uf = 'CE'; 
+                       
+                       // Busca a UF real configurada no Robô
+                       let uf = 'CE'; // fallback
+                       try {
+                         const perfisRes = await fetch('http://192.168.1.16:30000/perfis-busca');
+                         if (perfisRes.ok) {
+                           const perfis = await perfisRes.json();
+                           const perfilAtivo = perfis.find((p: any) => p.ativo);
+                           if (perfilAtivo && perfilAtivo.estadosBuscaFornecedores && perfilAtivo.estadosBuscaFornecedores.length > 0) {
+                             uf = perfilAtivo.estadosBuscaFornecedores[0];
+                           }
+                         }
+                       } catch(err) {
+                         console.warn('Erro ao buscar perfil do robô, usando uf fallback CE', err);
+                       }
+
                        const res = await fetch(`http://192.168.1.16:30000/pncp/inteligencia-precos?keyword=${encodeURIComponent(keyword)}&uf=${uf}`);
                        if (res.ok) {
                           const data = await res.json();
