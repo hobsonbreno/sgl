@@ -95,7 +95,10 @@ export class ComprasDadosAbertosService {
 
       // 4. Remover Outliers usando a Mediana
       precosBrutos.sort((a, b) => a - b);
-      const median = precosBrutos[Math.floor(precosBrutos.length / 2)];
+      const mid = Math.floor(precosBrutos.length / 2);
+      const median = precosBrutos.length % 2 === 0
+        ? (precosBrutos[mid - 1] + precosBrutos[mid]) / 2
+        : precosBrutos[mid];
       
       // Remove valores absurdamente altos (ex: compras por "Lote" de 5000 unidades) ou baixos
       const precosFiltrados = precosBrutos.filter(p => p >= median * 0.2 && p <= median * 5);
