@@ -1565,20 +1565,20 @@ export default function OportunidadeDetalhe() {
                     <span style={{ color: '#fde68a', fontWeight: 600, marginLeft: '1rem' }}>
                       Lance: R$ {Number(valConc).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })} × {it.quantidade} = R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
-                    {lucro > 0 && (
+                    {lucro !== 0 && (
                       <span style={{ 
                         display: 'inline-flex',
                         alignItems: 'center',
-                        background: 'rgba(52, 211, 153, 0.15)',
-                        color: '#34d399',
+                        background: lucro > 0 ? 'rgba(52, 211, 153, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                        color: lucro > 0 ? '#34d399' : '#f87171',
                         padding: '0.2rem 0.6rem',
                         borderRadius: '999px',
                         fontWeight: 700,
                         marginLeft: '1rem',
-                        border: '1px solid rgba(52, 211, 153, 0.4)',
-                        boxShadow: '0 0 10px rgba(52, 211, 153, 0.1)'
+                        border: `1px solid ${lucro > 0 ? 'rgba(52, 211, 153, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`,
+                        boxShadow: `0 0 10px ${lucro > 0 ? 'rgba(52, 211, 153, 0.1)' : 'rgba(239, 68, 68, 0.1)'}`
                       }}>
-                        💰 Lucro Provisório: R$ {lucro.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {lucro > 0 ? '💰 Lucro Provisório: ' : '🔻 Prejuízo Provisório: '}R$ {Math.abs(lucro).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     )}
                   </div>
