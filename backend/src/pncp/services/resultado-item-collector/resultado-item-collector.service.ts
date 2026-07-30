@@ -25,103 +25,108 @@ export class ResultadoItemCollectorService {
   // Roda de madrugada
   @Cron(CronExpression.EVERY_DAY_AT_3AM)
   async collectResultadosHomologados() {
-    this.logger.log('Iniciando job de coleta de resultados homologados...');
+    this.logger.log('Iniciando job de coleta OTIMIZADA de resultados homologados...');
     
-    // Filtra oportunidades que já encerraram a proposta há mais de 2 dias e ainda não tem resultado verificado
-    const doisDiasAtras = new Date();
-    doisDiasAtras.setDate(doisDiasAtras.getDate() - 2);
+    // Busca atualizações dos últimos 3 dias
+    const hoje = new Date();
+    const tresDiasAtras = new Date();
+    tresDiasAtras.setDate(hoje.getDate() - 3);
 
-    const oportunidades = await this.oportunidadeModel.find({
-      dataEncerramentoProposta: { $lte: doisDiasAtras },
-      resultadoVerificado: { $ne: true }, // Assumindo a adição desse campo no schema (ou verificando os itens diretamente)
-    }).limit(100).exec(); // Processa em lotes para não estourar
+    const formatData = (d: Date) => d.toISOString().split('T')[0].replace(/-/g, '');
+    const dataFinal = formatData(hoje);
+    const dataInicial = formatData(tresDiasAtras);
 
-    this.logger.log(`Encontradas ${oportunidades.length} oportunidades para verificar resultados.`);
+    let pagina = 1;
+    let totalPaginas = 1;
+    let limitReached = false;
 
-    for (const op of oportunidades) {
-      if (!op.numeroControlePNCP) continue;
-      
-      const partes = op.numeroControlePNCP.split('/');
-      if (partes.length < 2) continue;
-      
-      const [cnpjSeq, ano] = partes;
-      const subPartes = cnpjSeq.split('-');
-      if (subPartes.length < 3) continue;
-      
-      const cnpj = subPartes[0];
-      const seq = subPartes[2];
-
+    while (pagina <= totalPaginas && !limitReached) {
       try {
-        // Busca itens da compra
-        const itensUrl = `https://pncp.gov.br/api/pncp/v1/orgaos/${cnpj}/compras/${ano}/${seq}/itens`;
-        const itensResponse = await this.fazerRequisicaoComRetry(itensUrl);
-        const itens = itensResponse || [];
+        const url = `https://pncp.gov.br/api/consulta/v1/contratacoes/atualizacao?dataInicial=${dataInicial}&dataFinal=${dataFinal}&pagina=${pagina}`;
+        const res = await this.fazerRequisicaoComRetry(url);
+        
+        if (!res || !res.data || res.data.length === 0) break;
+        totalPaginas = res.totalPaginas || 1;
 
-        let encontrouResultado = false;
+        for (const compra of res.data) {
+          // Filtro client-side: Só processa se tiver valorTotalHomologado
+          if (compra.valorTotalHomologado === null && compra.situacaoCompraId !== 4) {
+            continue;
+          }
 
-        for (const item of itens) {
-          const resUrl = `https://pncp.gov.br/api/pncp/v1/orgaos/${cnpj}/compras/${ano}/${seq}/itens/${item.numeroItem}/resultados`;
-          const resultados = await this.fazerRequisicaoComRetry(resUrl, true); // true para tolerar 204
+          if (!compra.numeroControlePNCP) continue;
           
-          if (resultados && Array.isArray(resultados) && resultados.length > 0) {
-            encontrouResultado = true;
-            for (const res of resultados) {
-              if (res.valorUnitarioHomologado) {
-                // Extrai palavra-chave da mesma forma que o frontend
-                let keyword = 'Produto';
-                const desc = item.descricao || 'Produto';
-                let extracted = desc.split(/[,.]/)[0].trim();
-                extracted = extracted.replace(/[^a-zA-ZÀ-ÿ0-9 ]/g, '').trim();
-                const words = extracted.split(/[ -]+/);
-                
-                if (words.length > 0 && words[0].length >= 3) {
-                  keyword = words[0];
-                } else if (words.length > 1 && words[1].length >= 3) {
-                  keyword = words.slice(0, 2).join(' ');
-                } else if (extracted.length >= 3) {
-                  keyword = extracted;
-                }
+          const partes = compra.numeroControlePNCP.split('/');
+          if (partes.length < 2) continue;
+          
+          const [cnpjSeq, ano] = partes;
+          const subPartes = cnpjSeq.split('-');
+          if (subPartes.length < 3) continue;
+          
+          const cnpj = subPartes[0];
+          const seq = subPartes[2];
 
-                await this.resultadoItemModel.findOneAndUpdate(
-                  { 
-                    numeroControlePNCP: op.numeroControlePNCP, 
-                    numeroItem: item.numeroItem 
-                  },
-                  {
-                    numeroControlePNCP: op.numeroControlePNCP,
-                    numeroItem: item.numeroItem,
-                    descricaoItem: item.descricao,
-                    palavraChaveExtraida: keyword,
-                    niFornecedor: res.niFornecedor,
-                    nomeRazaoSocialFornecedor: res.nomeRazaoSocialFornecedor,
-                    valorUnitarioHomologado: res.valorUnitarioHomologado,
-                    valorTotalHomologado: res.valorTotalHomologado,
-                    quantidadeHomologada: res.quantidadeHomologada,
-                    dataResultado: res.dataResultado ? new Date(res.dataResultado) : new Date(),
-                    uf: op.uf,
-                  },
-                  { upsert: true, new: true }
-                );
+          // Verifica se já processou esta compra recentemente (opcional, mas bom pra evitar repetição no mesmo lote)
+          const itensUrl = `https://pncp.gov.br/api/pncp/v1/orgaos/${cnpj}/compras/${ano}/${seq}/itens`;
+          const itensResponse = await this.fazerRequisicaoComRetry(itensUrl);
+          const itens = itensResponse || [];
+
+          for (const item of itens) {
+            const resUrl = `https://pncp.gov.br/api/pncp/v1/orgaos/${cnpj}/compras/${ano}/${seq}/itens/${item.numeroItem}/resultados`;
+            const resultados = await this.fazerRequisicaoComRetry(resUrl, true);
+            
+            if (resultados && Array.isArray(resultados) && resultados.length > 0) {
+              for (const res of resultados) {
+                if (res.valorUnitarioHomologado) {
+                  let keyword = 'Produto';
+                  const desc = item.descricao || 'Produto';
+                  let extracted = desc.split(/[,.]/)[0].trim();
+                  extracted = extracted.replace(/[^a-zA-ZÀ-ÿ0-9 ]/g, '').trim();
+                  const words = extracted.split(/[ -]+/);
+                  
+                  if (words.length > 0 && words[0].length >= 3) {
+                    keyword = words[0];
+                  } else if (words.length > 1 && words[1].length >= 3) {
+                    keyword = words.slice(0, 2).join(' ');
+                  } else if (extracted.length >= 3) {
+                    keyword = extracted;
+                  }
+
+                  const ufFornecedor = compra.unidadeOrgao?.ufSigla || 'BR';
+
+                  await this.resultadoItemModel.findOneAndUpdate(
+                    { 
+                      numeroControlePNCP: compra.numeroControlePNCP, 
+                      numeroItem: item.numeroItem 
+                    },
+                    {
+                      numeroControlePNCP: compra.numeroControlePNCP,
+                      numeroItem: item.numeroItem,
+                      descricaoItem: item.descricao,
+                      palavraChaveExtraida: keyword,
+                      niFornecedor: res.niFornecedor,
+                      nomeRazaoSocialFornecedor: res.nomeRazaoSocialFornecedor,
+                      valorUnitarioHomologado: res.valorUnitarioHomologado,
+                      valorTotalHomologado: res.valorTotalHomologado,
+                      quantidadeHomologada: res.quantidadeHomologada,
+                      dataResultado: res.dataResultado ? new Date(res.dataResultado) : new Date(),
+                      uf: ufFornecedor,
+                    },
+                    { upsert: true, new: true }
+                  );
+                }
               }
             }
           }
         }
 
-        // Marca como verificado para não repetir o loop se já achou todos ou se passou muito tempo
-        // OportunidadeSchema precisa aceitar 'resultadoVerificado' (pode ser any/mixed caso não esteja no schema)
-        await this.oportunidadeModel.updateOne(
-          { _id: op._id },
-          { $set: { resultadoVerificado: true } as any }
-        );
-
+        pagina++;
+        await new Promise(r => setTimeout(r, 1500));
       } catch (e) {
-        this.logger.error(`Erro ao processar ${op.numeroControlePNCP}: ${e.message}`);
+        this.logger.error(`Erro na página ${pagina}: ${e.message}`);
+        break;
       }
-      
-      // Sleep para rate limit
-      await new Promise(r => setTimeout(r, 1000));
     }
-    
     this.logger.log('Job de resultados finalizado.');
   }
 
