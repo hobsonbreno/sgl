@@ -1,18 +1,18 @@
 import { Injectable, Logger, HttpException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { HttpService } from '@nestjs/axios';
-import { Oportunidade } from '../../../oportunidade/oportunidade.schema';
-import { Produto } from '../../../produto/produto.schema';
+import { ResultadoItem, ResultadoItemDocument } from '../../schemas/resultado-item.schema';
+import { Oportunidade, OportunidadeDocument } from '../../../oportunidade/oportunidade.schema';
 
 @Injectable()
 export class ComprasDadosAbertosService {
   private readonly logger = new Logger(ComprasDadosAbertosService.name);
 
   constructor(
-    private readonly httpService: HttpService,
-    @InjectModel(Oportunidade.name) private oportunidadeModel: Model<Oportunidade>,
-    @InjectModel(Produto.name) private produtoModel: Model<Produto>
+    @InjectModel(ResultadoItem.name)
+    private readonly resultadoItemModel: Model<ResultadoItemDocument>,
+    @InjectModel(Oportunidade.name)
+    private readonly oportunidadeModel: Model<OportunidadeDocument>,
   ) {}
 
   async pesquisarHistoricoPrecos(keyword: string, uf: string): Promise<any> {
@@ -21,33 +21,31 @@ export class ComprasDadosAbertosService {
     );
 
     try {
-      if (!keyword || keyword.trim() === '' || keyword.toLowerCase() === 'produto') {
-         return { sucesso: true, semDados: true, precoMinimo: null, precoMaximo: null, precoMedio: null, topVencedores: [] };
+      if (
+        !keyword ||
+        keyword.trim() === '' ||
+        keyword.toLowerCase() === 'produto'
+      ) {
+        return {
+          sucesso: true,
+          semDados: true,
+          precoMinimo: null,
+          precoMaximo: null,
+          precoMedio: null,
+          topVencedores: [],
+        };
       }
 
-      const regex = new RegExp(keyword, 'i');
-      
-      // 1. Encontra todos os PRODUTOS que batem com a keyword no Data Lake
-      const produtosAchados = await this.produtoModel.find({
-        descricao: { $regex: regex }
+      // Em vez de regex que varre tudo, buscamos a palavra exata usando o regex de âncora
+      // ou usamos o match direto na palavraChaveExtraida no futuro. 
+      // O regex de inicio garante que começamos pelo produto correto:
+      const regex = new RegExp('^' + keyword, 'i');
+      const produtosAchados = await this.resultadoItemModel.find({
+        palavraChaveExtraida: { $regex: regex }
       }).limit(1000).lean();
 
-      if (!produtosAchados.length) {
-        return { sucesso: true, semDados: true, precoMinimo: null, precoMaximo: null, precoMedio: null, topVencedores: [] };
-      }
-
-      // 2. Extrai os IDs únicos das Oportunidades
-      const oppIds = [...new Set(produtosAchados.map(p => p.oportunidadeId))];
-
-      // 3. Busca as Oportunidades correspondentes
-      const oportunidadesDb = await this.oportunidadeModel.find({
-        _id: { $in: oppIds }
-      }).lean();
-
-      // Mapeia Oportunidade por ID
-      const oppMap = new Map();
-      for (const op of oportunidadesDb) {
-        oppMap.set(op._id.toString(), op);
+      if (produtosAchados.length === 0) {
+        return { sucesso: true, semDados: true };
       }
 
       let precosBrutos: number[] = [];
@@ -58,14 +56,12 @@ export class ComprasDadosAbertosService {
         vencedores.clear();
 
         for (const prod of produtosAchados) {
-          const op = oppMap.get(prod.oportunidadeId);
-          if (!op) continue;
-          if (filtroUF && op.uf !== filtroUF) continue;
+          if (filtroUF && prod.uf !== filtroUF) continue;
 
-          const valor = prod.valorUnitarioEstimado || 0;
+          const valor = prod.valorUnitarioHomologado || 0;
           if (valor > 0) {
             precosBrutos.push(valor);
-            const fornecedor = op.orgaoNome || 'Órgão Licitante (Aberto)';
+            const fornecedor = prod.nomeRazaoSocialFornecedor || 'Fornecedor Desconhecido';
             vencedores.set(fornecedor, (vencedores.get(fornecedor) || 0) + 1);
           }
         }
@@ -76,33 +72,39 @@ export class ComprasDadosAbertosService {
 
       // Fallback Nacional
       if (precosBrutos.length === 0) {
-        this.logger.log(`Nenhum item com valor unitário encontrado para ${keyword} em ${uf}. Buscando média nacional como fallback...`);
+        this.logger.log(
+          `Nenhum item com valor unitário encontrado para ${keyword} em ${uf}. Buscando média nacional como fallback...`,
+        );
         processar(null); // Passa null para UF, aceitando qualquer estado
 
         if (precosBrutos.length === 0) {
-           return {
-             sucesso: true,
-             semDados: true,
-             baixaConfianca: true,
-             amostraEncontrada: 0,
-             precoMinimo: null,
-             precoMaximo: null,
-             precoMedio: null,
-             topVencedores: [],
-           };
+          return {
+            sucesso: true,
+            semDados: true,
+            baixaConfianca: true,
+            amostraEncontrada: 0,
+            precoMinimo: null,
+            precoMaximo: null,
+            precoMedio: null,
+            topVencedores: [],
+          };
         }
       }
 
       // 4. Remover Outliers usando a Mediana
       precosBrutos.sort((a, b) => a - b);
       const mid = Math.floor(precosBrutos.length / 2);
-      const median = precosBrutos.length % 2 === 0
-        ? (precosBrutos[mid - 1] + precosBrutos[mid]) / 2
-        : precosBrutos[mid];
-      
+      const median =
+        precosBrutos.length % 2 === 0
+          ? (precosBrutos[mid - 1] + precosBrutos[mid]) / 2
+          : precosBrutos[mid];
+
       // Remove valores absurdamente altos (ex: compras por "Lote" de 5000 unidades) ou baixos
-      const precosFiltrados = precosBrutos.filter(p => p >= median * 0.2 && p <= median * 5);
-      const precosFinais = precosFiltrados.length > 0 ? precosFiltrados : precosBrutos;
+      const precosFiltrados = precosBrutos.filter(
+        (p) => p >= median * 0.2 && p <= median * 5,
+      );
+      const precosFinais =
+        precosFiltrados.length > 0 ? precosFiltrados : precosBrutos;
 
       const precoMinimo = Math.min(...precosFinais);
       const precoMaximo = Math.max(...precosFinais);

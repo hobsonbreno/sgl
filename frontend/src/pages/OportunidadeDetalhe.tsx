@@ -543,7 +543,7 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                 </div>
                 {intelligenceData.topVencedores && intelligenceData.topVencedores.length > 0 && (
                   <div style={{ marginTop: '1rem' }}>
-                    <p style={{ fontSize: '0.8rem', fontWeight: 600, color: '#92400e', margin: '0 0 0.5rem 0' }}>🏆 Maiores Vencedores na Região (Cuidado: Concorrentes)</p>
+                    <h6 style={{ margin: '0 0 1rem 0', color: '#166534', fontSize: '0.85rem' }}>🏆 Fornecedores Vencedores</h6>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                       {intelligenceData.topVencedores.map((v: any, idx: number) => (
                         <span key={idx} style={{ background: '#fef3c7', color: '#92400e', padding: '0.2rem 0.5rem', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 500, border: '1px solid #fde68a' }}>
