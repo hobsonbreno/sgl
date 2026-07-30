@@ -49,74 +49,81 @@ export class ResultadoItemCollectorService {
         totalPaginas = res.totalPaginas || 1;
 
         for (const compra of res.data) {
-          // Filtro client-side: Só processa se tiver valorTotalHomologado
-          if (compra.valorTotalHomologado === null && compra.situacaoCompraId !== 4) {
-            continue;
-          }
+          try {
+            // Filtro client-side: Só processa se tiver valorTotalHomologado
+            if (compra.valorTotalHomologado === null && compra.situacaoCompraId !== 4) {
+              continue;
+            }
 
-          if (!compra.numeroControlePNCP) continue;
-          
-          const partes = compra.numeroControlePNCP.split('/');
-          if (partes.length < 2) continue;
-          
-          const [cnpjSeq, ano] = partes;
-          const subPartes = cnpjSeq.split('-');
-          if (subPartes.length < 3) continue;
-          
-          const cnpj = subPartes[0];
-          const seq = subPartes[2];
-
-          // Verifica se já processou esta compra recentemente (opcional, mas bom pra evitar repetição no mesmo lote)
-          const itensUrl = `https://pncp.gov.br/api/pncp/v1/orgaos/${cnpj}/compras/${ano}/${seq}/itens`;
-          const itensResponse = await this.fazerRequisicaoComRetry(itensUrl);
-          const itens = itensResponse || [];
-
-          for (const item of itens) {
-            const resUrl = `https://pncp.gov.br/api/pncp/v1/orgaos/${cnpj}/compras/${ano}/${seq}/itens/${item.numeroItem}/resultados`;
-            const resultados = await this.fazerRequisicaoComRetry(resUrl, true);
+            if (!compra.numeroControlePNCP) continue;
             
-            if (resultados && Array.isArray(resultados) && resultados.length > 0) {
-              for (const res of resultados) {
-                if (res.valorUnitarioHomologado) {
-                  let keyword = 'Produto';
-                  const desc = item.descricao || 'Produto';
-                  let extracted = desc.split(/[,.]/)[0].trim();
-                  extracted = extracted.replace(/[^a-zA-ZÀ-ÿ0-9 ]/g, '').trim();
-                  const words = extracted.split(/[ -]+/);
-                  
-                  if (words.length > 0 && words[0].length >= 3) {
-                    keyword = words[0];
-                  } else if (words.length > 1 && words[1].length >= 3) {
-                    keyword = words.slice(0, 2).join(' ');
-                  } else if (extracted.length >= 3) {
-                    keyword = extracted;
+            const partes = compra.numeroControlePNCP.split('/');
+            if (partes.length < 2) continue;
+            
+            const [cnpjSeq, ano] = partes;
+            const subPartes = cnpjSeq.split('-');
+            if (subPartes.length < 3) continue;
+            
+            const cnpj = subPartes[0];
+            const seq = subPartes[2];
+
+            // Verifica se já processou esta compra recentemente (opcional, mas bom pra evitar repetição no mesmo lote)
+            const itensUrl = `https://pncp.gov.br/api/pncp/v1/orgaos/${cnpj}/compras/${ano}/${seq}/itens`;
+            const itensResponse = await this.fazerRequisicaoComRetry(itensUrl, true);
+            const itens = itensResponse || [];
+
+            for (const item of itens) {
+              const resUrl = `https://pncp.gov.br/api/pncp/v1/orgaos/${cnpj}/compras/${ano}/${seq}/itens/${item.numeroItem}/resultados`;
+              const resultados = await this.fazerRequisicaoComRetry(resUrl, true);
+              
+              if (resultados && Array.isArray(resultados) && resultados.length > 0) {
+                for (const res of resultados) {
+                  if (res.valorUnitarioHomologado) {
+                    let keyword = 'Produto';
+                    const desc = item.descricao || 'Produto';
+                    let extracted = desc.split(/[,.]/)[0].trim();
+                    extracted = extracted.replace(/[^a-zA-ZÀ-ÿ0-9 ]/g, '').trim();
+                    const words = extracted.split(/[ -]+/);
+                    
+                    if (words.length > 0 && words[0].length >= 3) {
+                      keyword = words[0];
+                    } else if (words.length > 1 && words[1].length >= 3) {
+                      keyword = words.slice(0, 2).join(' ');
+                    } else if (extracted.length >= 3) {
+                      keyword = extracted;
+                    }
+
+                    const ufFornecedor = compra.unidadeOrgao?.ufSigla || 'BR';
+
+                    await this.resultadoItemModel.findOneAndUpdate(
+                      { 
+                        numeroControlePNCP: compra.numeroControlePNCP, 
+                        numeroItem: item.numeroItem 
+                      },
+                      {
+                        numeroControlePNCP: compra.numeroControlePNCP,
+                        numeroItem: item.numeroItem,
+                        descricaoItem: item.descricao,
+                        palavraChaveExtraida: keyword,
+                        niFornecedor: res.niFornecedor,
+                        nomeRazaoSocialFornecedor: res.nomeRazaoSocialFornecedor,
+                        valorUnitarioHomologado: res.valorUnitarioHomologado,
+                        valorTotalHomologado: res.valorTotalHomologado,
+                        quantidadeHomologada: res.quantidadeHomologada,
+                        dataResultado: res.dataResultado ? new Date(res.dataResultado) : new Date(),
+                        uf: ufFornecedor,
+                      },
+                      { upsert: true, new: true }
+                    );
                   }
-
-                  const ufFornecedor = compra.unidadeOrgao?.ufSigla || 'BR';
-
-                  await this.resultadoItemModel.findOneAndUpdate(
-                    { 
-                      numeroControlePNCP: compra.numeroControlePNCP, 
-                      numeroItem: item.numeroItem 
-                    },
-                    {
-                      numeroControlePNCP: compra.numeroControlePNCP,
-                      numeroItem: item.numeroItem,
-                      descricaoItem: item.descricao,
-                      palavraChaveExtraida: keyword,
-                      niFornecedor: res.niFornecedor,
-                      nomeRazaoSocialFornecedor: res.nomeRazaoSocialFornecedor,
-                      valorUnitarioHomologado: res.valorUnitarioHomologado,
-                      valorTotalHomologado: res.valorTotalHomologado,
-                      quantidadeHomologada: res.quantidadeHomologada,
-                      dataResultado: res.dataResultado ? new Date(res.dataResultado) : new Date(),
-                      uf: ufFornecedor,
-                    },
-                    { upsert: true, new: true }
-                  );
                 }
               }
+              // Rate limit entre itens/resultados
+              await new Promise(r => setTimeout(r, 250));
             }
+          } catch (itemErr) {
+            this.logger.warn(`Falha ao processar compra ${compra.numeroControlePNCP}: ${itemErr.message}`);
+            continue; // Segue pra próxima compra
           }
         }
 
