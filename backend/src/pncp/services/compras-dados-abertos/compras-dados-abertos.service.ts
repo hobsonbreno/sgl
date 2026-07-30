@@ -26,14 +26,7 @@ export class ComprasDadosAbertosService {
         keyword.trim() === '' ||
         keyword.toLowerCase() === 'produto'
       ) {
-        return {
-          sucesso: true,
-          semDados: true,
-          precoMinimo: null,
-          precoMaximo: null,
-          precoMedio: null,
-          topVencedores: [],
-        };
+        return this.respostaSemDados();
       }
 
       // Em vez de regex que varre tudo, buscamos a palavra exata usando o regex de âncora
@@ -45,7 +38,7 @@ export class ComprasDadosAbertosService {
       }).limit(1000).lean();
 
       if (produtosAchados.length === 0) {
-        return { sucesso: true, semDados: true };
+        return this.respostaSemDados();
       }
 
       let precosBrutos: number[] = [];
@@ -78,16 +71,7 @@ export class ComprasDadosAbertosService {
         processar(null); // Passa null para UF, aceitando qualquer estado
 
         if (precosBrutos.length === 0) {
-          return {
-            sucesso: true,
-            semDados: true,
-            baixaConfianca: true,
-            amostraEncontrada: 0,
-            precoMinimo: null,
-            precoMaximo: null,
-            precoMedio: null,
-            topVencedores: [],
-          };
+          return this.respostaSemDados();
         }
       }
 
@@ -139,5 +123,18 @@ export class ComprasDadosAbertosService {
         500,
       );
     }
+  }
+
+  private respostaSemDados() {
+    return {
+      sucesso: true,
+      semDados: true,
+      baixaConfianca: true,
+      amostraEncontrada: 0,
+      precoMinimo: null,
+      precoMaximo: null,
+      precoMedio: null,
+      topVencedores: [],
+    };
   }
 }
