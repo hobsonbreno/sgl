@@ -111,7 +111,7 @@ export class ComprasDadosAbertosService {
         .map((entry) => ({ nome: entry[0], vitorias: entry[1] }));
 
       this.logger.log(
-        `Inteligência gerada para ${keyword}: Média R$ ${precoMedio.toFixed(2)} (baseada em ${countPrecos} itens)`,
+        `Inteligência gerada para ${keyword}: Média R$ ${precoMedio.toFixed(2)} (baseada em ${precosFinais.length} itens)`,
       );
 
       return {
