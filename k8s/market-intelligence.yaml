@@ -13,7 +13,7 @@ spec:
     spec:
       containers:
       - name: market-intelligence
-        image: hobson007breno/sgl-market-intelligence:9971c1bf
+        image: hobson007breno/sgl-market-intelligence:4e307c50
         ports:
         - containerPort: 7010
         env:
