@@ -1515,8 +1515,40 @@ export default function OportunidadeDetalhe() {
                 <h3 style={{ margin: 0, color: '#fcd34d', fontSize: '1rem' }}>Cenário: Menor Lance do Concorrente</h3>
                 <p style={{ margin: 0, fontSize: '0.85rem', color: '#d97706' }}>Cálculo automático: Menor Lance Concorrente × Quantidade</p>
               </div>
-              <div style={{ fontSize: '2rem', fontWeight: 700, color: '#fbbf24' }}>
-                R$ {Number(cotacao.itens.reduce((acc: number, it: any) => acc + ((liveLances[it._id]?.concorrente ?? (it.produtoId?.valorConcorrente || it.valorConcorrente || 0)) * Number(it.quantidade || 1)), 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
+                <div style={{ fontSize: '2rem', fontWeight: 700, color: '#fbbf24' }}>
+                  R$ {Number(cotacao.itens.reduce((acc: number, it: any) => acc + ((liveLances[it._id]?.concorrente ?? (it.produtoId?.valorConcorrente || it.valorConcorrente || 0)) * Number(it.quantidade || 1)), 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                {(() => {
+                  const lucroProvisorioTotal = cotacao.itens.reduce((acc: number, it: any) => {
+                    const valConc = liveLances[it._id]?.concorrente ?? (it.produtoId?.valorConcorrente || it.valorConcorrente || 0);
+                    if (valConc > 0) {
+                      const subtotal = Number(valConc) * Number(it.quantidade || 1);
+                      const custo = it.melhorPreco ? Number(it.melhorPreco.precoUnitario) * Number(it.quantidade || 1) : 0;
+                      return acc + (subtotal - custo);
+                    }
+                    return acc;
+                  }, 0);
+                  if (lucroProvisorioTotal > 0) {
+                    return (
+                      <span style={{ 
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        background: 'rgba(52, 211, 153, 0.15)',
+                        color: '#34d399',
+                        padding: '0.2rem 0.6rem',
+                        borderRadius: '999px',
+                        fontWeight: 700,
+                        fontSize: '0.9rem',
+                        border: '1px solid rgba(52, 211, 153, 0.4)',
+                        boxShadow: '0 0 10px rgba(52, 211, 153, 0.1)'
+                      }}>
+                        💰 Lucro Provisório Total: R$ {lucroProvisorioTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             </div>
 
@@ -1561,8 +1593,40 @@ export default function OportunidadeDetalhe() {
                 <h3 style={{ margin: 0, color: '#c7d2fe', fontSize: '1rem' }}>Cenário: Nosso Lance Oficial (Faturamento Real)</h3>
                 <p style={{ margin: 0, fontSize: '0.85rem', color: '#818cf8' }}>Cálculo automático: Nosso Lance Oficial × Quantidade</p>
               </div>
-              <div style={{ fontSize: '2rem', fontWeight: 700, color: '#818cf8' }}>
-                R$ {Number(cotacao.itens.reduce((acc: number, it: any) => acc + ((liveLances[it._id]?.nossoLance ?? (it.produtoId?.valorNossoLance || it.valorNossoLance || 0)) * Number(it.quantidade || 1)), 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
+                <div style={{ fontSize: '2rem', fontWeight: 700, color: '#818cf8' }}>
+                  R$ {Number(cotacao.itens.reduce((acc: number, it: any) => acc + ((liveLances[it._id]?.nossoLance ?? (it.produtoId?.valorNossoLance || it.valorNossoLance || 0)) * Number(it.quantidade || 1)), 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                {(() => {
+                  const lucroRealTotal = cotacao.itens.reduce((acc: number, it: any) => {
+                    const valLance = liveLances[it._id]?.nossoLance ?? (it.produtoId?.valorNossoLance || it.valorNossoLance || 0);
+                    if (valLance > 0) {
+                      const subtotal = Number(valLance) * Number(it.quantidade || 1);
+                      const custo = it.melhorPreco ? Number(it.melhorPreco.precoUnitario) * Number(it.quantidade || 1) : 0;
+                      return acc + (subtotal - custo);
+                    }
+                    return acc;
+                  }, 0);
+                  if (lucroRealTotal > 0) {
+                    return (
+                      <span style={{ 
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        background: 'rgba(52, 211, 153, 0.2)',
+                        color: '#10b981',
+                        padding: '0.2rem 0.6rem',
+                        borderRadius: '999px',
+                        fontWeight: 800,
+                        fontSize: '0.9rem',
+                        border: '1px solid rgba(52, 211, 153, 0.5)',
+                        boxShadow: '0 0 15px rgba(52, 211, 153, 0.2)'
+                      }}>
+                        🏆 Lucro Real Total: R$ {lucroRealTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             </div>
 
