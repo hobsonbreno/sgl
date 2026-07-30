@@ -516,6 +516,11 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                 <h5 style={{ margin: '0 0 0.5rem 0', color: '#b45309', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <AlertCircle size={16} /> Relatório de Inteligência PNCP (Últimos 6 Meses - UF: CE)
                 </h5>
+                {intelligenceData.baixaConfianca && (
+                  <p style={{ margin: '0 0 0.5rem 0', color: '#dc2626', fontSize: '0.85rem', fontWeight: 600 }}>
+                    ⚠️ Baseado em apenas {intelligenceData.amostraEncontrada || 0} registro(s) — os dados podem não representar a realidade do mercado.
+                  </p>
+                )}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
                   <div style={{ background: '#fff', padding: '0.75rem', borderRadius: '6px', border: '1px solid #fef3c7' }}>
                     <p style={{ fontSize: '0.75rem', color: '#92400e', margin: 0 }}>Menor Preço Encontrado</p>

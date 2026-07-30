@@ -83,6 +83,8 @@ export class ComprasDadosAbertosService {
            return {
              sucesso: true,
              semDados: true,
+             baixaConfianca: true,
+             amostraEncontrada: 0,
              precoMinimo: null,
              precoMaximo: null,
              precoMedio: null,
@@ -116,6 +118,8 @@ export class ComprasDadosAbertosService {
 
       return {
         sucesso: true,
+        baixaConfianca: precosFinais.length < 5,
+        amostraEncontrada: precosFinais.length,
         precoMinimo,
         precoMaximo,
         precoMedio,
