@@ -355,13 +355,26 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                      try {
                        let keyword = 'Produto';
                        const desc: string = item.descricaoItem || item.descricao || item.descricaoCurta || '';
-                       const words: string[] = desc.split(/[ -]+/); // divide por espaço ou hífen
-                       const validWord = words.find((w: string) => /^[a-zA-ZÀ-ÿ]{3,}$/.test(w));
-                       if (validWord) {
-                         keyword = validWord;
+                       
+                       // A descrição geralmente começa com o nome do produto, seguido de vírgulas. Ex: "ACUCAR, TIPO CRISTAL..."
+                       // Extrai tudo até a primeira vírgula ou ponto.
+                       let extracted = desc.split(/[,.]/)[0].trim();
+                       
+                       // Remove caracteres especiais, deixando apenas letras, números e espaços
+                       extracted = extracted.replace(/[^a-zA-ZÀ-ÿ0-9 ]/g, '').trim();
+
+                       // Se tiver mais de 2 palavras, tenta pegar a primeira palavra principal
+                       const words = extracted.split(/[ -]+/);
+                       if (words.length > 0 && words[0].length >= 3) {
+                          keyword = words[0];
+                       } else if (words.length > 1 && words[1].length >= 3) {
+                          keyword = words.slice(0, 2).join(' ');
+                       } else if (extracted.length >= 3) {
+                          keyword = extracted;
                        } else {
-                         keyword = words[0] || 'Produto';
+                          keyword = 'Produto';
                        }
+
                        if (!keyword || keyword.trim() === '') {
                           keyword = 'Produto';
                        }
