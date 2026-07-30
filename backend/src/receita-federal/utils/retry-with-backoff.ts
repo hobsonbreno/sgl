@@ -24,7 +24,7 @@ export async function retryWithBackoff<T>(
     } catch (err) {
       lastError = err as Error;
 
-      const code = (err as any).code;
+      const code = err.code;
       const isRetriable =
         code === 'ETIMEDOUT' ||
         code === 'ECONNRESET' ||

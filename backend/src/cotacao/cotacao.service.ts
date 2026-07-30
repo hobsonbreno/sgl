@@ -23,8 +23,10 @@ export class CotacaoService {
       if (initialItems.length > 0) {
         let changed = false;
         for (const initialItem of initialItems) {
-          const itemJaExiste = existe.itens.some((it) => 
-            it.produtoId && it.produtoId.toString() === initialItem._id.toString()
+          const itemJaExiste = existe.itens.some(
+            (it) =>
+              it.produtoId &&
+              it.produtoId.toString() === initialItem._id.toString(),
           );
           if (!itemJaExiste) {
             existe.itens.push({
@@ -123,7 +125,8 @@ export class CotacaoService {
       item.precosFornecedores[fIdx].observacao = precoData.observacao;
       item.precosFornecedores[fIdx].desclassificado =
         precoData.desclassificado || false;
-      if (precoData.linkProduto) item.precosFornecedores[fIdx].linkProduto = precoData.linkProduto;
+      if (precoData.linkProduto)
+        item.precosFornecedores[fIdx].linkProduto = precoData.linkProduto;
     } else {
       item.precosFornecedores.push({
         fornecedorId: new mongoose.Types.ObjectId(precoData.fornecedorId),
@@ -210,15 +213,26 @@ export class CotacaoService {
   }
 
   private async checkAndMoveKanban(doc: any) {
-    const todosItensCotados = doc.itens.length > 0 && doc.itens.every((it: any) => it.melhorPreco && it.melhorPreco.precoUnitario > 0);
+    const todosItensCotados =
+      doc.itens.length > 0 &&
+      doc.itens.every(
+        (it: any) => it.melhorPreco && it.melhorPreco.precoUnitario > 0,
+      );
     if (todosItensCotados) {
-      const op = await this.connection.collection('oportunidades').findOne({ _id: doc.oportunidadeId });
+      const op = await this.connection
+        .collection('oportunidades')
+        .findOne({ _id: doc.oportunidadeId });
       // Mover para FEITO (Concluído / Pronto para Pregão) se estiver nas fases iniciais
-      if (op && (op.kanbanStatus === 'FAZENDO' || op.kanbanStatus === 'A_FAZER')) {
-         await this.connection.collection('oportunidades').updateOne(
-           { _id: doc.oportunidadeId },
-           { $set: { kanbanStatus: 'FEITO' } }
-         );
+      if (
+        op &&
+        (op.kanbanStatus === 'FAZENDO' || op.kanbanStatus === 'A_FAZER')
+      ) {
+        await this.connection
+          .collection('oportunidades')
+          .updateOne(
+            { _id: doc.oportunidadeId },
+            { $set: { kanbanStatus: 'FEITO' } },
+          );
       }
     }
   }
@@ -289,7 +303,11 @@ export class CotacaoService {
     return this.findOne(cotacaoId);
   }
 
-  async buscarPrecosWebAuto(cotacaoId: string, itemId: string, location?: string) {
+  async buscarPrecosWebAuto(
+    cotacaoId: string,
+    itemId: string,
+    location?: string,
+  ) {
     const doc = await this.model.findById(cotacaoId).exec();
     if (!doc) throw new NotFoundException('Cotação não encontrada');
 
@@ -297,26 +315,41 @@ export class CotacaoService {
     if (!item) throw new NotFoundException('Item não encontrado na cotação');
 
     // 1. Bot dispara a busca
-    const fornecedoresWeb = await this.supplierDiscoveryService.discoverSuppliersForProduct(item.descricaoItem, location);
+    const fornecedoresWeb =
+      await this.supplierDiscoveryService.discoverSuppliersForProduct(
+        item.descricaoItem,
+        location,
+      );
 
     // 2. Registra na cotação
     for (const f of fornecedoresWeb) {
-       // Verifica se já existe um preço validado pelo comprador (> 0)
-       const precoExistente = item.precosFornecedores.find(p => p.fornecedorId.toString() === f.id);
-       
-       if (precoExistente && precoExistente.precoUnitario > 0 && f.precoUnitario === 0) {
-           // Não sobrescreve um preço real que o comprador já preencheu com um 0.00 do bot
-           continue; 
-       }
+      // Verifica se já existe um preço validado pelo comprador (> 0)
+      const precoExistente = item.precosFornecedores.find(
+        (p) => p.fornecedorId.toString() === f.id,
+      );
 
-       await this.updatePreco(cotacaoId, itemId, {
-          fornecedorId: f.id,
-          precoUnitario: f.precoUnitario,
-          observacao: precoExistente ? precoExistente.observacao : 'Preço prospectado automaticamente pelo Robô',
-          linkProduto: f.linkProduto,
-       });
+      if (
+        precoExistente &&
+        precoExistente.precoUnitario > 0 &&
+        f.precoUnitario === 0
+      ) {
+        // Não sobrescreve um preço real que o comprador já preencheu com um 0.00 do bot
+        continue;
+      }
+
+      await this.updatePreco(cotacaoId, itemId, {
+        fornecedorId: f.id,
+        precoUnitario: f.precoUnitario,
+        observacao: precoExistente
+          ? precoExistente.observacao
+          : 'Preço prospectado automaticamente pelo Robô',
+        linkProduto: f.linkProduto,
+      });
     }
 
-    return { message: 'Busca web finalizada', encontrados: fornecedoresWeb.length };
+    return {
+      message: 'Busca web finalizada',
+      encontrados: fornecedoresWeb.length,
+    };
   }
 }

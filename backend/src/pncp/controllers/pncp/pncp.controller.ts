@@ -9,20 +9,32 @@ import { mapPncpParaOportunidade, OportunidadeDto } from '../../dtos/pncp.dto';
 export class PncpController {
   constructor(
     private readonly pncpClientService: PncpClientService,
-    private readonly comprasDadosAbertosService: ComprasDadosAbertosService
+    private readonly comprasDadosAbertosService: ComprasDadosAbertosService,
   ) {}
 
   @Get('inteligencia-precos')
   @ApiOperation({
-    summary: 'Busca histórico de preços de contratos para inteligência competitiva',
+    summary:
+      'Busca histórico de preços de contratos para inteligência competitiva',
   })
-  @ApiQuery({ name: 'keyword', required: true, description: 'Palavra-chave do produto (ex: Frango)' })
-  @ApiQuery({ name: 'uf', required: true, description: 'Sigla do Estado (ex: CE)' })
+  @ApiQuery({
+    name: 'keyword',
+    required: true,
+    description: 'Palavra-chave do produto (ex: Frango)',
+  })
+  @ApiQuery({
+    name: 'uf',
+    required: true,
+    description: 'Sigla do Estado (ex: CE)',
+  })
   async inteligenciaPrecos(
     @Query('keyword') keyword: string,
     @Query('uf') uf: string,
   ) {
-    return this.comprasDadosAbertosService.pesquisarHistoricoPrecos(keyword, uf);
+    return this.comprasDadosAbertosService.pesquisarHistoricoPrecos(
+      keyword,
+      uf,
+    );
   }
 
   @Get('test-busca')

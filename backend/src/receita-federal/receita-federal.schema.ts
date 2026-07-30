@@ -43,7 +43,7 @@ export class EmpresaDataLake {
 
   @Prop()
   logradouro?: string; // (Passo 1)
-  
+
   @Prop()
   numero?: string; // (Passo 1)
 
@@ -54,7 +54,8 @@ export class EmpresaDataLake {
   bairro?: string; // (Passo 1)
 }
 
-export const EmpresaDataLakeSchema = SchemaFactory.createForClass(EmpresaDataLake);
+export const EmpresaDataLakeSchema =
+  SchemaFactory.createForClass(EmpresaDataLake);
 
 // Índices compostos para buscas ultra-rápidas no robô web
 EmpresaDataLakeSchema.index({ uf: 1, cnae_principal: 1 });

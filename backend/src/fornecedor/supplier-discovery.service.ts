@@ -31,9 +31,21 @@ export class SupplierDiscoveryService {
 
   private isBlacklisted(nome: string): boolean {
     if (!nome) return false;
-    const blacklist = ['CORREIOS', 'CAIXA ECONOMICA', 'BANCO DO BRASIL', 'MERCADO LIVRE', 'AMAZON', 'SHOPEE', 'MAGAZINE LUIZA', 'AMERICANAS', 'BNDES', 'RECEITA FEDERAL', 'GOVERNO'];
+    const blacklist = [
+      'CORREIOS',
+      'CAIXA ECONOMICA',
+      'BANCO DO BRASIL',
+      'MERCADO LIVRE',
+      'AMAZON',
+      'SHOPEE',
+      'MAGAZINE LUIZA',
+      'AMERICANAS',
+      'BNDES',
+      'RECEITA FEDERAL',
+      'GOVERNO',
+    ];
     const upper = nome.toUpperCase();
-    return blacklist.some(b => upper.includes(b));
+    return blacklist.some((b) => upper.includes(b));
   }
 
   private normalizeStr(str: string): string {
@@ -121,9 +133,9 @@ export class SupplierDiscoveryService {
     const municipiosPermitidos =
       ativo?.municipiosBuscaFornecedores?.map((m) => this.normalizeStr(m)) ||
       [];
-    const nichosStr = 
+    const nichosStr =
       ativo?.nichosFornecedores && ativo.nichosFornecedores.length > 0
-        ? `(${ativo.nichosFornecedores.map(n => `"${n.trim()}"`).join(' OR ')})`
+        ? `(${ativo.nichosFornecedores.map((n) => `"${n.trim()}"`).join(' OR ')})`
         : '("atacadista" OR "distribuidor" OR "industria" OR "produtor" OR "fabrica")';
 
     const ufAlvo = ufsPermitidas.length > 0 ? ufsPermitidas[0] : 'CE';
@@ -358,7 +370,9 @@ export class SupplierDiscoveryService {
 
                 // VALIDAÇÃO DA BLACKLIST
                 if (this.isBlacklisted(razaoOuFantasia)) {
-                  this.logger.log(`SerpApi: Fornecedor ignorado por Blacklist Institucional: ${razaoOuFantasia}`);
+                  this.logger.log(
+                    `SerpApi: Fornecedor ignorado por Blacklist Institucional: ${razaoOuFantasia}`,
+                  );
                   continue;
                 }
 
@@ -387,12 +401,27 @@ export class SupplierDiscoveryService {
               }
 
               // VALIDAÇÃO ESTRITA DE REGIÃO (Ignora fornecedores de outros estados/cidades, ex: Maranhão)
-              if (ufsPermitidas.length > 0 && fornecedor.uf && !ufsPermitidas.includes(this.normalizeStr(fornecedor.uf))) {
-                this.logger.log(`SerpApi: Fornecedor ${fornecedor.cnpj} ignorado (UF '${fornecedor.uf}' fora da permitida)`);
+              if (
+                ufsPermitidas.length > 0 &&
+                fornecedor.uf &&
+                !ufsPermitidas.includes(this.normalizeStr(fornecedor.uf))
+              ) {
+                this.logger.log(
+                  `SerpApi: Fornecedor ${fornecedor.cnpj} ignorado (UF '${fornecedor.uf}' fora da permitida)`,
+                );
                 continue;
               }
-              if (municipiosPermitidos.length > 0 && municipiosPermitidos[0] !== '' && fornecedor.cidade && !municipiosPermitidos.includes(this.normalizeStr(fornecedor.cidade))) {
-                this.logger.log(`SerpApi: Fornecedor ${fornecedor.cnpj} ignorado (Município '${fornecedor.cidade}' fora do permitido)`);
+              if (
+                municipiosPermitidos.length > 0 &&
+                municipiosPermitidos[0] !== '' &&
+                fornecedor.cidade &&
+                !municipiosPermitidos.includes(
+                  this.normalizeStr(fornecedor.cidade),
+                )
+              ) {
+                this.logger.log(
+                  `SerpApi: Fornecedor ${fornecedor.cnpj} ignorado (Município '${fornecedor.cidade}' fora do permitido)`,
+                );
                 continue;
               }
 
@@ -407,7 +436,10 @@ export class SupplierDiscoveryService {
           }
         } catch (err) {
           this.logger.error(`Erro na requisição SerpApi: ${err.message}`);
-          throw new HttpException(`Erro de comunicação com SerpApi: ${err.message}`, 502);
+          throw new HttpException(
+            `Erro de comunicação com SerpApi: ${err.message}`,
+            502,
+          );
         }
       } else {
         this.logger.warn(

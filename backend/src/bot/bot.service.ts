@@ -235,7 +235,9 @@ export class BotService implements OnApplicationBootstrap {
                         const descItem = normalizar(item.descricao);
                         return perfil.palavrasChave.some((p) => {
                           const keyword = normalizar(p);
-                          return keyword.length > 0 && descItem.includes(keyword);
+                          return (
+                            keyword.length > 0 && descItem.includes(keyword)
+                          );
                         });
                       });
                       // Aguarda um pouco para não estourar o limite de requisições do PNCP na busca de itens
@@ -269,7 +271,8 @@ export class BotService implements OnApplicationBootstrap {
                     {
                       $set: {
                         situacaoCompraNome: opDto.situacaoCompraNome,
-                        dataEncerramentoProposta: opDto.dataEncerramentoProposta,
+                        dataEncerramentoProposta:
+                          opDto.dataEncerramentoProposta,
                         valorTotalEstimado: opDto.valorTotalEstimado,
                       },
                     },
@@ -295,7 +298,10 @@ export class BotService implements OnApplicationBootstrap {
                   jobName: 'automacao-pncp',
                   itemId: numControle,
                   stage: 'processar_oportunidade',
-                  error: itemErr instanceof Error ? itemErr : new Error(String(itemErr)),
+                  error:
+                    itemErr instanceof Error
+                      ? itemErr
+                      : new Error(String(itemErr)),
                   inputSnapshot: raw,
                 });
                 continue; // Permite que os próximos itens do PNCP sejam processados

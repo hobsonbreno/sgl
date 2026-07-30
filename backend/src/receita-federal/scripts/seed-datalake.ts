@@ -21,7 +21,7 @@ async function bootstrap() {
 
     logger.log('[SeedDataLake] Pipeline concluído com sucesso.');
   } catch (err) {
-    logger.error(`[SeedDataLake] Pipeline falhou após retries: ${(err as any).message}`);
+    logger.error(`[SeedDataLake] Pipeline falhou após retries: ${err.message}`);
     process.exit(1);
   } finally {
     await app.close();

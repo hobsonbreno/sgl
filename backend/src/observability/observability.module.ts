@@ -5,7 +5,11 @@ import { SyncFailureLoggerService } from './sync-failure-logger.service';
 import { SyncFailureController } from './sync-failure.controller';
 
 @Module({
-  imports: [MongooseModule.forFeature([{ name: SyncFailure.name, schema: SyncFailureSchema }])],
+  imports: [
+    MongooseModule.forFeature([
+      { name: SyncFailure.name, schema: SyncFailureSchema },
+    ]),
+  ],
   controllers: [SyncFailureController],
   providers: [SyncFailureLoggerService],
   exports: [SyncFailureLoggerService],

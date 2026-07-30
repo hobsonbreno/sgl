@@ -36,19 +36,23 @@ export class ResultadoItemCollectorService {
     const dataFinal = formatData(hoje);
     const dataInicial = formatData(tresDiasAtras);
 
-    let pagina = 1;
-    let totalPaginas = 1;
-    let limitReached = false;
+    // Modalidades principais: 6 (Dispensa), 8 (Pregão), 2 (Concorrência)
+    const modalidades = [6, 8, 2];
 
-    while (pagina <= totalPaginas && !limitReached) {
-      try {
-        const url = `https://pncp.gov.br/api/consulta/v1/contratacoes/atualizacao?dataInicial=${dataInicial}&dataFinal=${dataFinal}&pagina=${pagina}`;
-        const res = await this.fazerRequisicaoComRetry(url);
-        
-        if (!res || !res.data || res.data.length === 0) break;
-        totalPaginas = res.totalPaginas || 1;
+    for (const modalidade of modalidades) {
+      let pagina = 1;
+      let totalPaginas = 1;
+      let limitReached = false;
 
-        for (const compra of res.data) {
+      while (pagina <= totalPaginas && !limitReached) {
+        try {
+          const url = `https://pncp.gov.br/api/consulta/v1/contratacoes/atualizacao?dataInicial=${dataInicial}&dataFinal=${dataFinal}&codigoModalidadeContratacao=${modalidade}&pagina=${pagina}`;
+          const res = await this.fazerRequisicaoComRetry(url);
+          
+          if (!res || !res.data || res.data.length === 0) break;
+          totalPaginas = res.totalPaginas || 1;
+
+          for (const compra of res.data) {
           try {
             // Filtro client-side: Só processa se tiver valorTotalHomologado
             if (compra.valorTotalHomologado === null && compra.situacaoCompraId !== 4) {
@@ -127,11 +131,12 @@ export class ResultadoItemCollectorService {
           }
         }
 
-        pagina++;
-        await new Promise(r => setTimeout(r, 1500));
-      } catch (e) {
-        this.logger.error(`Erro na página ${pagina}: ${e.message}`);
-        break;
+          pagina++;
+          await new Promise(r => setTimeout(r, 1500));
+        } catch (e) {
+          this.logger.error(`Erro na página ${pagina} (Modalidade ${modalidade}): ${e.message}`);
+          break;
+        }
       }
     }
     this.logger.log('Job de resultados finalizado.');

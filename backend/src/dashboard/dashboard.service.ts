@@ -80,38 +80,47 @@ export class DashboardService {
     }
 
     // Calcular Economia Gerada Total nas Cotacoes
-    const savingsAgregacao = await this.connection.collection('cotacaos').aggregate([
-      { $unwind: "$itens" },
-      { 
-        $match: { 
-          "itens.melhorPreco.precoUnitario": { $gt: 0 },
-          "itens.valorUnitarioEstimado": { $gt: 0 }
-        }
-      },
-      {
-        $project: {
-          economiaItem: {
-            $multiply: [
-              { $subtract: ["$itens.valorUnitarioEstimado", "$itens.melhorPreco.precoUnitario"] },
-              { $ifNull: ["$itens.quantidade", 1] }
-            ]
-          }
-        }
-      },
-      {
-        $match: {
-          economiaItem: { $gt: 0 }
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          totalEconomia: { $sum: "$economiaItem" }
-        }
-      }
-    ]).toArray();
+    const savingsAgregacao = await this.connection
+      .collection('cotacaos')
+      .aggregate([
+        { $unwind: '$itens' },
+        {
+          $match: {
+            'itens.melhorPreco.precoUnitario': { $gt: 0 },
+            'itens.valorUnitarioEstimado': { $gt: 0 },
+          },
+        },
+        {
+          $project: {
+            economiaItem: {
+              $multiply: [
+                {
+                  $subtract: [
+                    '$itens.valorUnitarioEstimado',
+                    '$itens.melhorPreco.precoUnitario',
+                  ],
+                },
+                { $ifNull: ['$itens.quantidade', 1] },
+              ],
+            },
+          },
+        },
+        {
+          $match: {
+            economiaItem: { $gt: 0 },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalEconomia: { $sum: '$economiaItem' },
+          },
+        },
+      ])
+      .toArray();
 
-    const totalEconomiaGerada = savingsAgregacao.length > 0 ? savingsAgregacao[0].totalEconomia : 0;
+    const totalEconomiaGerada =
+      savingsAgregacao.length > 0 ? savingsAgregacao[0].totalEconomia : 0;
 
     return {
       novasHoje,
