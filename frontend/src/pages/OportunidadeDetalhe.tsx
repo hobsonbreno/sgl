@@ -1529,21 +1529,22 @@ export default function OportunidadeDetalhe() {
                     }
                     return acc;
                   }, 0);
-                  if (lucroProvisorioTotal > 0) {
+                  if (lucroProvisorioTotal !== 0) {
+                    const isLucro = lucroProvisorioTotal > 0;
                     return (
                       <span style={{ 
                         display: 'inline-flex',
                         alignItems: 'center',
-                        background: 'rgba(52, 211, 153, 0.15)',
-                        color: '#34d399',
+                        background: isLucro ? 'rgba(52, 211, 153, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                        color: isLucro ? '#34d399' : '#f87171',
                         padding: '0.2rem 0.6rem',
                         borderRadius: '999px',
                         fontWeight: 700,
                         fontSize: '0.9rem',
-                        border: '1px solid rgba(52, 211, 153, 0.4)',
-                        boxShadow: '0 0 10px rgba(52, 211, 153, 0.1)'
+                        border: `1px solid ${isLucro ? 'rgba(52, 211, 153, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`,
+                        boxShadow: `0 0 10px ${isLucro ? 'rgba(52, 211, 153, 0.1)' : 'rgba(239, 68, 68, 0.1)'}`
                       }}>
-                        💰 Lucro Provisório Total: R$ {lucroProvisorioTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {isLucro ? '💰 Lucro Provisório Total: ' : '🔻 Prejuízo Provisório Total: '}R$ {Math.abs(lucroProvisorioTotal).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     );
                   }
@@ -1607,21 +1608,22 @@ export default function OportunidadeDetalhe() {
                     }
                     return acc;
                   }, 0);
-                  if (lucroRealTotal > 0) {
+                  if (lucroRealTotal !== 0) {
+                    const isLucro = lucroRealTotal > 0;
                     return (
                       <span style={{ 
                         display: 'inline-flex',
                         alignItems: 'center',
-                        background: 'rgba(52, 211, 153, 0.2)',
-                        color: '#10b981',
+                        background: isLucro ? 'rgba(52, 211, 153, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                        color: isLucro ? '#10b981' : '#ef4444',
                         padding: '0.2rem 0.6rem',
                         borderRadius: '999px',
                         fontWeight: 800,
                         fontSize: '0.9rem',
-                        border: '1px solid rgba(52, 211, 153, 0.5)',
-                        boxShadow: '0 0 15px rgba(52, 211, 153, 0.2)'
+                        border: `1px solid ${isLucro ? 'rgba(52, 211, 153, 0.5)' : 'rgba(239, 68, 68, 0.5)'}`,
+                        boxShadow: `0 0 15px ${isLucro ? 'rgba(52, 211, 153, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`
                       }}>
-                        🏆 Lucro Real Total: R$ {lucroRealTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {isLucro ? '🏆 Lucro Real Total: ' : '🔻 Prejuízo Real Total: '}R$ {Math.abs(lucroRealTotal).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     );
                   }
