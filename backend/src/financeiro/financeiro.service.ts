@@ -285,4 +285,63 @@ export class FinanceiroService {
   async remove(id: string) {
     return this.transacaoModel.findByIdAndDelete(id).exec();
   }
+
+  async obterRBT12Atual(): Promise<number> {
+    const dozeMesesAtras = new Date();
+    dozeMesesAtras.setMonth(dozeMesesAtras.getMonth() - 12);
+
+    const transacoes = await this.transacaoModel.find({
+      tipo: 'RECEITA',
+      status: 'PAGO',
+      dataPagamento: { $gte: dozeMesesAtras }
+    }).exec();
+
+    let rbt12 = 0;
+    for (const t of transacoes) {
+      rbt12 += (t.valor || 0);
+    }
+    
+    // Fallback pra zero caso seja empresa nova
+    return rbt12 > 0 ? rbt12 : 0; 
+  }
+
+  calcularAliquotaEfetiva(rbt12: number): number {
+    if (rbt12 <= 0) return 0.06; // Empresa no início de atividade (1ª faixa direto)
+    
+    // Tabela Anexo III - Simples Nacional (Serviços)
+    // Faixa 1: Até 180.000,00 -> 6% (Dedução: 0)
+    // Faixa 2: 180.000,01 a 360.000,00 -> 11,2% (Dedução: 9.360,00)
+    // Faixa 3: 360.000,01 a 720.000,00 -> 13,5% (Dedução: 17.640,00)
+    // Faixa 4: 720.000,01 a 1.800.000,00 -> 16,0% (Dedução: 35.640,00)
+    // Faixa 5: 1.800.000,01 a 3.600.000,00 -> 21,0% (Dedução: 125.640,00)
+    // Faixa 6: 3.600.000,01 a 4.800.000,00 -> 33,0% (Dedução: 557.640,00)
+
+    let aliquotaNominal = 0.06;
+    let parcelaDeduzir = 0;
+
+    if (rbt12 <= 180000) {
+      aliquotaNominal = 0.06;
+      parcelaDeduzir = 0;
+    } else if (rbt12 <= 360000) {
+      aliquotaNominal = 0.112;
+      parcelaDeduzir = 9360;
+    } else if (rbt12 <= 720000) {
+      aliquotaNominal = 0.135;
+      parcelaDeduzir = 17640;
+    } else if (rbt12 <= 1800000) {
+      aliquotaNominal = 0.16;
+      parcelaDeduzir = 35640;
+    } else if (rbt12 <= 3600000) {
+      aliquotaNominal = 0.21;
+      parcelaDeduzir = 125640;
+    } else {
+      aliquotaNominal = 0.33;
+      parcelaDeduzir = 557640;
+    }
+
+    const impostoDevido = (rbt12 * aliquotaNominal) - parcelaDeduzir;
+    const aliquotaEfetiva = impostoDevido / rbt12;
+    
+    return aliquotaEfetiva;
+  }
 }
