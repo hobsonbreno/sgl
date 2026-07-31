@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Check, AlertCircle, Trash2, ChevronDown, ChevronUp, X, ExternalLink, Copy, XCircle, RotateCw, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { SimuladorTributario } from '../components/SimuladorTributario';
 function CopyRow({ label, value }: { label: string, value: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -1088,7 +1089,7 @@ export default function OportunidadeDetalhe() {
   const { id } = useParams();
   const [oportunidade, setOportunidade] = useState<any>(null);
   const [cotacao, setCotacao] = useState<any>(null);
-  const [aba, setAba] = useState<'edital' | 'cotacao' | 'portal'>('edital');
+  const [aba, setAba] = useState<'edital' | 'cotacao' | 'simulador' | 'portal'>('edital');
   const [loading, setLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const navigate = useNavigate();
@@ -1388,6 +1389,12 @@ export default function OportunidadeDetalhe() {
           style={{ padding: '0.75rem 1.5rem', background: 'none', border: 'none', borderBottom: aba === 'portal' ? '2px solid var(--primary)' : '2px solid transparent', color: aba === 'portal' ? 'var(--primary)' : 'var(--text-muted)', fontWeight: 600, cursor: 'pointer' }}
         >
           Portal de Compras
+        </button>
+        <button 
+          onClick={() => setAba('simulador')}
+          style={{ padding: '0.75rem 1.5rem', background: 'none', border: 'none', borderBottom: aba === 'simulador' ? '2px solid var(--primary)' : '2px solid transparent', color: aba === 'simulador' ? 'var(--primary)' : 'var(--text-muted)', fontWeight: 600, cursor: 'pointer' }}
+        >
+          Simulador Tributário
         </button>
       </div>
 
@@ -1809,6 +1816,12 @@ export default function OportunidadeDetalhe() {
               </p>
             </div>
           </div>
+        </div>
+      )}
+
+      {aba === 'simulador' && (
+        <div style={{ marginTop: '1rem' }} className="animate-fadeIn">
+          <SimuladorTributario oportunidadeId={id as string} />
         </div>
       )}
     </div>
