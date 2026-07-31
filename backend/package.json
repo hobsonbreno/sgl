@@ -79,5 +79,9 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
+  },
+  "overrides": {
+    "js-yaml": "latest",
+    "fast-uri": "latest"
   }
 }
