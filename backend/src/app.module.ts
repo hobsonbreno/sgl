@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { LoggerModule } from 'nestjs-pino';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -21,6 +22,21 @@ import { ObservabilityModule } from './observability/observability.module';
 
 @Module({
   imports: [
+    LoggerModule.forRoot({
+      pinoHttp: {
+        transport: process.env.NODE_ENV !== 'production' 
+          ? { target: 'pino-pretty', options: { colorize: true } } 
+          : undefined,
+        level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+        customProps: (req, res) => ({
+          context: 'HTTP',
+        }),
+        serializers: {
+          req: (req) => ({ method: req.method, url: req.url }),
+          res: (res) => ({ statusCode: res.statusCode }),
+        },
+      },
+    }),
     MongooseModule.forRoot(
       process.env.MONGO_URI || 'mongodb://mongo:27017/licitacoes',
     ),
