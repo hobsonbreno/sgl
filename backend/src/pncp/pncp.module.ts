@@ -9,7 +9,10 @@ import {
   OportunidadeSchema,
 } from '../oportunidade/oportunidade.schema';
 import { Produto, ProdutoSchema } from '../produto/produto.schema';
-import { ResultadoItem, ResultadoItemSchema } from './schemas/resultado-item.schema';
+import {
+  ResultadoItem,
+  ResultadoItemSchema,
+} from './schemas/resultado-item.schema';
 import { ResultadoItemCollectorService } from './services/resultado-item-collector/resultado-item-collector.service';
 
 @Module({
@@ -21,7 +24,11 @@ import { ResultadoItemCollectorService } from './services/resultado-item-collect
       { name: ResultadoItem.name, schema: ResultadoItemSchema },
     ]),
   ],
-  providers: [PncpClientService, ComprasDadosAbertosService, ResultadoItemCollectorService],
+  providers: [
+    PncpClientService,
+    ComprasDadosAbertosService,
+    ResultadoItemCollectorService,
+  ],
   controllers: [PncpController],
   exports: [PncpClientService, ComprasDadosAbertosService],
 })

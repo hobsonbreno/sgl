@@ -15,7 +15,11 @@ export class MesProjecao {
 
 @Schema({ timestamps: true })
 export class SimulacaoEstrategia {
-  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Oportunidade', required: true })
+  @Prop({
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Oportunidade',
+    required: true,
+  })
   oportunidadeId: mongoose.Types.ObjectId;
 
   @Prop({ required: true })
@@ -43,4 +47,5 @@ export class SimulacaoEstrategia {
   lucroLiquidoTotal: number;
 }
 
-export const SimulacaoSchema = SchemaFactory.createForClass(SimulacaoEstrategia);
+export const SimulacaoSchema =
+  SchemaFactory.createForClass(SimulacaoEstrategia);

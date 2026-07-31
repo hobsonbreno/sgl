@@ -10,19 +10,27 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { Oportunidade, OportunidadeDocument } from './oportunidade.schema';
 import { PncpClientService } from '../pncp/services/pncp-client/pncp-client.service';
 import { Produto, ProdutoDocument } from '../produto/produto.schema';
-import { SimulacaoEstrategia, SimulacaoDocument } from './schemas/simulacao.schema';
-import { SimularEstrategiaDto, ModeloEntrega } from './dtos/simular-estrategia.dto';
+import {
+  SimulacaoEstrategia,
+  SimulacaoDocument,
+} from './schemas/simulacao.schema';
+import {
+  SimularEstrategiaDto,
+  ModeloEntrega,
+} from './dtos/simular-estrategia.dto';
 import { FinanceiroService } from '../financeiro/financeiro.service';
 import { Cotacao, CotacaoDocument } from '../cotacao/cotacao.schema';
 
 @Injectable()
 export class OportunidadeService {
   constructor(
-    @InjectPinoLogger(OportunidadeService.name) private readonly logger: PinoLogger,
+    @InjectPinoLogger(OportunidadeService.name)
+    private readonly logger: PinoLogger,
     @InjectModel(Oportunidade.name) private model: Model<OportunidadeDocument>,
     private readonly pncpClientService: PncpClientService,
     @InjectModel(Produto.name) private produtoModel: Model<ProdutoDocument>,
-    @InjectModel(SimulacaoEstrategia.name) private simulacaoModel: Model<SimulacaoDocument>,
+    @InjectModel(SimulacaoEstrategia.name)
+    private simulacaoModel: Model<SimulacaoDocument>,
     private readonly financeiroService: FinanceiroService,
     @InjectModel(Cotacao.name) private cotacaoModel: Model<CotacaoDocument>,
   ) {}
@@ -187,22 +195,30 @@ export class OportunidadeService {
   }
 
   async simularEstrategia(dto: SimularEstrategiaDto) {
-    this.logger.info({ 
-      evt: 'INICIANDO_SIMULACAO_TRIBUTARIA', 
-      oportunidadeId: dto.oportunidadeId,
-      modeloEntrega: dto.modeloEntrega 
-    }, `Processando estratégia para o lance total de R$ ${dto.lanceTotal}`);
+    this.logger.info(
+      {
+        evt: 'INICIANDO_SIMULACAO_TRIBUTARIA',
+        oportunidadeId: dto.oportunidadeId,
+        modeloEntrega: dto.modeloEntrega,
+      },
+      `Processando estratégia para o lance total de R$ ${dto.lanceTotal}`,
+    );
 
     const rbt12Atual = await this.financeiroService.obterRBT12Atual();
-    
+
     // 1. Busca os Custos
-    const cotacao = await this.cotacaoModel.findOne({ oportunidadeId: dto.oportunidadeId }).exec();
-    
+    const cotacao = await this.cotacaoModel
+      .findOne({ oportunidadeId: dto.oportunidadeId })
+      .exec();
+
     if (!cotacao) {
-      this.logger.error({ 
-        evt: 'COTACAO_NAO_ENCONTRADA', 
-        oportunidadeId: dto.oportunidadeId 
-      }, `Falha crítica: Nenhuma cotação de fornecedor mapeada para a oportunidade.`);
+      this.logger.error(
+        {
+          evt: 'COTACAO_NAO_ENCONTRADA',
+          oportunidadeId: dto.oportunidadeId,
+        },
+        `Falha crítica: Nenhuma cotação de fornecedor mapeada para a oportunidade.`,
+      );
       throw new Error('Cotação base não localizada.');
     }
 
@@ -210,14 +226,17 @@ export class OportunidadeService {
     if (cotacao && cotacao.itens) {
       custoTotal = cotacao.itens.reduce((acc, item: any) => {
         if (item.melhorPreco && item.melhorPreco.precoUnitario) {
-          return acc + (item.melhorPreco.precoUnitario * (item.quantidade || 1));
+          return acc + item.melhorPreco.precoUnitario * (item.quantidade || 1);
         }
         return acc;
       }, 0);
     }
 
     // 2. Prepara variáveis de esteira
-    const meses = dto.modeloEntrega === ModeloEntrega.FRACIONADO && dto.mesesContrato ? dto.mesesContrato : 1;
+    const meses =
+      dto.modeloEntrega === ModeloEntrega.FRACIONADO && dto.mesesContrato
+        ? dto.mesesContrato
+        : 1;
     const faturamentoMensal = dto.lanceTotal / meses;
     const custoMensal = custoTotal / meses;
 
@@ -228,23 +247,24 @@ export class OportunidadeService {
 
     // 3. O Loop de Projeção no Tempo
     for (let i = 1; i <= meses; i++) {
-      const aliquotaEfetiva = this.financeiroService.calcularAliquotaEfetiva(rbt12Projetado);
-      
+      const aliquotaEfetiva =
+        this.financeiroService.calcularAliquotaEfetiva(rbt12Projetado);
+
       const impostoMensal = faturamentoMensal * aliquotaEfetiva;
       const lucroMensal = faturamentoMensal - custoMensal - impostoMensal;
-      
+
       projecaoMensal.push({
         mesIndex: i,
         rbt12Projetado: rbt12Projetado,
         faturamentoMensal: faturamentoMensal,
         aliquotaEfetiva,
         impostoMensal,
-        lucroLiquidoMensal: lucroMensal
+        lucroLiquidoMensal: lucroMensal,
       });
 
       lucroLiquidoTotal += lucroMensal;
       impostosTotal += impostoMensal;
-      
+
       rbt12Projetado += faturamentoMensal;
     }
 
@@ -266,22 +286,28 @@ export class OportunidadeService {
     const statusOperacao = lucroLiquidoTotal > 0 ? 'LUCRO' : 'PREJUIZO_CRITICO';
 
     if (statusOperacao === 'PREJUIZO_CRITICO') {
-      this.logger.warn({
-        evt: 'SIMULACAO_PREJUIZO_DETECTADO',
-        oportunidadeId: dto.oportunidadeId,
-        lanceTotal: dto.lanceTotal,
-        custoTotal: custoTotal,
-        impostosTotal: impostosTotal,
-        resultadoLiquido: lucroLiquidoTotal,
-        rbt12Inicial: rbt12Atual
-      }, `⚠️ Alerta de Margem: O lance proposto de R$ ${dto.lanceTotal} gerará um prejuízo real de R$ ${lucroLiquidoTotal}`);
+      this.logger.warn(
+        {
+          evt: 'SIMULACAO_PREJUIZO_DETECTADO',
+          oportunidadeId: dto.oportunidadeId,
+          lanceTotal: dto.lanceTotal,
+          custoTotal: custoTotal,
+          impostosTotal: impostosTotal,
+          resultadoLiquido: lucroLiquidoTotal,
+          rbt12Inicial: rbt12Atual,
+        },
+        `⚠️ Alerta de Margem: O lance proposto de R$ ${dto.lanceTotal} gerará um prejuízo real de R$ ${lucroLiquidoTotal}`,
+      );
     } else {
-      this.logger.info({
-        evt: 'SIMULACAO_SUCESSO',
-        oportunidadeId: dto.oportunidadeId,
-        resultadoLiquido: lucroLiquidoTotal,
-        aliquotaMedia: ((impostosTotal / dto.lanceTotal) * 100).toFixed(2)
-      }, `Simulação concluída com margem positiva.`);
+      this.logger.info(
+        {
+          evt: 'SIMULACAO_SUCESSO',
+          oportunidadeId: dto.oportunidadeId,
+          resultadoLiquido: lucroLiquidoTotal,
+          aliquotaMedia: ((impostosTotal / dto.lanceTotal) * 100).toFixed(2),
+        },
+        `Simulação concluída com margem positiva.`,
+      );
     }
 
     // 5. Retorna o payload estruturado para a UI do React processar os cards

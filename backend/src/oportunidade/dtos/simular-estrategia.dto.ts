@@ -1,4 +1,11 @@
-import { IsEnum, IsNumber, Min, ValidateIf, IsNotEmpty, IsMongoId } from 'class-validator';
+import {
+  IsEnum,
+  IsNumber,
+  Min,
+  ValidateIf,
+  IsNotEmpty,
+  IsMongoId,
+} from 'class-validator';
 
 export enum ModeloEntrega {
   INTEGRAL = 'INTEGRAL',

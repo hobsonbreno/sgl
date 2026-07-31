@@ -9,7 +9,7 @@ export default function Orgaos() {
 
   const loadOrgaos = async () => {
     try {
-      const res = await fetch(`http://192.168.1.16:30000/orgao?page=${page}&limit=50`);
+      const res = await fetch(`http://localhost:7005/orgao?page=${page}&limit=50`);
       const payload = await res.json();
       let list = payload.data || [];
       if (busca) {
@@ -24,6 +24,7 @@ export default function Orgaos() {
 
   useEffect(() => {
     loadOrgaos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busca, page]);
 
   return (

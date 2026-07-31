@@ -290,24 +290,26 @@ export class FinanceiroService {
     const dozeMesesAtras = new Date();
     dozeMesesAtras.setMonth(dozeMesesAtras.getMonth() - 12);
 
-    const transacoes = await this.transacaoModel.find({
-      tipo: 'RECEITA',
-      status: 'PAGO',
-      dataPagamento: { $gte: dozeMesesAtras }
-    }).exec();
+    const transacoes = await this.transacaoModel
+      .find({
+        tipo: 'RECEITA',
+        status: 'PAGO',
+        dataPagamento: { $gte: dozeMesesAtras },
+      })
+      .exec();
 
     let rbt12 = 0;
     for (const t of transacoes) {
-      rbt12 += (t.valor || 0);
+      rbt12 += t.valor || 0;
     }
-    
+
     // Fallback pra zero caso seja empresa nova
-    return rbt12 > 0 ? rbt12 : 0; 
+    return rbt12 > 0 ? rbt12 : 0;
   }
 
   calcularAliquotaEfetiva(rbt12: number): number {
     if (rbt12 <= 0) return 0.06; // Empresa no início de atividade (1ª faixa direto)
-    
+
     // Tabela Anexo III - Simples Nacional (Serviços)
     // Faixa 1: Até 180.000,00 -> 6% (Dedução: 0)
     // Faixa 2: 180.000,01 a 360.000,00 -> 11,2% (Dedução: 9.360,00)
@@ -339,9 +341,9 @@ export class FinanceiroService {
       parcelaDeduzir = 557640;
     }
 
-    const impostoDevido = (rbt12 * aliquotaNominal) - parcelaDeduzir;
+    const impostoDevido = rbt12 * aliquotaNominal - parcelaDeduzir;
     const aliquotaEfetiva = impostoDevido / rbt12;
-    
+
     return aliquotaEfetiva;
   }
 }

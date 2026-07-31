@@ -24,9 +24,10 @@ import { ObservabilityModule } from './observability/observability.module';
   imports: [
     LoggerModule.forRoot({
       pinoHttp: {
-        transport: process.env.NODE_ENV !== 'production' 
-          ? { target: 'pino-pretty', options: { colorize: true } } 
-          : undefined,
+        transport:
+          process.env.NODE_ENV !== 'production'
+            ? { target: 'pino-pretty', options: { colorize: true } }
+            : undefined,
         level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
         customProps: (req, res) => ({
           context: 'HTTP',

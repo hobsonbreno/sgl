@@ -3,7 +3,10 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { OportunidadeService } from './oportunidade.service';
 import { OportunidadeController } from './oportunidade.controller';
 import { Oportunidade, OportunidadeSchema } from './oportunidade.schema';
-import { SimulacaoEstrategia, SimulacaoSchema } from './schemas/simulacao.schema';
+import {
+  SimulacaoEstrategia,
+  SimulacaoSchema,
+} from './schemas/simulacao.schema';
 import { PncpModule } from '../pncp/pncp.module';
 import { ProdutoModule } from '../produto/produto.module';
 import { FinanceiroModule } from '../financeiro/financeiro.module';

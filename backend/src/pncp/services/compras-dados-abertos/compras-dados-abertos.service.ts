@@ -1,8 +1,14 @@
 import { Injectable, Logger, HttpException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { ResultadoItem, ResultadoItemDocument } from '../../schemas/resultado-item.schema';
-import { Oportunidade, OportunidadeDocument } from '../../../oportunidade/oportunidade.schema';
+import {
+  ResultadoItem,
+  ResultadoItemDocument,
+} from '../../schemas/resultado-item.schema';
+import {
+  Oportunidade,
+  OportunidadeDocument,
+} from '../../../oportunidade/oportunidade.schema';
 
 @Injectable()
 export class ComprasDadosAbertosService {
@@ -30,12 +36,15 @@ export class ComprasDadosAbertosService {
       }
 
       // Em vez de regex que varre tudo, buscamos a palavra exata usando o regex de âncora
-      // ou usamos o match direto na palavraChaveExtraida no futuro. 
+      // ou usamos o match direto na palavraChaveExtraida no futuro.
       // O regex de inicio garante que começamos pelo produto correto:
       const regex = new RegExp('^' + keyword, 'i');
-      const produtosAchados = await this.resultadoItemModel.find({
-        palavraChaveExtraida: { $regex: regex }
-      }).limit(1000).lean();
+      const produtosAchados = await this.resultadoItemModel
+        .find({
+          palavraChaveExtraida: { $regex: regex },
+        })
+        .limit(1000)
+        .lean();
 
       if (produtosAchados.length === 0) {
         return this.respostaSemDados();
@@ -44,7 +53,7 @@ export class ComprasDadosAbertosService {
       let precosBrutos: number[] = [];
       const vencedores = new Map<string, number>();
 
-      let processar = (filtroUF: string | null) => {
+      const processar = (filtroUF: string | null) => {
         precosBrutos = [];
         vencedores.clear();
 
@@ -54,7 +63,8 @@ export class ComprasDadosAbertosService {
           const valor = prod.valorUnitarioHomologado || 0;
           if (valor > 0) {
             precosBrutos.push(valor);
-            const fornecedor = prod.nomeRazaoSocialFornecedor || 'Fornecedor Desconhecido';
+            const fornecedor =
+              prod.nomeRazaoSocialFornecedor || 'Fornecedor Desconhecido';
             vencedores.set(fornecedor, (vencedores.get(fornecedor) || 0) + 1);
           }
         }

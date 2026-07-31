@@ -62,9 +62,9 @@ export default function Kanban() {
   const carregarOportunidadesEProdutos = async () => {
     try {
       const [resOp, resProd, resConfig] = await Promise.all([
-        fetch('http://192.168.1.16:30000/oportunidades?limit=100'),
-        fetch('http://192.168.1.16:30000/produto?limit=1000'),
-        fetch('http://192.168.1.16:30000/configuracoes')
+        fetch('http://localhost:7005/oportunidades?limit=100'),
+        fetch('http://localhost:7005/produto?limit=1000'),
+        fetch('http://localhost:7005/configuracoes')
       ]);
       const dataOp = await resOp.json();
       const dataProd = await resProd.json();
@@ -98,7 +98,7 @@ export default function Kanban() {
 
         if (op.kanbanStatus === 'EXCLUIDA' && expirou) {
           // Apaga no background (como já expirou, o bot não trará de volta do PNCP)
-          fetch(`http://192.168.1.16:30000/oportunidades/${op._id}`, { method: 'DELETE' }).catch(e => console.error('Erro no auto-delete', e));
+          fetch(`http://localhost:7005/oportunidades/${op._id}`, { method: 'DELETE' }).catch(e => console.error('Erro no auto-delete', e));
         } else {
           validOps.push(op);
         }
@@ -110,7 +110,7 @@ export default function Kanban() {
       // Load cotações for each oportunidade (best proposal data)
       validOps.forEach(async (op: any) => {
         try {
-          const cotRes = await fetch(`http://192.168.1.16:30000/oportunidades/${op._id}/cotacao`);
+          const cotRes = await fetch(`http://localhost:7005/oportunidades/${op._id}/cotacao`);
           if (cotRes.ok) {
             const cotData = await cotRes.json();
             setCotacoes(prev => ({ ...prev, [op._id]: cotData }));
@@ -129,11 +129,11 @@ export default function Kanban() {
           });
           const scoreData = await scoreRes.json();
           setScores(prev => ({ ...prev, [op._id]: scoreData }));
-        } catch(e) {
+        } catch {
           // ML API might not be reachable
         }
       });
-    } catch (e) {
+    } catch {
       console.error(e);
     }
   };
@@ -157,7 +157,7 @@ export default function Kanban() {
     if (expiradosEmExcluida.length > 0) {
       expiradosEmExcluida.forEach(op => {
         // Tenta apagar do banco silenciosamente
-        fetch(`http://192.168.1.16:30000/oportunidades/${op._id}`, { method: 'DELETE' }).catch(() => {});
+        fetch(`http://localhost:7005/oportunidades/${op._id}`, { method: 'DELETE' }).catch(() => {});
       });
       // Remove do estado visual
       setOportunidades(prev => prev.filter(op => !(op.kanbanStatus === 'EXCLUIDA' && checkExpirado(op))));
@@ -189,13 +189,13 @@ export default function Kanban() {
     ));
 
     try {
-      const res = await fetch(`http://192.168.1.16:30000/oportunidades/${itemId}/status`, {
+      const res = await fetch(`http://localhost:7005/oportunidades/${itemId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kanbanStatus: destId })
       });
       if (!res.ok) throw new Error('Falha ao atualizar');
-    } catch (e) {
+    } catch {
       console.error(e);
       setOportunidades(previous);
     }
@@ -207,13 +207,13 @@ export default function Kanban() {
       op._id === itemId ? { ...op, kanbanStatus: novoStatus } : op
     ));
     try {
-      const res = await fetch(`http://192.168.1.16:30000/oportunidades/${itemId}/status`, {
+      const res = await fetch(`http://localhost:7005/oportunidades/${itemId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kanbanStatus: novoStatus })
       });
       if (!res.ok) throw new Error('Falha ao atualizar');
-    } catch (e) {
+    } catch {
       setOportunidades(previous);
     }
   };
@@ -221,13 +221,13 @@ export default function Kanban() {
   const handleDelete = async (id: string, skipConfirm = false) => {
     if (skipConfirm || window.confirm("Tem certeza? Isso vai remover permanentemente esta oportunidade, seus itens, cotações e qualquer proposta associada. Essa ação não pode ser desfeita.")) {
       try {
-        const res = await fetch(`http://192.168.1.16:30000/oportunidades/${id}`, { method: 'DELETE' });
+        const res = await fetch(`http://localhost:7005/oportunidades/${id}`, { method: 'DELETE' });
         if (res.ok) {
           setOportunidades(prev => prev.filter(op => op._id !== id));
         } else {
           alert('Erro ao excluir oportunidade');
         }
-      } catch (e) {
+      } catch {
         alert('Erro de conexão ao excluir');
       }
     }
@@ -553,7 +553,7 @@ export default function Kanban() {
               <button onClick={() => setModalConfigColsOpen(false)} className="btn-primary" style={{ background: '#e2e8f0', color: '#475569' }}>Cancelar</button>
               <button onClick={async () => {
                 try {
-                  const res = await fetch('http://192.168.1.16:30000/configuracoes', {
+                  const res = await fetch('http://localhost:7005/configuracoes', {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ colunasKanban: colunas })
@@ -563,7 +563,7 @@ export default function Kanban() {
                   } else {
                     alert('Erro ao salvar colunas');
                   }
-                } catch (e) {
+                } catch {
                   alert('Erro de conexão ao salvar colunas');
                 }
               }} className="btn-primary">Salvar Colunas</button>

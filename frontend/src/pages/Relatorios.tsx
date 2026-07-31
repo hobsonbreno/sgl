@@ -14,7 +14,7 @@ export default function Relatorios() {
     setLoading(true);
     try {
       // 1. Fetch configurações para pegar colunas dinâmicas
-      const resConfig = await fetch('http://192.168.1.16:30000/configuracoes');
+      const resConfig = await fetch('http://localhost:7005/configuracoes');
       const dataConfig = await resConfig.json();
       const colunasDynamic = dataConfig.colunasKanban || [
         { id: 'A_FAZER', nome: 'A FAZER' },
@@ -27,7 +27,7 @@ export default function Relatorios() {
 
       // 2. Fetch Oportunidades and Propostas
       const limit = 50;
-      let urlOps = `http://192.168.1.16:30000/oportunidades?limit=${limit}&page=${page}`;
+      let urlOps = `http://localhost:7005/oportunidades?limit=${limit}&page=${page}`;
       
       // Se o filtro for VENCEDOR, PERDEU, CANCELADO, buscamos na Proposta
       const isStatusFinal = ['VENCEDOR', 'PERDEU', 'CANCELADO'].includes(statusFiltro);
@@ -38,7 +38,7 @@ export default function Relatorios() {
 
       const [resOps, resProps] = await Promise.all([
         fetch(urlOps),
-        fetch(`http://192.168.1.16:30000/propostas?limit=1000`) // Pegamos as propostas globais para merge
+        fetch(`http://localhost:7005/propostas?limit=1000`) // Pegamos as propostas globais para merge
       ]);
 
       const payloadOps = await resOps.json();
@@ -85,11 +85,12 @@ export default function Relatorios() {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, statusFiltro]);
 
   const handleStatusChange = async (id: string, novoStatus: string) => {
     try {
-      const res = await fetch(`http://192.168.1.16:30000/propostas/${id}/status`, {
+      const res = await fetch(`http://localhost:7005/propostas/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: novoStatus })
