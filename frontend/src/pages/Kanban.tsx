@@ -122,7 +122,7 @@ export default function Kanban() {
 
       validOps.forEach(async (op: any) => {
         try {
-          const scoreRes = await fetch('http://192.168.1.16:30010/market/score', {
+          const scoreRes = await fetch('http://localhost:7010/market/score', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ oportunidadeId: op._id, modalidade: op.modalidadeNome || '', uf: op.uf || '', valorEstimado: op.valorTotalEstimado || 0, orgaoCnpj: op.orgaoCnpj || '' })
@@ -134,7 +134,6 @@ export default function Kanban() {
         }
       });
     } catch {
-      console.error(e);
     }
   };
 
@@ -196,7 +195,6 @@ export default function Kanban() {
       });
       if (!res.ok) throw new Error('Falha ao atualizar');
     } catch {
-      console.error(e);
       setOportunidades(previous);
     }
   };

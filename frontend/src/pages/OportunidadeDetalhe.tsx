@@ -1225,7 +1225,7 @@ export default function OportunidadeDetalhe() {
             dataProds = await resProds.json();
           }
         } catch {
-          console.error('Falha ao sincronizar itens', e);
+          console.error('Falha ao sincronizar itens');
         }
       }
 
@@ -1249,7 +1249,6 @@ export default function OportunidadeDetalhe() {
       setFornecedoresDisponiveis(dataForn.data || []);
 
     } catch {
-      console.error(e);
     }
     setLoading(false);
   };
@@ -1298,7 +1297,6 @@ export default function OportunidadeDetalhe() {
       const resCotFull = await fetch(`http://localhost:7005/cotacoes/${cotacao._id}`);
       setCotacao(await resCotFull.json());
     } catch {
-      console.error(e);
       alert('Erro ao salvar preço.');
     }
   };
@@ -1327,7 +1325,6 @@ export default function OportunidadeDetalhe() {
       const resCotFull = await fetch(`http://localhost:7005/cotacoes/${cotacao._id}`);
       setCotacao(await resCotFull.json());
     } catch {
-      console.error(e);
       alert('Erro ao remover preço.');
     }
   };

@@ -12,8 +12,8 @@ export default function MarketIntelligence() {
     setLoading(true);
     try {
       const [resStats, resModel, resBot, resOps] = await Promise.all([
-        fetch('http://192.168.1.16:30010/market/stats'),
-        fetch('http://192.168.1.16:30010/market/model-info'),
+        fetch('http://localhost:7010/market/stats'),
+        fetch('http://localhost:7010/market/model-info'),
         fetch('http://localhost:7005/bot/execucoes?limit=50'),
         fetch('http://localhost:7005/oportunidades?limit=1000')
       ]);
