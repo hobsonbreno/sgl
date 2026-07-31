@@ -93,9 +93,12 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
 
   const nossoCusto = item.melhorPreco ? item.melhorPreco.precoUnitario : 0;
   
+  const [aliquotaImposto, setAliquotaImposto] = useState<number>(0);
+
   // Sugere cobrir a oferta por 1 centavo (0.0100)
   const sugestaoLance = precoConcorrente > 0 ? precoConcorrente - 0.01 : 0;
-  const lucroSugestao = sugestaoLance - nossoCusto;
+  const impostoSugestaoUnit = sugestaoLance * (aliquotaImposto / 100);
+  const lucroSugestao = sugestaoLance - nossoCusto - impostoSugestaoUnit;
   const margemSugestao = nossoCusto > 0 ? (lucroSugestao / nossoCusto) * 100 : 0;
   const isViable = margemSugestao >= 11;
 
@@ -858,13 +861,36 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                           </strong>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
-                          <span style={{ color: '#475569', fontWeight: 600 }}>Lucro Total:</span>
-                          <strong style={{ color: '#15803d', background: '#dcfce7', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '1rem' }}>
+                          <span style={{ color: '#475569', fontWeight: 600 }}>Lucro Total Bruto:</span>
+                          <strong style={{ color: '#15803d', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '1rem' }}>
                             R$ {lucroTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </strong>
                         </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', borderTop: '1px solid #cbd5e1', paddingTop: '0.5rem' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ color: '#475569', fontWeight: 600 }}>Imposto Estimado (DAS):</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.25rem' }}>
+                              <input 
+                                type="number" 
+                                value={aliquotaImposto} 
+                                onChange={(e) => setAliquotaImposto(Number(e.target.value))} 
+                                style={{ width: '60px', padding: '0.1rem 0.3rem', border: '1px solid #cbd5e1', borderRadius: '4px' }}
+                              />
+                              <span style={{ fontSize: '0.8rem', color: '#64748b' }}>%</span>
+                            </div>
+                          </div>
+                          <strong style={{ color: '#dc2626', fontSize: '0.9rem' }}>
+                            - R$ {(lanceTotal * (aliquotaImposto / 100)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', background: '#f0fdfa', padding: '0.5rem', borderRadius: '6px', border: '1px solid #ccfbf1' }}>
+                          <span style={{ color: '#0f766e', fontWeight: 700 }}>Lucro Real Líquido:</span>
+                          <strong style={{ color: '#0f766e', fontSize: '1.1rem' }}>
+                            R$ {(lucroTotal - (lanceTotal * (aliquotaImposto / 100))).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </strong>
+                        </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
-                          <span style={{ color: '#475569', fontWeight: 600 }}>Margem Real:</span>
+                          <span style={{ color: '#475569', fontWeight: 600 }}>Margem Real Bruta:</span>
                           <strong style={{ color: '#15803d', fontSize: '1.1rem' }}>{margemReal.toFixed(2)}%</strong>
                         </div>
                       </div>
@@ -954,13 +980,36 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                           </strong>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '1rem', alignItems: 'center' }}>
-                          <span style={{ fontWeight: 600 }}>Lucro Total ({item.quantidade} un):</span>
-                          <strong style={{ color: isViable ? '#15803d' : '#b91c1c', background: isViable ? '#dcfce7' : '#fee2e2', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
+                          <span style={{ fontWeight: 600 }}>Lucro Total Bruto ({item.quantidade} un):</span>
+                          <strong style={{ color: isViable ? '#15803d' : '#b91c1c', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
+                            R$ {((sugestaoLance - nossoCusto) * (item.quantidade || 1)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', borderTop: '1px solid #cbd5e1', paddingTop: '0.5rem' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ color: '#475569', fontWeight: 600 }}>Imposto Estimado (DAS):</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.25rem' }}>
+                              <input 
+                                type="number" 
+                                value={aliquotaImposto} 
+                                onChange={(e) => setAliquotaImposto(Number(e.target.value))} 
+                                style={{ width: '60px', padding: '0.1rem 0.3rem', border: '1px solid #cbd5e1', borderRadius: '4px' }}
+                              />
+                              <span style={{ fontSize: '0.8rem', color: '#64748b' }}>%</span>
+                            </div>
+                          </div>
+                          <strong style={{ color: '#dc2626', fontSize: '0.9rem' }}>
+                            - R$ {((sugestaoLance * (item.quantidade || 1)) * (aliquotaImposto / 100)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', background: '#f0fdfa', padding: '0.5rem', borderRadius: '6px', border: '1px solid #ccfbf1' }}>
+                          <span style={{ color: '#0f766e', fontWeight: 700 }}>Lucro Real Líquido:</span>
+                          <strong style={{ color: isViable ? '#15803d' : '#b91c1c', fontSize: '1.1rem' }}>
                             R$ {(lucroSugestao * (item.quantidade || 1)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </strong>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1rem', alignItems: 'center', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: `1px solid ${isViable ? '#bbf7d0' : '#fecaca'}` }}>
-                          <span style={{ fontWeight: 600 }}>Markup sobre o Custo:</span>
+                          <span style={{ fontWeight: 600 }}>Markup Líquido:</span>
                           <strong style={{ color: isViable ? '#15803d' : '#b91c1c', fontSize: '1.2rem' }}>{margemSugestao.toFixed(2)}%</strong>
                         </div>
                         
