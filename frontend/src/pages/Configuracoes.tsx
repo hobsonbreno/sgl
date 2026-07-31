@@ -13,7 +13,7 @@ export default function Configuracoes() {
 
   const carregarConfig = async () => {
     try {
-      const res = await fetch('http://localhost:7005/configuracoes');
+      const res = await fetch(`${window.API_URL}/configuracoes`);
       const data = await res.json();
       if (data) {
         if (data.horariosBuscaBot && data.horariosBuscaBot.length > 0) {
@@ -32,7 +32,7 @@ export default function Configuracoes() {
     setSalvando(true);
     setMensagem({ texto: '', tipo: '' });
     try {
-      const res = await fetch('http://localhost:7005/configuracoes', {
+      const res = await fetch(`${window.API_URL}/configuracoes`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ horariosBuscaBot: horarios.filter(h => h.trim() !== '') })

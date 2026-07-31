@@ -12,10 +12,10 @@ export default function MarketIntelligence() {
     setLoading(true);
     try {
       const [resStats, resModel, resBot, resOps] = await Promise.all([
-        fetch('http://localhost:7010/market/stats'),
-        fetch('http://localhost:7010/market/model-info'),
-        fetch('http://localhost:7005/bot/execucoes?limit=50'),
-        fetch('http://localhost:7005/oportunidades?limit=1000')
+        fetch(`${window.MARKET_URL}/market/stats`),
+        fetch(`${window.MARKET_URL}/market/model-info`),
+        fetch(`${window.API_URL}/bot/execucoes?limit=50`),
+        fetch(`${window.API_URL}/oportunidades?limit=1000`)
       ]);
       setStats(await resStats.json());
       setModelInfo(await resModel.json());

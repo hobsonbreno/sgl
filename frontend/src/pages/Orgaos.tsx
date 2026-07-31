@@ -9,7 +9,7 @@ export default function Orgaos() {
 
   const loadOrgaos = async () => {
     try {
-      const res = await fetch(`http://localhost:7005/orgao?page=${page}&limit=50`);
+      const res = await fetch(`${window.API_URL}/orgao?page=${page}&limit=50`);
       const payload = await res.json();
       let list = payload.data || [];
       if (busca) {

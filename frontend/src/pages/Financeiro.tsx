@@ -23,10 +23,10 @@ export default function Financeiro() {
   const carregarDados = async () => {
     try {
       const [resTrans, resResumo, resNegocios, resArquivados] = await Promise.all([
-        fetch('http://localhost:7005/financeiro'),
-        fetch('http://localhost:7005/financeiro/resumo'),
-        fetch('http://localhost:7005/financeiro/negocios-fechados'),
-        fetch('http://localhost:7005/financeiro/arquivados')
+        fetch(`${window.API_URL}/financeiro`),
+        fetch(`${window.API_URL}/financeiro/resumo`),
+        fetch(`${window.API_URL}/financeiro/negocios-fechados`),
+        fetch(`${window.API_URL}/financeiro/arquivados`)
       ]);
       setTransacoes(await resTrans.json());
       setResumo(await resResumo.json());
@@ -46,7 +46,7 @@ export default function Financeiro() {
   const darBaixaNegocio = async (id: string) => {
     if(!window.confirm('Confirmar o recebimento deste negócio? Ele será movido para Arquivados e o valor entrará no Caixa Atual.')) return;
     try {
-      await fetch(`http://localhost:7005/financeiro/receber-negocio/${id}`, { method: 'POST' });
+      await fetch(`${window.API_URL}/financeiro/receber-negocio/${id}`, { method: 'POST' });
       carregarDados();
     } catch (e) {
       console.error(e);
@@ -57,7 +57,7 @@ export default function Financeiro() {
   const estornarNegocio = async (id: string) => {
     if(!window.confirm('Tem certeza que deseja desarquivar e voltar este negócio para Negócios Fechados? O recebimento será excluído do Caixa Atual.')) return;
     try {
-      await fetch(`http://localhost:7005/financeiro/estornar-negocio/${id}`, { method: 'POST' });
+      await fetch(`${window.API_URL}/financeiro/estornar-negocio/${id}`, { method: 'POST' });
       carregarDados();
     } catch (e) {
       console.error(e);
@@ -68,7 +68,7 @@ export default function Financeiro() {
   const handleSalvar = async (e: any) => {
     e.preventDefault();
     try {
-      await fetch('http://localhost:7005/financeiro', {
+      await fetch(`${window.API_URL}/financeiro`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -85,7 +85,7 @@ export default function Financeiro() {
 
   const marcarPago = async (id: string) => {
     try {
-      await fetch(`http://localhost:7005/financeiro/${id}`, {
+      await fetch(`${window.API_URL}/financeiro/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'PAGO' })
@@ -99,7 +99,7 @@ export default function Financeiro() {
   const excluir = async (id: string) => {
     if(!window.confirm('Tem certeza?')) return;
     try {
-      await fetch(`http://localhost:7005/financeiro/${id}`, {
+      await fetch(`${window.API_URL}/financeiro/${id}`, {
         method: 'DELETE'
       });
       carregarDados();

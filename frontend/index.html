@@ -7,6 +7,14 @@
     <title>frontend</title>
   </head>
   <body>
+    <script>
+      window.API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+        ? 'http://localhost:7005' 
+        : 'http://' + window.location.hostname + ':30000';
+      window.MARKET_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+        ? 'http://localhost:7010' 
+        : 'http://' + window.location.hostname + ':30010';
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

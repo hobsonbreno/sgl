@@ -23,7 +23,7 @@ export default function BaseProdutos() {
   const carregarBase = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:7005/fornecedores/produtos/base?page=${page}&limit=10&busca=${encodeURIComponent(busca)}`);
+      const res = await fetch(`${window.API_URL}/fornecedores/produtos/base?page=${page}&limit=10&busca=${encodeURIComponent(busca)}`);
       const payload = await res.json();
       setProdutos(payload.data || []);
       setTotalPages(payload.totalPages || 1);
@@ -50,7 +50,7 @@ export default function BaseProdutos() {
         valorCampeaoLicitacao: editValues.valorCampeaoLicitacao ? parseFloat(editValues.valorCampeaoLicitacao.replace(',','.')) : undefined,
       };
 
-      await fetch('http://localhost:7005/fornecedores/produtos/base', {
+      await fetch(`${window.API_URL}/fornecedores/produtos/base`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

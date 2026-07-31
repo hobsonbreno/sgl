@@ -78,7 +78,7 @@ export default function PerfisBusca() {
 
   const loadPerfis = async () => {
     try {
-      const res = await fetch('http://localhost:7005/perfis-busca');
+      const res = await fetch(`${window.API_URL}/perfis-busca`);
       const data = await res.json();
       setPerfis(data);
     } catch (e) {
@@ -118,7 +118,7 @@ export default function PerfisBusca() {
         nichosFornecedores: nichosFornecedoresArr
       };
       
-      const url = editingId ? `http://localhost:7005/perfis-busca/${editingId}` : 'http://localhost:7005/perfis-busca';
+      const url = editingId ? `${window.API_URL}/perfis-busca/${editingId}` : `${window.API_URL}/perfis-busca`;
       const method = editingId ? 'PUT' : 'POST';
 
       const res = await fetch(url, {
@@ -171,13 +171,13 @@ export default function PerfisBusca() {
   };
 
   const toggle = async (id: string) => {
-    await fetch(`http://localhost:7005/perfis-busca/${id}/toggle`, { method: 'PATCH' });
+    await fetch(`${window.API_URL}/perfis-busca/${id}/toggle`, { method: 'PATCH' });
     loadPerfis();
   };
 
   const remove = async (id: string) => {
     if (!confirm('Deseja realmente excluir?')) return;
-    await fetch(`http://localhost:7005/perfis-busca/${id}`, { method: 'DELETE' });
+    await fetch(`${window.API_URL}/perfis-busca/${id}`, { method: 'DELETE' });
     loadPerfis();
   };
 

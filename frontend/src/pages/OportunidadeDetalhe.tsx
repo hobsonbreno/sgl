@@ -331,7 +331,7 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                 const newVal = e.target.value;
                 if (newVal && newVal !== (item.descricaoItem || item.descricao)) {
                   try {
-                    await fetch(`http://localhost:7005/produto/${item.produtoId || item._id}`, {
+                    await fetch(`${window.API_URL}/produto/${item.produtoId || item._id}`, {
                       method: 'PATCH',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ descricao: newVal })
@@ -434,7 +434,7 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                        // Busca a UF real configurada no Robô
                        let uf = 'CE'; // fallback
                        try {
-                         const perfisRes = await fetch('http://localhost:7005/perfis-busca');
+                         const perfisRes = await fetch(`${window.API_URL}/perfis-busca`);
                          if (perfisRes.ok) {
                            const perfis = await perfisRes.json();
                            const perfilAtivo = perfis.find((p: any) => p.ativo);
@@ -446,7 +446,7 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                          console.warn('Erro ao buscar perfil do robô, usando uf fallback CE', err);
                        }
 
-                       const res = await fetch(`http://localhost:7005/pncp/inteligencia-precos?keyword=${encodeURIComponent(keyword)}&uf=${uf}`);
+                       const res = await fetch(`${window.API_URL}/pncp/inteligencia-precos?keyword=${encodeURIComponent(keyword)}&uf=${uf}`);
                        if (res.ok) {
                           const data = await res.json();
                           setIntelligenceData(data);
@@ -476,7 +476,7 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                      // Busca 100% Automática e Direta (sem popup)
                      setIsSearching(true);
                      try {
-                       const res = await fetch(`http://localhost:7005/cotacoes/${cotacaoId}/itens/${item._id}/buscar-web`, { 
+                       const res = await fetch(`${window.API_URL}/cotacoes/${cotacaoId}/itens/${item._id}/buscar-web`, { 
                          method: 'POST',
                          headers: { 'Content-Type': 'application/json' },
                          body: JSON.stringify({}) // Backend pega do PerfilBusca automaticamente
@@ -485,7 +485,7 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                           const data = await res.json();
                           setTimeout(() => alert(`Busca concluída! ${data.encontrados} fornecedores encontrados.`), 100);
                           if (setCotacao) {
-                             const updatedRes = await fetch(`http://localhost:7005/cotacoes/${cotacaoId}`);
+                             const updatedRes = await fetch(`${window.API_URL}/cotacoes/${cotacaoId}`);
                              const updatedData = await updatedRes.json();
                              setCotacao(updatedData);
                           }
@@ -522,7 +522,7 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
 
                      setIsSearching(true);
                      try {
-                       const res = await fetch(`http://localhost:7005/cotacoes/${cotacaoId}/itens/${item._id}/buscar-web`, { 
+                       const res = await fetch(`${window.API_URL}/cotacoes/${cotacaoId}/itens/${item._id}/buscar-web`, { 
                          method: 'POST',
                          headers: { 'Content-Type': 'application/json' },
                          body: JSON.stringify({ location: overrideLoc })
@@ -531,7 +531,7 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                           const data = await res.json();
                           setTimeout(() => alert(`Busca concluída! ${data.encontrados} fornecedores encontrados.`), 100);
                           if (setCotacao) {
-                             const updatedRes = await fetch(`http://localhost:7005/cotacoes/${cotacaoId}`);
+                             const updatedRes = await fetch(`${window.API_URL}/cotacoes/${cotacaoId}`);
                              const updatedData = await updatedRes.json();
                              setCotacao(updatedData);
                           }
@@ -970,13 +970,13 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                         if (val !== currentVal && val >= 0) {
                           try {
                             const pId = item.produtoId?._id || item.produtoId || item._id;
-                            await fetch(`http://localhost:7005/produto/${pId}`, {
+                            await fetch(`${window.API_URL}/produto/${pId}`, {
                               method: 'PATCH',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ valorConcorrente: val })
                             });
                             if (setCotacao && cotacaoId) {
-                              const resCotFull = await fetch(`http://localhost:7005/cotacoes/${cotacaoId}`);
+                              const resCotFull = await fetch(`${window.API_URL}/cotacoes/${cotacaoId}`);
                               setCotacao(await resCotFull.json());
                             }
                           } catch (err) {
@@ -1087,7 +1087,7 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                     const pId = item.produtoId?._id || item.produtoId || item._id;
                     if (val >= 0) {
                       try {
-                        await fetch(`http://localhost:7005/produto/${pId}`, {
+                        await fetch(`${window.API_URL}/produto/${pId}`, {
                           method: 'PATCH',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ valorNossoLance: val })
@@ -1096,7 +1096,7 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                         // Sync to ProdutoBase for Market Intelligence globally
                         const desc = item.descricaoItem || item.descricao;
                         if (desc) {
-                          await fetch('http://localhost:7005/fornecedores/produtos/base', {
+                          await fetch(`${window.API_URL}/fornecedores/produtos/base`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ descricaoItem: desc, nossoLanceOficial: val })
@@ -1104,7 +1104,7 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                         }
 
                         if (setCotacao && cotacaoId) {
-                          const resCotFull = await fetch(`http://localhost:7005/cotacoes/${cotacaoId}`);
+                          const resCotFull = await fetch(`${window.API_URL}/cotacoes/${cotacaoId}`);
                           setCotacao(await resCotFull.json());
                         }
                         alert('Valor oficial salvo com sucesso!');
@@ -1204,24 +1204,24 @@ export default function OportunidadeDetalhe() {
 
   const loadData = async () => {
     try {
-      const resOp = await fetch(`http://localhost:7005/oportunidades/${id}`);
+      const resOp = await fetch(`${window.API_URL}/oportunidades/${id}`);
       const dataOp = await resOp.json();
       setOportunidade(dataOp);
 
       // Buscar produtos vinculados a esta oportunidade
-      let resProds = await fetch(`http://localhost:7005/produto?oportunidadeId=${id}&limit=1000`);
+      let resProds = await fetch(`${window.API_URL}/produto?oportunidadeId=${id}&limit=1000`);
       let dataProds = await resProds.json();
       
       // Sincronizar itens se a oportunidade não tiver nenhum
       if (!dataProds.data || dataProds.data.length === 0) {
         try {
-          const syncRes = await fetch(`http://localhost:7005/oportunidades/${id}/sincronizar-itens`, { method: 'POST' });
+          const syncRes = await fetch(`${window.API_URL}/oportunidades/${id}/sincronizar-itens`, { method: 'POST' });
           if (!syncRes.ok) {
             const err = await syncRes.json();
             alert(err.message || 'Erro ao sincronizar itens.');
           } else {
             // Busca novamente após sincronizar
-            resProds = await fetch(`http://localhost:7005/produto?oportunidadeId=${id}&limit=1000`);
+            resProds = await fetch(`${window.API_URL}/produto?oportunidadeId=${id}&limit=1000`);
             dataProds = await resProds.json();
           }
         } catch {
@@ -1232,7 +1232,7 @@ export default function OportunidadeDetalhe() {
       const produtosDaOportunidade = dataProds.data || [];
 
       // Iniciar ou obter cotação vinculada
-      const resCot = await fetch(`http://localhost:7005/oportunidades/${id}/cotacao`, {
+      const resCot = await fetch(`${window.API_URL}/oportunidades/${id}/cotacao`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ itens: produtosDaOportunidade })
@@ -1240,11 +1240,11 @@ export default function OportunidadeDetalhe() {
       const dataCot = await resCot.json();
 
       // Recarregar com populate
-      const resCotFull = await fetch(`http://localhost:7005/cotacoes/${dataCot._id}`);
+      const resCotFull = await fetch(`${window.API_URL}/cotacoes/${dataCot._id}`);
       setCotacao(await resCotFull.json());
 
       // Carregar lista de fornecedores para o dropdown
-      const resForn = await fetch('http://localhost:7005/fornecedores');
+      const resForn = await fetch(`${window.API_URL}/fornecedores`);
       const dataForn = await resForn.json();
       setFornecedoresDisponiveis(dataForn.data || []);
 
@@ -1276,7 +1276,7 @@ export default function OportunidadeDetalhe() {
     if (isNaN(numValue)) return;
 
     try {
-      await fetch(`http://localhost:7005/cotacoes/${cotacao._id}/itens/${itemId}/preco`, {
+      await fetch(`${window.API_URL}/cotacoes/${cotacao._id}/itens/${itemId}/preco`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -1294,7 +1294,7 @@ export default function OportunidadeDetalhe() {
         })
       });
       // Recarrega cotação para refletir os novos totais e melhor preço
-      const resCotFull = await fetch(`http://localhost:7005/cotacoes/${cotacao._id}`);
+      const resCotFull = await fetch(`${window.API_URL}/cotacoes/${cotacao._id}`);
       setCotacao(await resCotFull.json());
     } catch {
       alert('Erro ao salvar preço.');
@@ -1304,7 +1304,7 @@ export default function OportunidadeDetalhe() {
   const handleDelete = async () => {
     if (window.confirm("Tem certeza? Isso vai remover permanentemente esta oportunidade, seus itens, cotações e qualquer proposta associada. Essa ação não pode ser desfeita.")) {
       try {
-        const res = await fetch(`http://localhost:7005/oportunidades/${id}`, { method: 'DELETE' });
+        const res = await fetch(`${window.API_URL}/oportunidades/${id}`, { method: 'DELETE' });
         if (res.ok) {
           navigate('/kanban');
         } else {
@@ -1318,11 +1318,11 @@ export default function OportunidadeDetalhe() {
 
   const handleRemovePreco = async (itemId: string, fornecedorId: string) => {
     try {
-      await fetch(`http://localhost:7005/cotacoes/${cotacao._id}/itens/${itemId}/preco/${fornecedorId}`, {
+      await fetch(`${window.API_URL}/cotacoes/${cotacao._id}/itens/${itemId}/preco/${fornecedorId}`, {
         method: 'DELETE'
       });
       // Recarrega cotação para atualizar o melhor preço
-      const resCotFull = await fetch(`http://localhost:7005/cotacoes/${cotacao._id}`);
+      const resCotFull = await fetch(`${window.API_URL}/cotacoes/${cotacao._id}`);
       setCotacao(await resCotFull.json());
     } catch {
       alert('Erro ao remover preço.');
@@ -1432,12 +1432,12 @@ export default function OportunidadeDetalhe() {
               if (window.confirm("Deseja sincronizar novos itens deste edital direto do PNCP? (Isso não apagará suas cotações atuais)")) {
                 setIsSyncing(true);
                 try {
-                  const syncRes = await fetch(`http://localhost:7005/oportunidades/${id}/sincronizar-itens`, { method: 'POST' });
+                  const syncRes = await fetch(`${window.API_URL}/oportunidades/${id}/sincronizar-itens`, { method: 'POST' });
                   if (!syncRes.ok) throw new Error();
                   const data = await syncRes.json();
                   setTimeout(() => alert(data.message || `Sincronização concluída!`), 100);
                   // Recarrega cotação
-                  const resCotFull = await fetch(`http://localhost:7005/cotacoes/${cotacao?._id || ''}`);
+                  const resCotFull = await fetch(`${window.API_URL}/cotacoes/${cotacao?._id || ''}`);
                   if (resCotFull.ok) setCotacao(await resCotFull.json());
                   // Recarrega janela para garantir que a UI inteira pegue
                   window.location.reload();
