@@ -1,8 +1,20 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Check, AlertCircle, Trash2, ChevronDown, ChevronUp, X, ExternalLink, Copy, XCircle, RotateCw, Search } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { SimuladorTributario } from '../components/SimuladorTributario';
+
+function calcularAliquotaEfetivaSimples(rbt12: number): number {
+  if (rbt12 <= 0) return 0.06;
+  let aliquotaNominal = 0.06;
+  let parcelaDeduzir = 0;
+  if (rbt12 <= 180000) { aliquotaNominal = 0.06; parcelaDeduzir = 0; }
+  else if (rbt12 <= 360000) { aliquotaNominal = 0.112; parcelaDeduzir = 9360; }
+  else if (rbt12 <= 720000) { aliquotaNominal = 0.135; parcelaDeduzir = 17640; }
+  else if (rbt12 <= 1800000) { aliquotaNominal = 0.16; parcelaDeduzir = 35640; }
+  else if (rbt12 <= 3600000) { aliquotaNominal = 0.21; parcelaDeduzir = 125640; }
+  else { aliquotaNominal = 0.33; parcelaDeduzir = 557640; }
+  return ((rbt12 * aliquotaNominal) - parcelaDeduzir) / rbt12;
+}
+
 function CopyRow({ label, value }: { label: string, value: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -65,7 +77,7 @@ function FornecedorPrecoInput({ item, f, pf, precoEmbalagemSalvo, handlePrecoCom
   );
 }
 
-function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, handleRemovePreco, novoFornecedorId, setNovoFornecedorId, cotacaoId, setCotacao, onLiveValoresChange }: any) {
+function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, handleRemovePreco, novoFornecedorId, setNovoFornecedorId, cotacaoId, setCotacao, onLiveValoresChange, aliquotaEfetivaGlobal, modeloEntrega, mesesContrato }: any) {
   const [open, setOpen] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isIntelligenceLoading, setIsIntelligenceLoading] = useState(false);
@@ -92,13 +104,14 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
   const nossoLanceVal = parseFloat(nossoLanceStr.replace(/\./g, '').replace(',', '.')) || 0;
 
   const nossoCusto = item.melhorPreco ? item.melhorPreco.precoUnitario : 0;
-  
-  const [aliquotaImposto, setAliquotaImposto] = useState<number>(0);
+  const divisorTempo = modeloEntrega === 'FRACIONADO' ? (mesesContrato || 1) : 1;
+  const labelTempo = modeloEntrega === 'FRACIONADO' ? ' (Mensal)' : '';
 
   // Sugere cobrir a oferta por 1 centavo (0.0100)
   const sugestaoLance = precoConcorrente > 0 ? precoConcorrente - 0.01 : 0;
-  const impostoSugestaoUnit = sugestaoLance * (aliquotaImposto / 100);
+  const impostoSugestaoUnit = sugestaoLance * (aliquotaEfetivaGlobal);
   const lucroSugestao = sugestaoLance - nossoCusto - impostoSugestaoUnit;
+  const lucroSugestaoMensal = (lucroSugestao * (item.quantidade || 1)) / divisorTempo;
   const margemSugestao = nossoCusto > 0 ? (lucroSugestao / nossoCusto) * 100 : 0;
   const isViable = margemSugestao >= 11;
 
@@ -257,6 +270,18 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
               <span style={{ fontSize: '0.75rem', color: '#64748b', width: '150px' }}>Valor estimado (unitário)</span>
               <span style={{ fontSize: '0.85rem', color: '#334155', fontWeight: 500 }}>{isSigiloso ? 'Sigiloso' : `R$ ${item.valorUnitarioEstimado.toLocaleString('pt-BR')}`}</span>
             </div>
+            {nossoLanceVal > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'flex-start', gap: '4rem' }}>
+                <span style={{ fontSize: '0.75rem', color: '#4338ca', width: '150px', fontWeight: 600 }}>Nosso Lance (Unitário)</span>
+                <span style={{ fontSize: '0.85rem', color: '#4338ca', fontWeight: 600 }}>R$ {nossoLanceVal.toLocaleString('pt-BR', {minimumFractionDigits: 4, maximumFractionDigits: 4})}</span>
+              </div>
+            )}
+            {precoConcorrente > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'flex-start', gap: '4rem' }}>
+                <span style={{ fontSize: '0.75rem', color: '#ea580c', width: '150px', fontWeight: 600 }}>Lance Concorrente</span>
+                <span style={{ fontSize: '0.85rem', color: '#ea580c', fontWeight: 600 }}>R$ {precoConcorrente.toLocaleString('pt-BR', {minimumFractionDigits: 4, maximumFractionDigits: 4})}</span>
+              </div>
+            )}
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -265,6 +290,28 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
               Melhor Oferta: R$ {item.melhorPreco.precoUnitario.toLocaleString('pt-BR')}
             </span>
           )}
+          {(() => {
+            if (nossoLanceVal <= 0) return null;
+            const subtotal = Number(nossoLanceVal) * Number(item.quantidade || 1);
+            const imposto = subtotal * aliquotaEfetivaGlobal;
+            const custo = nossoCusto * Number(item.quantidade || 1);
+            const lucroTotal = subtotal - custo - imposto;
+            
+            return (
+              <span style={{ 
+                fontSize: '0.85rem', 
+                color: lucroTotal > 0 ? '#10b981' : '#ef4444', 
+                background: lucroTotal > 0 ? '#ecfdf5' : '#fef2f2', 
+                padding: '0.2rem 0.5rem', 
+                borderRadius: '4px', 
+                fontWeight: 'bold',
+                border: `1px solid ${lucroTotal > 0 ? '#10b981' : '#ef4444'}`,
+                boxShadow: lucroTotal > 0 ? '0 0 10px rgba(16, 185, 129, 0.1)' : '0 0 10px rgba(239, 68, 68, 0.1)'
+              }}>
+                {lucroTotal > 0 ? '🏆 Lucro' : '🔻 Prejuízo'}{labelTempo}: R$ {(Math.abs(lucroTotal) / divisorTempo).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            );
+          })()}
           {open ? <ChevronUp size={24} color="#3b82f6" /> : <ChevronDown size={24} color="#3b82f6" />}
         </div>
       </div>
@@ -867,26 +914,15 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                           </strong>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', borderTop: '1px solid #cbd5e1', paddingTop: '0.5rem' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ color: '#475569', fontWeight: 600 }}>Imposto Estimado (DAS):</span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.25rem' }}>
-                              <input 
-                                type="number" 
-                                value={aliquotaImposto} 
-                                onChange={(e) => setAliquotaImposto(Number(e.target.value))} 
-                                style={{ width: '60px', padding: '0.1rem 0.3rem', border: '1px solid #cbd5e1', borderRadius: '4px' }}
-                              />
-                              <span style={{ fontSize: '0.8rem', color: '#64748b' }}>%</span>
-                            </div>
-                          </div>
+                          <span style={{ color: '#475569', fontWeight: 600 }}>Imposto Estimado (DAS):</span>
                           <strong style={{ color: '#dc2626', fontSize: '0.9rem' }}>
-                            - R$ {(lanceTotal * (aliquotaImposto / 100)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            {aliquotaEfetivaGlobal > 0 ? `${(aliquotaEfetivaGlobal * 100).toFixed(2)}% ` : ''}- R$ {(lanceTotal * aliquotaEfetivaGlobal).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </strong>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', background: '#f0fdfa', padding: '0.5rem', borderRadius: '6px', border: '1px solid #ccfbf1' }}>
-                          <span style={{ color: '#0f766e', fontWeight: 700 }}>Lucro Real Líquido:</span>
+                          <span style={{ color: '#0f766e', fontWeight: 700 }}>Lucro Real Líquido{labelTempo}:</span>
                           <strong style={{ color: '#0f766e', fontSize: '1.1rem' }}>
-                            R$ {(lucroTotal - (lanceTotal * (aliquotaImposto / 100))).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            R$ {((lucroTotal - (lanceTotal * aliquotaEfetivaGlobal)) / divisorTempo).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </strong>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
@@ -986,26 +1022,15 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                           </strong>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', borderTop: '1px solid #cbd5e1', paddingTop: '0.5rem' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ color: '#475569', fontWeight: 600 }}>Imposto Estimado (DAS):</span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.25rem' }}>
-                              <input 
-                                type="number" 
-                                value={aliquotaImposto} 
-                                onChange={(e) => setAliquotaImposto(Number(e.target.value))} 
-                                style={{ width: '60px', padding: '0.1rem 0.3rem', border: '1px solid #cbd5e1', borderRadius: '4px' }}
-                              />
-                              <span style={{ fontSize: '0.8rem', color: '#64748b' }}>%</span>
-                            </div>
-                          </div>
+                          <span style={{ color: '#475569', fontWeight: 600 }}>Imposto Estimado (DAS):</span>
                           <strong style={{ color: '#dc2626', fontSize: '0.9rem' }}>
-                            - R$ {((sugestaoLance * (item.quantidade || 1)) * (aliquotaImposto / 100)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            {aliquotaEfetivaGlobal > 0 ? `${(aliquotaEfetivaGlobal * 100).toFixed(2)}% ` : ''}- R$ {((sugestaoLance * (item.quantidade || 1)) * aliquotaEfetivaGlobal).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </strong>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', background: '#f0fdfa', padding: '0.5rem', borderRadius: '6px', border: '1px solid #ccfbf1' }}>
-                          <span style={{ color: '#0f766e', fontWeight: 700 }}>Lucro Real Líquido:</span>
+                          <span style={{ color: '#0f766e', fontWeight: 700 }}>Lucro Real Líquido{labelTempo}:</span>
                           <strong style={{ color: isViable ? '#15803d' : '#b91c1c', fontSize: '1.1rem' }}>
-                            R$ {(lucroSugestao * (item.quantidade || 1)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            R$ {lucroSugestaoMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </strong>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1rem', alignItems: 'center', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: `1px solid ${isViable ? '#bbf7d0' : '#fecaca'}` }}>
@@ -1148,6 +1173,26 @@ export default function OportunidadeDetalhe() {
   const [fornecedoresDisponiveis, setFornecedoresDisponiveis] = useState<any[]>([]);
 
   const [liveLances, setLiveLances] = useState<Record<string, { concorrente: number, nossoLance: number }>>({});
+
+  // Para cálculos de Faturamento Global e Impostos
+  const [modeloEntrega, setModeloEntrega] = useState<'INTEGRAL'|'FRACIONADO'>('INTEGRAL');
+  const [mesesContrato, setMesesContrato] = useState<number>(12);
+  const rbt12 = 134712.50; // Valor de exemplo; futuramente vem da API
+  
+  const faturamentoTotalNossoGlobal = cotacao ? Number(cotacao.itens.reduce((acc: number, it: any) => acc + ((liveLances[it._id]?.nossoLance ?? (it.produtoId?.valorNossoLance || it.valorNossoLance || 0)) * Number(it.quantidade || 1)), 0)) : 0;
+
+  // O Simulador calcula a aliquota média que será distribuida para todos os itens
+  let aliquotaEfetivaGlobal = calcularAliquotaEfetivaSimples(rbt12);
+  if (modeloEntrega === 'FRACIONADO' && mesesContrato > 1) {
+    let somaAliquotas = 0;
+    let rbt12Projetado = rbt12;
+    const faturamentoMensal = faturamentoTotalNossoGlobal / mesesContrato;
+    for (let i = 0; i < mesesContrato; i++) {
+      somaAliquotas += calcularAliquotaEfetivaSimples(rbt12Projetado);
+      rbt12Projetado += faturamentoMensal;
+    }
+    aliquotaEfetivaGlobal = somaAliquotas / mesesContrato;
+  }
 
   const handleLiveValoresChange = (itemId: string, concorrente: number, nossoLance: number) => {
     setLiveLances(prev => {
@@ -1439,12 +1484,6 @@ export default function OportunidadeDetalhe() {
         >
           Portal de Compras
         </button>
-        <button 
-          onClick={() => setAba('simulador')}
-          style={{ padding: '0.75rem 1.5rem', background: 'none', border: 'none', borderBottom: aba === 'simulador' ? '2px solid var(--primary)' : '2px solid transparent', color: aba === 'simulador' ? 'var(--primary)' : 'var(--text-muted)', fontWeight: 600, cursor: 'pointer' }}
-        >
-          Simulador Tributário
-        </button>
       </div>
 
       {aba === 'edital' && (
@@ -1506,6 +1545,45 @@ export default function OportunidadeDetalhe() {
             </div>
           </div>
 
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+            <div>
+              <h4 style={{ margin: '0 0 0.5rem 0', color: '#0f172a', fontSize: '0.95rem' }}>⚖️ Estratégia Tributária (Simples Nacional)</h4>
+              <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b' }}>Configure como será o faturamento desse edital para prevermos o imposto exato.</p>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginLeft: 'auto' }}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: '0.2rem' }}>Modelo de Entrega</label>
+                <select 
+                  className="form-control" 
+                  value={modeloEntrega} 
+                  onChange={(e) => setModeloEntrega(e.target.value as any)}
+                  style={{ minWidth: '220px', textAlign: 'center' }}
+                >
+                  <option value="INTEGRAL">INTEGRAL (Única NF)</option>
+                  <option value="FRACIONADO">FRACIONADO (Mensal)</option>
+                </select>
+              </div>
+              {modeloEntrega === 'FRACIONADO' && (
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: '0.2rem' }}>Duração (Meses)</label>
+                  <input 
+                    type="number" 
+                    min="1" max="60"
+                    className="form-control" 
+                    value={mesesContrato} 
+                    onChange={(e) => setMesesContrato(Number(e.target.value))}
+                    style={{ width: '100px' }}
+                  />
+                </div>
+              )}
+              <div style={{ background: '#e0e7ff', padding: '0.5rem 1rem', borderRadius: '6px', border: '1px solid #c7d2fe', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#4338ca', textTransform: 'uppercase' }}>Alíquota (DAS) Automática</span>
+                <strong style={{ fontSize: '1.25rem', color: '#312e81' }}>{(aliquotaEfetivaGlobal * 100).toFixed(2)}%</strong>
+              </div>
+            </div>
+          </div>
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {cotacao.itens.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b', background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
@@ -1525,6 +1603,9 @@ export default function OportunidadeDetalhe() {
                   setNovoFornecedorId={setNovoFornecedorId}
                   setCotacao={setCotacao}
                   onLiveValoresChange={handleLiveValoresChange}
+                  aliquotaEfetivaGlobal={aliquotaEfetivaGlobal}
+                  modeloEntrega={modeloEntrega}
+                  mesesContrato={mesesContrato}
                 />
               ))
             )}
@@ -1580,13 +1661,16 @@ export default function OportunidadeDetalhe() {
                     const valConc = liveLances[it._id]?.concorrente ?? (it.produtoId?.valorConcorrente || it.valorConcorrente || 0);
                     if (valConc > 0) {
                       const subtotal = Number(valConc) * Number(it.quantidade || 1);
+                      const imposto = subtotal * aliquotaEfetivaGlobal;
                       const custo = it.melhorPreco ? Number(it.melhorPreco.precoUnitario) * Number(it.quantidade || 1) : 0;
-                      return acc + (subtotal - custo);
+                      return acc + (subtotal - custo - imposto);
                     }
                     return acc;
                   }, 0);
                   if (lucroProvisorioTotal !== 0) {
                     const isLucro = lucroProvisorioTotal > 0;
+                    const divisorGlobal = modeloEntrega === 'FRACIONADO' ? (mesesContrato || 1) : 1;
+                    const labelGlobal = modeloEntrega === 'FRACIONADO' ? ' (Mensal)' : '';
                     return (
                       <span style={{ 
                         display: 'inline-flex',
@@ -1600,7 +1684,7 @@ export default function OportunidadeDetalhe() {
                         border: `1px solid ${isLucro ? 'rgba(52, 211, 153, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`,
                         boxShadow: `0 0 10px ${isLucro ? 'rgba(52, 211, 153, 0.1)' : 'rgba(239, 68, 68, 0.1)'}`
                       }}>
-                        {isLucro ? '💰 Lucro Provisório Total: ' : '🔻 Prejuízo Provisório Total: '}R$ {Math.abs(lucroProvisorioTotal).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {isLucro ? `💰 Lucro Provisório Total${labelGlobal}: ` : `🔻 Prejuízo Provisório Total${labelGlobal}: `}R$ {(Math.abs(lucroProvisorioTotal) / divisorGlobal).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     );
                   }
@@ -1613,8 +1697,11 @@ export default function OportunidadeDetalhe() {
               {cotacao.itens.filter((it: any) => (liveLances[it._id]?.concorrente ?? (it.produtoId?.valorConcorrente || it.valorConcorrente)) > 0).map((it: any) => {
                 const valConc = liveLances[it._id]?.concorrente ?? (it.produtoId?.valorConcorrente || it.valorConcorrente || 0);
                 const subtotal = Number(valConc) * Number(it.quantidade || 1);
+                const imposto = subtotal * aliquotaEfetivaGlobal;
                 const custo = it.melhorPreco ? Number(it.melhorPreco.precoUnitario) * Number(it.quantidade || 1) : 0;
-                const lucro = subtotal - custo;
+                const lucro = subtotal - custo - imposto;
+                const divisorItem = modeloEntrega === 'FRACIONADO' ? (mesesContrato || 1) : 1;
+                const labelItem = modeloEntrega === 'FRACIONADO' ? ' (Mensal)' : '';
                 return (
                   <div key={it._id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: '#fef3c7' }}>
                     <span style={{ flex: 1 }}>{it.descricaoItem} ({it.quantidade} un.)</span>
@@ -1634,7 +1721,7 @@ export default function OportunidadeDetalhe() {
                         border: `1px solid ${lucro > 0 ? 'rgba(52, 211, 153, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`,
                         boxShadow: `0 0 10px ${lucro > 0 ? 'rgba(52, 211, 153, 0.1)' : 'rgba(239, 68, 68, 0.1)'}`
                       }}>
-                        {lucro > 0 ? '💰 Lucro Provisório: ' : '🔻 Prejuízo Provisório: '}R$ {Math.abs(lucro).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {lucro > 0 ? `💰 Lucro Provisório${labelItem}: ` : `🔻 Prejuízo Provisório${labelItem}: `}R$ {(Math.abs(lucro) / divisorItem).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     )}
                   </div>
@@ -1659,13 +1746,16 @@ export default function OportunidadeDetalhe() {
                     const valLance = liveLances[it._id]?.nossoLance ?? (it.produtoId?.valorNossoLance || it.valorNossoLance || 0);
                     if (valLance > 0) {
                       const subtotal = Number(valLance) * Number(it.quantidade || 1);
+                      const imposto = subtotal * aliquotaEfetivaGlobal;
                       const custo = it.melhorPreco ? Number(it.melhorPreco.precoUnitario) * Number(it.quantidade || 1) : 0;
-                      return acc + (subtotal - custo);
+                      return acc + (subtotal - custo - imposto);
                     }
                     return acc;
                   }, 0);
                   if (lucroRealTotal !== 0) {
                     const isLucro = lucroRealTotal > 0;
+                    const divisorGlobal = modeloEntrega === 'FRACIONADO' ? (mesesContrato || 1) : 1;
+                    const labelGlobal = modeloEntrega === 'FRACIONADO' ? ' (Mensal)' : '';
                     return (
                       <span style={{ 
                         display: 'inline-flex',
@@ -1679,7 +1769,7 @@ export default function OportunidadeDetalhe() {
                         border: `1px solid ${isLucro ? 'rgba(52, 211, 153, 0.5)' : 'rgba(239, 68, 68, 0.5)'}`,
                         boxShadow: `0 0 15px ${isLucro ? 'rgba(52, 211, 153, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`
                       }}>
-                        {isLucro ? '🏆 Lucro Real Total: ' : '🔻 Prejuízo Real Total: '}R$ {Math.abs(lucroRealTotal).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {isLucro ? `🏆 Lucro Real Total${labelGlobal}: ` : `🔻 Prejuízo Real Total${labelGlobal}: `}R$ {(Math.abs(lucroRealTotal) / divisorGlobal).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     );
                   }
@@ -1692,8 +1782,11 @@ export default function OportunidadeDetalhe() {
               {cotacao.itens.filter((it: any) => (liveLances[it._id]?.nossoLance ?? (it.produtoId?.valorNossoLance || it.valorNossoLance)) > 0).map((it: any) => {
                 const valLance = liveLances[it._id]?.nossoLance ?? (it.produtoId?.valorNossoLance || it.valorNossoLance || 0);
                 const subtotal = Number(valLance) * Number(it.quantidade || 1);
+                const imposto = subtotal * aliquotaEfetivaGlobal;
                 const custo = it.melhorPreco ? Number(it.melhorPreco.precoUnitario) * Number(it.quantidade || 1) : 0;
-                const lucro = subtotal - custo;
+                const lucro = subtotal - custo - imposto;
+                const divisorItem = modeloEntrega === 'FRACIONADO' ? (mesesContrato || 1) : 1;
+                const labelItem = modeloEntrega === 'FRACIONADO' ? ' (Mensal)' : '';
                 return (
                   <div key={it._id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: '#e0e7ff' }}>
                     <span style={{ flex: 1 }}>{it.descricaoItem} ({it.quantidade} un.)</span>
@@ -1713,7 +1806,7 @@ export default function OportunidadeDetalhe() {
                         border: '1px solid rgba(52, 211, 153, 0.5)',
                         boxShadow: '0 0 15px rgba(52, 211, 153, 0.2)'
                       }}>
-                        🏆 Lucro Real: R$ {lucro.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        🏆 Lucro Real{labelItem}: R$ {(lucro / divisorItem).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     )}
                   </div>
@@ -1868,11 +1961,6 @@ export default function OportunidadeDetalhe() {
         </div>
       )}
 
-      {aba === 'simulador' && (
-        <div style={{ marginTop: '1rem' }} className="animate-fadeIn">
-          <SimuladorTributario oportunidadeId={id as string} />
-        </div>
-      )}
     </div>
   );
 }
