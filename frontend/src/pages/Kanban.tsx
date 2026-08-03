@@ -34,6 +34,8 @@ export default function Kanban() {
 
   const getSuffixMessage = (colNome: string) => {
     const upper = colNome.toUpperCase();
+    if (upper.includes('FAZENDO')) return 'EM COTAÇÃO DE PREÇOS COM FORNECEDORES';
+    if (upper.includes('FEITO')) return 'Cotação Realizada e Proposta Lançada No Site do Órgão Licitante, Aguardando convocação para envio dos documentos';
     if (upper.includes('NEGOCIA')) return 'AGUARDANDO APROVAÇÃO DOS DOCUMENTOS';
     if (upper.includes('HOMOLOGA')) return 'DOCUMENTOS APROVADOS AGUARDANDO ASSINATURA DO CONTRATO';
     if (upper.includes('FECHADO') || upper.includes('NEGÓCIO')) return '🎉 PARABÉNS NEGÓCIO FECHADO 🏆';
