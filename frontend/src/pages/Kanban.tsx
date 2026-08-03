@@ -3,7 +3,7 @@ import type { MouseEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import type { DropResult } from '@hello-pangea/dnd';
-import { Trash2, Trophy, Settings, Plus, ArrowUp, ArrowDown } from 'lucide-react';
+import { Trash2, Trophy, Settings, Plus, ArrowUp, ArrowDown, ChevronUp, ChevronDown } from 'lucide-react';
 import Countdown from '../components/Countdown';
 
 const generateId = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/\s+/g, '_');
@@ -14,6 +14,31 @@ export default function Kanban() {
   const [scores, setScores] = useState<Record<string, any>>({});
   const [cotacoes, setCotacoes] = useState<Record<string, any>>({});
   const [collapsedCols, setCollapsedCols] = useState<Record<string, boolean>>({});
+  const [collapsedCards, setCollapsedCards] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem('sgl_collapsed_cards');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const toggleCardCollapse = (cardId: string) => {
+    setCollapsedCards(prev => {
+      const currentState = prev[cardId] !== undefined ? prev[cardId] : true;
+      const newState = { ...prev, [cardId]: !currentState };
+      localStorage.setItem('sgl_collapsed_cards', JSON.stringify(newState));
+      return newState;
+    });
+  };
+
+  const getSuffixMessage = (colNome: string) => {
+    const upper = colNome.toUpperCase();
+    if (upper.includes('NEGOCIA')) return 'AGUARDANDO APROVAÇÃO DOS DOCUMENTOS';
+    if (upper.includes('HOMOLOGA')) return 'DOCUMENTOS APROVADOS AGUARDANDO ASSINATURA DO CONTRATO';
+    if (upper.includes('FECHADO') || upper.includes('NEGÓCIO')) return '🎉 PARABÉNS NEGÓCIO FECHADO 🏆';
+    return undefined;
+  };
 
   const [colunas, setColunas] = useState<{ id: string, nome: string }[]>([]);
   const [modalConfigColsOpen, setModalConfigColsOpen] = useState(false);
@@ -84,7 +109,6 @@ export default function Kanban() {
 
       const ops = dataOp.data || [];
       
-      // Auto-remover oportunidades excluídas e que já expiraram
       const now = new Date().getTime();
       const validOps = [];
       for (const op of ops) {
@@ -96,12 +120,30 @@ export default function Kanban() {
           expirou = isNaN(dt) || dt <= now;
         }
 
-        if (op.kanbanStatus === 'EXCLUIDA' && expirou) {
-          // Apaga no background (como já expirou, o bot não trará de volta do PNCP)
-          fetch(`${window.API_URL}/oportunidades/${op._id}`, { method: 'DELETE' }).catch(e => console.error('Erro no auto-delete', e));
-        } else {
-          validOps.push(op);
+        let st = op.kanbanStatus?.toUpperCase() || '';
+        
+        // Regra 3: A_FAZER expirados movem para EXCLUÍDAS automaticamente
+        if (st === 'A_FAZER' && expirou) {
+          fetch(`${window.API_URL}/oportunidades/${op._id}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ kanbanStatus: 'EXCLUIDA' })
+          }).catch(console.error);
+          st = 'EXCLUIDA';
+          op.kanbanStatus = 'EXCLUIDA';
         }
+        
+        // Regra 1: ARQUIVADAS somem imediatamente da tela
+        if (st === 'ARQUIVADA' || st === 'ARQUIVADAS') {
+          continue; 
+        }
+        
+        // Regra 2: EXCLUÍDAS somem APENAS se estiverem expiradas
+        if ((st === 'EXCLUIDA' || st === 'EXCLUIDAS') && expirou) {
+          continue;
+        }
+
+        validOps.push(op);
       }
 
       setOportunidades(validOps);
@@ -141,25 +183,42 @@ export default function Kanban() {
     carregarOportunidadesEProdutos();
   }, []);
 
-  // Monitora mudanças de estado (ex: mover um card para EXCLUIDA que já estava expirado)
+  // Monitora mudanças de estado de tempo real (ex: card na coluna excluídas que acaba de expirar)
   useEffect(() => {
     const now = new Date().getTime();
-    
     const checkExpirado = (op: any) => {
       if (!op.dataEncerramentoProposta) return true;
       const dt = new Date(op.dataEncerramentoProposta).getTime();
       return isNaN(dt) || dt <= now;
     };
 
-    const expiradosEmExcluida = oportunidades.filter(op => op.kanbanStatus === 'EXCLUIDA' && checkExpirado(op));
+    const isExcluida = (st: string) => st === 'EXCLUIDA' || st === 'EXCLUIDAS';
     
-    if (expiradosEmExcluida.length > 0) {
-      expiradosEmExcluida.forEach(op => {
-        // Tenta apagar do banco silenciosamente
-        fetch(`${window.API_URL}/oportunidades/${op._id}`, { method: 'DELETE' }).catch(() => {});
+    // Move os A_FAZER expirados para EXCLUIDA no banco
+    const aFazerExpirados = oportunidades.filter(op => op.kanbanStatus?.toUpperCase() === 'A_FAZER' && checkExpirado(op));
+    if (aFazerExpirados.length > 0) {
+      aFazerExpirados.forEach(op => {
+        fetch(`${window.API_URL}/oportunidades/${op._id}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kanbanStatus: 'EXCLUIDA' })
+        }).catch(console.error);
       });
-      // Remove do estado visual
-      setOportunidades(prev => prev.filter(op => !(op.kanbanStatus === 'EXCLUIDA' && checkExpirado(op))));
+    }
+
+    // Remove da tela os que estão em EXCLUIDA expirados E os de A_FAZER que acabaram de expirar
+    const precisamSumir = oportunidades.filter(op => 
+      (op.kanbanStatus?.toUpperCase() === 'A_FAZER' && checkExpirado(op)) || 
+      (isExcluida(op.kanbanStatus?.toUpperCase() || '') && checkExpirado(op))
+    );
+    
+    if (precisamSumir.length > 0) {
+      setOportunidades(prev => prev.filter(op => {
+        const expirou = checkExpirado(op);
+        const st = op.kanbanStatus?.toUpperCase() || '';
+        const deveSumir = (st === 'A_FAZER' && expirou) || (isExcluida(st) && expirou);
+        return !deveSumir;
+      }));
     }
   }, [oportunidades]);
 
@@ -183,9 +242,17 @@ export default function Kanban() {
     if (sourceId === destId) return;
 
     const previous = [...oportunidades];
-    setOportunidades(prev => prev.map(op => 
-      op._id === itemId ? { ...op, kanbanStatus: destId } : op
-    ));
+    const destSt = destId.toUpperCase();
+    
+    // Se foi para ARQUIVADAS, some na hora. 
+    // Se foi para EXCLUIDA, verificamos se já está expirado para sumir.
+    if (destSt === 'ARQUIVADA' || destSt === 'ARQUIVADAS') {
+      setOportunidades(prev => prev.filter(op => op._id !== itemId));
+    } else {
+      setOportunidades(prev => prev.map(op => 
+        op._id === itemId ? { ...op, kanbanStatus: destId } : op
+      ));
+    }
 
     try {
       const res = await fetch(`${window.API_URL}/oportunidades/${itemId}/status`, {
@@ -201,9 +268,14 @@ export default function Kanban() {
 
   const moverPorMenu = async (itemId: string, novoStatus: string) => {
     const previous = [...oportunidades];
-    setOportunidades(prev => prev.map(op => 
-      op._id === itemId ? { ...op, kanbanStatus: novoStatus } : op
-    ));
+    const destSt = novoStatus.toUpperCase();
+    if (destSt === 'ARQUIVADA' || destSt === 'ARQUIVADAS') {
+      setOportunidades(prev => prev.filter(op => op._id !== itemId));
+    } else {
+      setOportunidades(prev => prev.map(op => 
+        op._id === itemId ? { ...op, kanbanStatus: novoStatus } : op
+      ));
+    }
     try {
       const res = await fetch(`${window.API_URL}/oportunidades/${itemId}/status`, {
         method: 'PATCH',
@@ -342,103 +414,132 @@ export default function Kanban() {
                         
                         return (
                         <Draggable key={item._id} draggableId={item._id} index={index}>
-                          {(provided) => (
+                          {(provided) => {
+                            const isCardCollapsed = collapsedCards[item._id] !== undefined ? collapsedCards[item._id] : true;
+                            return (
                             <div className="kanban-card" ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} style={provided.draggableProps.style}>
-                              <Link to={`/oportunidades/${item._id}`} style={{ textDecoration: 'none' }} aria-label={`Ver detalhes da oportunidade: ${item.orgaoNome}`}>
-                                <h4 style={{ color: '#0ea5e9' }}>{item.orgaoNome}</h4>
-                              </Link>
-                              <p className="desc" title={item.objetoCompra}>{item.objetoCompra}</p>
-                              
-                              {colId === 'EXCLUIDA' && (
-                                <div style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fca5a5', padding: '0.5rem', borderRadius: '4px', marginBottom: '1rem', fontSize: '0.75rem', fontWeight: 'bold' }}>
-                                  ⚠️ Você já excluiu esta proposta antes
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: isCardCollapsed ? 0 : '1rem' }}>
+                                <div style={{ flex: 1, overflow: 'hidden' }}>
+                                  <Link to={`/oportunidades/${item._id}`} style={{ textDecoration: 'none' }} aria-label={`Ver detalhes da oportunidade: ${item.orgaoNome}`}>
+                                    <h4 style={{ color: '#0ea5e9', margin: '0 0 0.25rem 0' }}>{item.orgaoNome}</h4>
+                                  </Link>
+                                  <p className="desc" title={item.objetoCompra} style={{ margin: 0 }}>{item.objetoCompra}</p>
                                 </div>
-                              )}
+                                <button 
+                                  onClick={() => toggleCardCollapse(item._id)} 
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                  title={isCardCollapsed ? "Expandir Card" : "Recolher Card"}
+                                >
+                                  {isCardCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+                                </button>
+                              </div>
                               
-                              {prods.length > 0 && !bestOffer && (
-                                <div style={{ background: '#f1f5f9', padding: '0.5rem', borderRadius: '4px', marginBottom: '1rem', fontSize: '0.75rem', border: '1px solid #e2e8f0' }}>
-                                  <strong style={{ color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.25rem' }}>Produtos/Serviços:</strong>
-                                  <ul style={{ margin: 0, paddingLeft: '1rem', color: '#334155' }}>
-                                    {prods.slice(0, 3).map(p => <li key={p._id}>{p.descricao}</li>)}
-                                    {prods.length > 3 && <li style={{ color: '#64748b' }}>+{prods.length - 3} mais...</li>}
-                                  </ul>
-                                </div>
-                              )}
-
-                              {/* Melhor proposta em destaque */}
-                              {bestOffer && (
-                                <div style={{ background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)', border: '1px solid #86efac', borderRadius: '6px', padding: '0.75rem', marginBottom: '1rem', fontSize: '0.75rem' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 700, color: '#166534', marginBottom: '0.4rem' }}>
-                                    <Trophy size={12} /> Melhor Proposta ({bestOffer.totalItensComOferta}/{bestOffer.totalItens} itens)
-                                  </div>
-                                  <div style={{ color: '#334155', marginBottom: '0.2rem', fontWeight: 600 }}>
-                                    🏢 {bestOffer.nomeVencedor}
-                                  </div>
-                                  <div style={{ color: '#475569', marginBottom: '0.4rem' }}>
-                                    📦 {bestOffer.descricao} — {bestOffer.quantidade} un.
-                                  </div>
-
-                                  {/* Preços e economy */}
-                                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem', marginTop: '0.4rem', padding: '0.4rem', background: 'rgba(255,255,255,0.6)', borderRadius: '4px' }}>
-                                    {bestOffer.valorOrgao > 0 && (
-                                      <div>
-                                        <div style={{ color: '#64748b', fontSize: '0.65rem', marginBottom: '0.1rem' }}>Ref. órgão (unit.)</div>
-                                        <div style={{ color: '#475569', fontWeight: 600 }}>R$ {bestOffer.valorOrgao.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</div>
-                                      </div>
-                                    )}
-                                    <div>
-                                      <div style={{ color: '#64748b', fontSize: '0.65rem', marginBottom: '0.1rem' }}>Cotação campã (unit.)</div>
-                                      <div style={{ color: '#166534', fontWeight: 700 }}>R$ {bestOffer.melhorPreco.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</div>
-                                    </div>
-                                    {bestOffer.economiaPorUnidade !== null && bestOffer.economiaPorUnidade > 0 && (
-                                      <div>
-                                        <div style={{ color: '#64748b', fontSize: '0.65rem', marginBottom: '0.1rem' }}>Lucro/unit.</div>
-                                        <div style={{ color: '#16a34a', fontWeight: 700 }}>R$ {bestOffer.economiaPorUnidade.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</div>
-                                      </div>
-                                    )}
-                                    {bestOffer.economiaTotal !== null && bestOffer.economiaTotal > 0 && (
-                                      <div>
-                                        <div style={{ color: '#64748b', fontSize: '0.65rem', marginBottom: '0.1rem' }}>Economia total</div>
-                                        <div style={{ color: '#16a34a', fontWeight: 700 }}>↓ R$ {bestOffer.economiaTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  {bestOffer.valorTotal > 0 && (
-                                    <div style={{ marginTop: '0.4rem', fontSize: '0.7rem', color: '#64748b', textAlign: 'right' }}>
-                                      Total cotado: <strong style={{ color: '#166534' }}>R$ {bestOffer.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                              {!isCardCollapsed && (
+                                <>
+                                  {colId === 'EXCLUIDA' && (
+                                    <div style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fca5a5', padding: '0.5rem', borderRadius: '4px', marginBottom: '1rem', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                                      ⚠️ Você já excluiu esta proposta antes
                                     </div>
                                   )}
-                                </div>
-                              )}
-                              
-                              {scores[item._id] && (
-                                <div style={{ marginBottom: '1rem', fontSize: '0.75rem' }}>
-                                  {scores[item._id].probabilidadeVitoria !== null ? (
-                                    <span style={{ 
-                                      background: scores[item._id].probabilidadeVitoria > 0.5 ? '#dcfce7' : '#fef08a', 
-                                      color: scores[item._id].probabilidadeVitoria > 0.5 ? '#166534' : '#854d0e',
-                                      padding: '0.25rem 0.5rem', borderRadius: '4px', fontWeight: 'bold'
-                                    }}>
-                                      🎯 Score: {(scores[item._id].probabilidadeVitoria * 100).toFixed(1)}%
-                                    </span>
-                                  ) : (
-                                    <span style={{ background: '#e2e8f0', color: '#475569', padding: '0.25rem 0.5rem', borderRadius: '4px' }}>
-                                      🤖 {scores[item._id].mensagem}
-                                    </span>
+                                  
+                                  {prods.length > 0 && !bestOffer && (
+                                    <div style={{ background: '#f1f5f9', padding: '0.5rem', borderRadius: '4px', marginBottom: '1rem', fontSize: '0.75rem', border: '1px solid #e2e8f0' }}>
+                                      <strong style={{ color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.25rem' }}>Produtos/Serviços:</strong>
+                                      <ul style={{ margin: 0, paddingLeft: '1rem', color: '#334155' }}>
+                                        {prods.slice(0, 3).map(p => <li key={p._id}>{p.descricao}</li>)}
+                                        {prods.length > 3 && <li style={{ color: '#64748b' }}>+{prods.length - 3} mais...</li>}
+                                      </ul>
+                                    </div>
                                   )}
-                                </div>
+
+                                  {/* Melhor proposta em destaque */}
+                                  {bestOffer && (
+                                    <div style={{ background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)', border: '1px solid #86efac', borderRadius: '6px', padding: '0.75rem', marginBottom: '1rem', fontSize: '0.75rem' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 700, color: '#166534', marginBottom: '0.4rem' }}>
+                                        <Trophy size={12} /> Melhor Proposta ({bestOffer.totalItensComOferta}/{bestOffer.totalItens} itens)
+                                      </div>
+                                      <div style={{ color: '#334155', marginBottom: '0.2rem', fontWeight: 600 }}>
+                                        🏢 {bestOffer.nomeVencedor}
+                                      </div>
+                                      <div style={{ color: '#475569', marginBottom: '0.4rem' }}>
+                                        📦 {bestOffer.descricao} — {bestOffer.quantidade} un.
+                                      </div>
+
+                                      {/* Preços e economy */}
+                                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem', marginTop: '0.4rem', padding: '0.4rem', background: 'rgba(255,255,255,0.6)', borderRadius: '4px' }}>
+                                        {bestOffer.valorOrgao > 0 && (
+                                          <div>
+                                            <div style={{ color: '#64748b', fontSize: '0.65rem', marginBottom: '0.1rem' }}>Ref. órgão (unit.)</div>
+                                            <div style={{ color: '#475569', fontWeight: 600 }}>R$ {bestOffer.valorOrgao.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</div>
+                                          </div>
+                                        )}
+                                        <div>
+                                          <div style={{ color: '#64748b', fontSize: '0.65rem', marginBottom: '0.1rem' }}>Cotação campã (unit.)</div>
+                                          <div style={{ color: '#166534', fontWeight: 700 }}>R$ {bestOffer.melhorPreco.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</div>
+                                        </div>
+                                        {bestOffer.economiaPorUnidade !== null && bestOffer.economiaPorUnidade > 0 && (
+                                          <div>
+                                            <div style={{ color: '#64748b', fontSize: '0.65rem', marginBottom: '0.1rem' }}>Lucro/unit.</div>
+                                            <div style={{ color: '#16a34a', fontWeight: 700 }}>R$ {bestOffer.economiaPorUnidade.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</div>
+                                          </div>
+                                        )}
+                                        {bestOffer.economiaTotal !== null && bestOffer.economiaTotal > 0 && (
+                                          <div>
+                                            <div style={{ color: '#64748b', fontSize: '0.65rem', marginBottom: '0.1rem' }}>Economia total</div>
+                                            <div style={{ color: '#16a34a', fontWeight: 700 }}>↓ R$ {bestOffer.economiaTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {bestOffer.valorTotal > 0 && (
+                                        <div style={{ marginTop: '0.4rem', fontSize: '0.7rem', color: '#64748b', textAlign: 'right' }}>
+                                          Total cotado: <strong style={{ color: '#166534' }}>R$ {bestOffer.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                  
+                                  {scores[item._id] && (
+                                    <div style={{ marginBottom: '1rem', fontSize: '0.75rem' }}>
+                                      {scores[item._id].probabilidadeVitoria !== null ? (
+                                        <span style={{ 
+                                          background: scores[item._id].probabilidadeVitoria > 0.5 ? '#dcfce7' : '#fef08a', 
+                                          color: scores[item._id].probabilidadeVitoria > 0.5 ? '#166534' : '#854d0e',
+                                          padding: '0.25rem 0.5rem', borderRadius: '4px', fontWeight: 'bold'
+                                        }}>
+                                          🎯 Score: {(scores[item._id].probabilidadeVitoria * 100).toFixed(1)}%
+                                        </span>
+                                      ) : (
+                                        <span style={{ background: '#e2e8f0', color: '#475569', padding: '0.25rem 0.5rem', borderRadius: '4px' }}>
+                                          🤖 {scores[item._id].mensagem}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </>
                               )}
                               
-                              <div style={{ marginBottom: '1rem' }}>
+                              <div style={{ marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                 <Countdown 
                                   targetDate={item.dataEncerramentoProposta} 
-                                  onExpire={() => {
-                                    if (colId === 'EXCLUIDA') {
-                                      handleDelete(item._id, true);
-                                    }
-                                  }}
+                                  onExpire={() => {}}
                                 />
+                                {getSuffixMessage(col.nome) && (
+                                  <span style={{ 
+                                    background: (col.nome.toUpperCase().includes('FECHADO') || col.nome.toUpperCase().includes('NEGÓCIO')) ? '#dcfce7' : '#eff6ff', 
+                                    color: (col.nome.toUpperCase().includes('FECHADO') || col.nome.toUpperCase().includes('NEGÓCIO')) ? '#166534' : '#1d4ed8', 
+                                    padding: '0.4rem 0.8rem', 
+                                    borderRadius: '12px', 
+                                    fontSize: '0.75rem', 
+                                    fontWeight: '800',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.5px',
+                                    width: 'fit-content',
+                                    lineHeight: '1.2'
+                                  }}>
+                                    {getSuffixMessage(col.nome)}
+                                  </span>
+                                )}
                               </div>
 
                               <div className="kanban-card-footer">
@@ -472,7 +573,7 @@ export default function Kanban() {
                                 )}
                               </div>
                             </div>
-                          )}
+                          );}}
                         </Draggable>
                       )})}
                         {provided.placeholder}

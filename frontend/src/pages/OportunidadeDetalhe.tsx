@@ -1176,8 +1176,12 @@ export default function OportunidadeDetalhe() {
   const [liveLances, setLiveLances] = useState<Record<string, { concorrente: number, nossoLance: number }>>({});
 
   // Para cálculos de Faturamento Global e Impostos
-  const [modeloEntrega, setModeloEntrega] = useState<'INTEGRAL'|'FRACIONADO'>('INTEGRAL');
-  const [mesesContrato, setMesesContrato] = useState<number>(12);
+  const [modeloEntrega, setModeloEntrega] = useState<'INTEGRAL'|'FRACIONADO'>(() => {
+    return (localStorage.getItem(`sgl_modelo_entrega_${id}`) as any) || 'INTEGRAL';
+  });
+  const [mesesContrato, setMesesContrato] = useState<number>(() => {
+    return Number(localStorage.getItem(`sgl_meses_contrato_${id}`)) || 12;
+  });
   const rbt12 = 134712.50; // Valor de exemplo; futuramente vem da API
   
   const faturamentoTotalNossoGlobal = cotacao ? Number(cotacao.itens.reduce((acc: number, it: any) => acc + ((liveLances[it._id]?.nossoLance ?? (it.produtoId?.valorNossoLance || it.valorNossoLance || 0)) * Number(it.quantidade || 1)), 0)) : 0;
@@ -1535,12 +1539,26 @@ export default function OportunidadeDetalhe() {
               >
                 📊 Exportar Mapa de Preços (CSV)
               </button>
-              <select className="form-control" value="" onChange={e => setNovoFornecedorId(e.target.value)} style={{ minWidth: '300px' }}>
-                <option value="" disabled>+ Adicionar Fornecedor à disputa...</option>
-                {fornecedoresDisponiveis.map(f => (
-                  <option key={f._id} value={f._id}>{f.razaoSocial} ({f.cnpj})</option>
-                ))}
-              </select>
+              <div>
+                <input 
+                  list="fornecedores-list" 
+                  className="form-control" 
+                  placeholder="+ Buscar e adicionar Fornecedor..." 
+                  onChange={e => {
+                    const match = fornecedoresDisponiveis.find(f => `${f.razaoSocial} (${f.cnpj})` === e.target.value);
+                    if (match) {
+                      setNovoFornecedorId(match._id);
+                      e.target.value = ''; // limpa após selecionar
+                    }
+                  }}
+                  style={{ minWidth: '300px', width: '100%' }}
+                />
+                <datalist id="fornecedores-list">
+                  {fornecedoresDisponiveis.map(f => (
+                    <option key={f._id} value={`${f.razaoSocial} (${f.cnpj})`} />
+                  ))}
+                </datalist>
+              </div>
             </div>
           </div>
 
@@ -1556,7 +1574,10 @@ export default function OportunidadeDetalhe() {
                 <select 
                   className="form-control" 
                   value={modeloEntrega} 
-                  onChange={(e) => setModeloEntrega(e.target.value as any)}
+                  onChange={(e) => {
+                    setModeloEntrega(e.target.value as any);
+                    localStorage.setItem(`sgl_modelo_entrega_${id}`, e.target.value);
+                  }}
                   style={{ minWidth: '220px', textAlign: 'center' }}
                 >
                   <option value="INTEGRAL">INTEGRAL (Única NF)</option>
@@ -1571,7 +1592,10 @@ export default function OportunidadeDetalhe() {
                     min="1" max="60"
                     className="form-control" 
                     value={mesesContrato} 
-                    onChange={(e) => setMesesContrato(Number(e.target.value))}
+                    onChange={(e) => {
+                      setMesesContrato(Number(e.target.value));
+                      localStorage.setItem(`sgl_meses_contrato_${id}`, e.target.value);
+                    }}
                     style={{ width: '100px' }}
                   />
                 </div>

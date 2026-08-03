@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, Timer } from 'lucide-react';
 
-const Countdown = ({ targetDate, onExpire }: { targetDate: string, onExpire?: () => void }) => {
+const Countdown = ({ targetDate, onExpire, suffixMessage }: { targetDate: string, onExpire?: () => void, suffixMessage?: string }) => {
   const [timeLeft, setTimeLeft] = useState({ dias: 0, horas: 0, minutos: 0, segundos: 0, expirado: false });
   const [hasNotified, setHasNotified] = useState(false);
 
@@ -34,7 +34,7 @@ const Countdown = ({ targetDate, onExpire }: { targetDate: string, onExpire?: ()
   if (timeLeft.expirado) {
     return (
       <span style={{ color: '#ffffff', fontWeight: 800, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px', background: '#dc2626', padding: '0.4rem 0.8rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.4rem', width: 'fit-content' }}>
-        <AlertTriangle size={14} /> Expirado
+        <AlertTriangle size={14} /> Expirado {suffixMessage ? `- ${suffixMessage}` : ''}
       </span>
     );
   }
@@ -52,7 +52,7 @@ const Countdown = ({ targetDate, onExpire }: { targetDate: string, onExpire?: ()
 
   return (
     <span style={{ color: color, fontWeight: 800, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px', background: bg, padding: '0.4rem 0.8rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.4rem', width: 'fit-content', marginBottom: '0.5rem' }}>
-      <Timer size={14} /> Faltam {text}
+      <Timer size={14} /> Faltam {text} {suffixMessage ? `- ${suffixMessage}` : ''}
     </span>
   );
 };
