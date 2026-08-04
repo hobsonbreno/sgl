@@ -24,11 +24,20 @@ export default function Kanban() {
     }
   });
 
+  const [socketRef, setSocketRef] = useState<any>(null);
+
   const toggleCardCollapse = (cardId: string) => {
     setCollapsedCards(prev => {
       const currentState = prev[cardId] !== undefined ? prev[cardId] : true;
-      const newState = { ...prev, [cardId]: !currentState };
+      const collapsed = !currentState;
+      const newState = { ...prev, [cardId]: collapsed };
       localStorage.setItem('sgl_collapsed_cards', JSON.stringify(newState));
+      
+      // Emit the change to all other computers in real time
+      if (socketRef) {
+        socketRef.emit('toggle_card_collapse', { cardId, collapsed });
+      }
+
       return newState;
     });
   };
@@ -187,6 +196,7 @@ export default function Kanban() {
 
     // WebSocket Connection
     const socket = io(window.API_URL);
+    setSocketRef(socket);
 
     socket.on('oportunidade_updated', (updatedOp: any) => {
       setOportunidades(prev => {
@@ -202,6 +212,14 @@ export default function Kanban() {
 
     socket.on('oportunidade_deleted', (data: { id: string }) => {
       setOportunidades(prev => prev.filter(op => op._id !== data.id));
+    });
+
+    socket.on('kanban_card_collapsed', (data: { cardId: string, collapsed: boolean }) => {
+      setCollapsedCards(prev => {
+        const newState = { ...prev, [data.cardId]: data.collapsed };
+        localStorage.setItem('sgl_collapsed_cards', JSON.stringify(newState));
+        return newState;
+      });
     });
 
     return () => {

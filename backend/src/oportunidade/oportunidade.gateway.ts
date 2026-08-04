@@ -3,6 +3,9 @@ import {
   WebSocketServer,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  SubscribeMessage,
+  MessageBody,
+  ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 
@@ -27,5 +30,14 @@ export class OportunidadeGateway
 
   emitOportunidadeDelete(id: string) {
     this.server.emit('oportunidade_deleted', { id });
+  }
+
+  @SubscribeMessage('toggle_card_collapse')
+  handleToggleCardCollapse(
+    @MessageBody() data: { cardId: string; collapsed: boolean },
+    @ConnectedSocket() client: Socket,
+  ) {
+    // Broadcast para todo mundo, EXCETO para quem enviou
+    client.broadcast.emit('kanban_card_collapsed', data);
   }
 }
