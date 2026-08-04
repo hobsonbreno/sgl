@@ -4,6 +4,7 @@ import mongoose, { Model, Connection } from 'mongoose';
 import { Cotacao, CotacaoDocument } from './cotacao.schema';
 import { FornecedorService } from '../fornecedor/fornecedor.service';
 import { SupplierDiscoveryService } from '../fornecedor/supplier-discovery.service';
+import { CotacaoGateway } from './cotacao.gateway';
 
 @Injectable()
 export class CotacaoService {
@@ -12,6 +13,7 @@ export class CotacaoService {
     private fornecedorService: FornecedorService,
     private supplierDiscoveryService: SupplierDiscoveryService,
     @InjectConnection() private connection: Connection,
+    private readonly gateway: CotacaoGateway,
   ) {}
 
   async createOrGet(
@@ -209,7 +211,9 @@ export class CotacaoService {
 
     await this.checkAndMoveKanban(doc);
 
-    return this.findOne(cotacaoId);
+    const updatedCotacao = await this.findOne(cotacaoId);
+    this.gateway.emitCotacaoUpdate(updatedCotacao);
+    return updatedCotacao;
   }
 
   private async checkAndMoveKanban(doc: any) {
@@ -300,7 +304,10 @@ export class CotacaoService {
     }, 0);
 
     await doc.save();
-    return this.findOne(cotacaoId);
+    
+    const updatedCotacao = await this.findOne(cotacaoId);
+    this.gateway.emitCotacaoUpdate(updatedCotacao);
+    return updatedCotacao;
   }
 
   async buscarPrecosWebAuto(

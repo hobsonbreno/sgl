@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Check, AlertCircle, Trash2, ChevronDown, ChevronUp, X, ExternalLink, Copy, XCircle, RotateCw, Search } from 'lucide-react';
+import { io } from 'socket.io-client';
 
 function calcularAliquotaEfetivaSimples(rbt12: number): number {
   if (rbt12 <= 0) return 0.06;
@@ -1261,6 +1262,23 @@ export default function OportunidadeDetalhe() {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useEffect(() => {
+    const socket = io(window.API_URL);
+
+    socket.on('cotacao_updated', (updatedCotacao: any) => {
+      setCotacao((prev: any) => {
+        if (prev && prev._id === updatedCotacao._id) {
+          return updatedCotacao;
+        }
+        return prev;
+      });
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   const handlePrecoBlur = async (
     itemId: string, 

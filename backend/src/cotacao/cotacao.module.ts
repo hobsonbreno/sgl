@@ -5,6 +5,7 @@ import { CotacaoController } from './cotacao.controller';
 import { Cotacao, CotacaoSchema } from './cotacao.schema';
 import { FornecedorModule } from '../fornecedor/fornecedor.module';
 import { PerfilBuscaModule } from '../perfil-busca/perfil-busca.module';
+import { CotacaoGateway } from './cotacao.gateway';
 
 @Module({
   imports: [
@@ -12,7 +13,8 @@ import { PerfilBuscaModule } from '../perfil-busca/perfil-busca.module';
     FornecedorModule,
     PerfilBuscaModule,
   ],
-  providers: [CotacaoService],
+  providers: [CotacaoService, CotacaoGateway],
   controllers: [CotacaoController],
+  exports: [CotacaoGateway],
 })
 export class CotacaoModule {}

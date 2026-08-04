@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Package, Award, Building2, Search, Edit2, Save, Globe, FileText } from 'lucide-react';
+import { io } from 'socket.io-client';
 
 export default function BaseProdutos() {
   const [produtos, setProdutos] = useState<any[]>([]);
@@ -8,6 +9,7 @@ export default function BaseProdutos() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [refresh, setRefresh] = useState(0);
   
   // State to hold manual edits before saving
   const [editValues, setEditValues] = useState<{nossoLanceOficial: string, valorCampeaoLicitacao: string}>({
@@ -18,7 +20,16 @@ export default function BaseProdutos() {
   useEffect(() => {
     carregarBase();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busca, page]);
+  }, [busca, page, refresh]);
+
+  useEffect(() => {
+    const socket = io(window.API_URL);
+    socket.on('fornecedor_updated', () => setRefresh(r => r + 1));
+    socket.on('fornecedor_deleted', () => setRefresh(r => r + 1));
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   const carregarBase = async () => {
     setLoading(true);

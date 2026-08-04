@@ -25,6 +25,7 @@ import { mapPncpParaOportunidade } from '../pncp/dtos/pncp.dto';
 import { ConfiguracaoService } from '../configuracao/configuracao.service';
 import { EventsService } from '../events/events.service';
 import { SyncFailureLoggerService } from '../observability/sync-failure-logger.service';
+import { OportunidadeGateway } from '../oportunidade/oportunidade.gateway';
 
 @Injectable()
 export class BotService implements OnApplicationBootstrap {
@@ -46,6 +47,7 @@ export class BotService implements OnApplicationBootstrap {
     private configService: ConfiguracaoService,
     private eventsService: EventsService,
     private readonly syncFailureLogger: SyncFailureLoggerService,
+    private readonly oportunidadeGateway: OportunidadeGateway,
   ) {}
 
   async onApplicationBootstrap() {
@@ -263,7 +265,8 @@ export class BotService implements OnApplicationBootstrap {
                 });
 
                 if (!existe) {
-                  await this.oportunidadeModel.create(opDto);
+                  const created = await this.oportunidadeModel.create(opDto);
+                  this.oportunidadeGateway.emitOportunidadeUpdate(created); // Reusing update to push to client
                   totalNovos++;
                 } else {
                   await this.oportunidadeModel.updateOne(
