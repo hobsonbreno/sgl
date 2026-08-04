@@ -71,11 +71,13 @@ export class OportunidadeService {
     const skip = (page - 1) * limit;
 
     const data = await this.model
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       .find(filters)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
       .exec();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const total = await this.model.countDocuments(filters).exec();
     const totalPages = Math.ceil(total / limit) || 1;
 
