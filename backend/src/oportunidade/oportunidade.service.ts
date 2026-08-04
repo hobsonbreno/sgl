@@ -2,7 +2,6 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
-  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -126,9 +125,6 @@ export class OportunidadeService {
     }
 
     // Sempre busca e faz upsert, pois o órgão pode ter adicionado mais itens ao edital depois da primeira sincronização.
-    const produtosExistentes = await this.produtoModel
-      .countDocuments({ oportunidadeId: id })
-      .exec();
 
     try {
       const itensRaw = await this.pncpClientService.buscarItensDaContratacao(
