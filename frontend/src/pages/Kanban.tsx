@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import type { DropResult } from '@hello-pangea/dnd';
 import { Trash2, Trophy, Settings, Plus, ArrowUp, ArrowDown, ChevronUp, ChevronDown } from 'lucide-react';
+import { io } from 'socket.io-client';
 import Countdown from '../components/Countdown';
 
 const generateId = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/\s+/g, '_');
@@ -183,6 +184,29 @@ export default function Kanban() {
 
   useEffect(() => {
     carregarOportunidadesEProdutos();
+
+    // WebSocket Connection
+    const socket = io(window.API_URL);
+
+    socket.on('oportunidade_updated', (updatedOp: any) => {
+      setOportunidades(prev => {
+        const idx = prev.findIndex(op => op._id === updatedOp._id);
+        if (idx !== -1) {
+          const newOps = [...prev];
+          newOps[idx] = updatedOp;
+          return newOps;
+        }
+        return [updatedOp, ...prev];
+      });
+    });
+
+    socket.on('oportunidade_deleted', (data: { id: string }) => {
+      setOportunidades(prev => prev.filter(op => op._id !== data.id));
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   // Monitora mudanças de estado de tempo real (ex: card na coluna excluídas que acaba de expirar)

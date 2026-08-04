@@ -20,6 +20,7 @@ import {
 } from './dtos/simular-estrategia.dto';
 import { FinanceiroService } from '../financeiro/financeiro.service';
 import { Cotacao, CotacaoDocument } from '../cotacao/cotacao.schema';
+import { OportunidadeGateway } from './oportunidade.gateway';
 
 @Injectable()
 export class OportunidadeService {
@@ -33,6 +34,7 @@ export class OportunidadeService {
     private simulacaoModel: Model<SimulacaoDocument>,
     private readonly financeiroService: FinanceiroService,
     @InjectModel(Cotacao.name) private cotacaoModel: Model<CotacaoDocument>,
+    private readonly gateway: OportunidadeGateway,
   ) {}
 
   async findAll(query: any): Promise<{
@@ -107,10 +109,14 @@ export class OportunidadeService {
       this.logger.info(
         `Produtos da oportunidade ${id} removidos (movida para lixeira)`,
       );
+      this.gateway.emitOportunidadeDelete(id);
+    } else {
+      this.gateway.emitOportunidadeUpdate(doc);
     }
 
     return doc;
   }
+
 
   async sincronizarItens(id: string) {
     const doc = await this.model.findById(id).exec();
@@ -187,6 +193,7 @@ export class OportunidadeService {
       this.logger.info(
         `Oportunidade ${id} enviada para lixeira e produtos removidos`,
       );
+      this.gateway.emitOportunidadeDelete(id);
       return { message: 'Oportunidade excluída com sucesso' };
     } catch (error) {
       this.logger.error(`Erro ao excluir oportunidade ${id}: ${error.message}`);

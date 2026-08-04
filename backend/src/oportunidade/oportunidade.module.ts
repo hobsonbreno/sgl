@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { OportunidadeService } from './oportunidade.service';
 import { OportunidadeController } from './oportunidade.controller';
 import { Oportunidade, OportunidadeSchema } from './oportunidade.schema';
+import { OportunidadeGateway } from './oportunidade.gateway';
 import {
   SimulacaoEstrategia,
   SimulacaoSchema,
@@ -24,7 +25,7 @@ import { Cotacao, CotacaoSchema } from '../cotacao/cotacao.schema';
     forwardRef(() => FinanceiroModule),
   ],
   controllers: [OportunidadeController],
-  providers: [OportunidadeService],
-  exports: [MongooseModule, OportunidadeService],
+  providers: [OportunidadeService, OportunidadeGateway],
+  exports: [MongooseModule, OportunidadeService, OportunidadeGateway],
 })
 export class OportunidadeModule {}
