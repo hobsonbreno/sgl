@@ -117,7 +117,6 @@ export class OportunidadeService {
     return doc;
   }
 
-
   async sincronizarItens(id: string) {
     const doc = await this.model.findById(id).exec();
     if (!doc) throw new NotFoundException('Oportunidade não encontrada');

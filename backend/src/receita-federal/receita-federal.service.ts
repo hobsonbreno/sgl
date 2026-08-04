@@ -90,16 +90,18 @@ export class ReceitaFederalService {
                 ),
               );
             const unzip = res.pipe(unzipper.Parse());
-            unzip.on('entry', async (entry) => {
-              const csvParser = entry
-                .pipe(iconv.decodeStream('win1252'))
-                .pipe(
-                  parse({ delimiter: ';', relax_quotes: true, quote: '"' }),
-                );
-              for await (const row of csvParser) {
-                map.set(String(row[0]).trim(), String(row[1]).trim());
-              }
-              entry.autodrain();
+            unzip.on('entry', (entry) => {
+              (async () => {
+                const csvParser = entry
+                  .pipe(iconv.decodeStream('win1252'))
+                  .pipe(
+                    parse({ delimiter: ';', relax_quotes: true, quote: '"' }),
+                  );
+                for await (const row of csvParser) {
+                  map.set(String(row[0]).trim(), String(row[1]).trim());
+                }
+                entry.autodrain();
+              })().catch((err) => this.logger.error(err));
             });
             unzip.on('close', () => {
               this.logger.log(
@@ -144,73 +146,80 @@ export class ReceitaFederalService {
             }
             const unzip = res.pipe(unzipper.Parse());
 
-            unzip.on('entry', async (entry) => {
-              const csvParser = entry
-                .pipe(iconv.decodeStream('win1252'))
-                .pipe(
-                  parse({ delimiter: ';', relax_quotes: true, quote: '"' }),
-                );
-              let bulkOps = [];
+            unzip.on('entry', (entry) => {
+              (async () => {
+                const csvParser = entry
+                  .pipe(iconv.decodeStream('win1252'))
+                  .pipe(
+                    parse({ delimiter: ';', relax_quotes: true, quote: '"' }),
+                  );
+                let bulkOps = [];
 
-              for await (const row of csvParser) {
-                const uf = String(row[19]).trim().toUpperCase();
-                const situacao = String(row[5]).trim();
+                for await (const row of csvParser) {
+                  const uf = String(row[19]).trim().toUpperCase();
+                  const situacao = String(row[5]).trim();
 
-                if (uf === targetUf && situacao === targetStatus) {
-                  const cnpjBase = String(row[0]).padStart(8, '0');
-                  const cnpjOrdem = String(row[1]).padStart(4, '0');
-                  const cnpjDv = String(row[2]).padStart(2, '0');
-                  const cnpjCompleto = `${cnpjBase}${cnpjOrdem}${cnpjDv}`;
-                  const cnae = String(row[11]).trim();
-                  const muniCod = String(row[20]).trim();
-                  const telefone =
-                    row[21] && row[22]
-                      ? `${row[21]}${row[22]}`.trim()
-                      : undefined;
+                  if (uf === targetUf && situacao === targetStatus) {
+                    const cnpjBase = String(row[0]).padStart(8, '0');
+                    const cnpjOrdem = String(row[1]).padStart(4, '0');
+                    const cnpjDv = String(row[2]).padStart(2, '0');
+                    const cnpjCompleto = `${cnpjBase}${cnpjOrdem}${cnpjDv}`;
+                    const cnae = String(row[11]).trim();
+                    const muniCod = String(row[20]).trim();
+                    const telefone =
+                      row[21] && row[22]
+                        ? `${row[21]}${row[22]}`.trim()
+                        : undefined;
 
-                  bulkOps.push({
-                    updateOne: {
-                      filter: { cnpj: cnpjCompleto },
-                      update: {
-                        $set: {
-                          cnpj: cnpjCompleto,
-                          cnpj_basico: cnpjBase,
-                          cnae_principal: cnae,
-                          situacao_cadastral: situacao,
-                          uf: uf,
-                          cep: String(row[18]).trim(),
-                          telefone: telefone,
-                          email: String(row[27]).trim().toLowerCase(),
-                          logradouro: String(row[14]).trim(),
-                          numero: String(row[15]).trim(),
-                          bairro: String(row[17]).trim(),
-                          municipio: mapMunicipios.get(muniCod) || muniCod,
-                          cnae_descricao: mapCnaes.get(cnae) || 'Não informada',
+                    bulkOps.push({
+                      updateOne: {
+                        filter: { cnpj: cnpjCompleto },
+                        update: {
+                          $set: {
+                            cnpj: cnpjCompleto,
+                            cnpj_basico: cnpjBase,
+                            cnae_principal: cnae,
+                            situacao_cadastral: situacao,
+                            uf: uf,
+                            cep: String(row[18]).trim(),
+                            telefone: telefone,
+                            email: String(row[27]).trim().toLowerCase(),
+                            logradouro: String(row[14]).trim(),
+                            numero: String(row[15]).trim(),
+                            bairro: String(row[17]).trim(),
+                            municipio: mapMunicipios.get(muniCod) || muniCod,
+                            cnae_descricao:
+                              mapCnaes.get(cnae) || 'Não informada',
+                          },
                         },
+                        upsert: true,
                       },
-                      upsert: true,
-                    },
-                  });
+                    });
 
-                  if (bulkOps.length >= 1000) {
-                    csvParser.pause();
-                    try {
-                      await this.empresaDataLakeModel.bulkWrite(bulkOps, {
-                        ordered: false,
-                      });
-                      bulkOps = [];
-                    } catch (err) {
-                    } finally {
-                      csvParser.resume();
+                    if (bulkOps.length >= 1000) {
+                      csvParser.pause();
+                      try {
+                        await this.empresaDataLakeModel.bulkWrite(bulkOps, {
+                          ordered: false,
+                        });
+                        bulkOps = [];
+                      } catch (err) {
+                        this.logger.error(
+                          'Bulk write error in Estabelecimentos',
+                          err,
+                        );
+                      } finally {
+                        csvParser.resume();
+                      }
                     }
                   }
                 }
-              }
-              if (bulkOps.length > 0)
-                await this.empresaDataLakeModel.bulkWrite(bulkOps, {
-                  ordered: false,
-                });
-              entry.autodrain();
+                if (bulkOps.length > 0)
+                  await this.empresaDataLakeModel.bulkWrite(bulkOps, {
+                    ordered: false,
+                  });
+                entry.autodrain();
+              })().catch((err) => this.logger.error(err));
             });
             unzip.on('close', () => resolve(true));
             unzip.on('error', (err) => reject(err));
@@ -244,51 +253,54 @@ export class ReceitaFederalService {
             }
             const unzip = res.pipe(unzipper.Parse());
 
-            unzip.on('entry', async (entry) => {
-              const csvParser = entry
-                .pipe(iconv.decodeStream('win1252'))
-                .pipe(
-                  parse({ delimiter: ';', relax_quotes: true, quote: '"' }),
-                );
-              let bulkOps = [];
+            unzip.on('entry', (entry) => {
+              (async () => {
+                const csvParser = entry
+                  .pipe(iconv.decodeStream('win1252'))
+                  .pipe(
+                    parse({ delimiter: ';', relax_quotes: true, quote: '"' }),
+                  );
+                let bulkOps = [];
 
-              for await (const row of csvParser) {
-                const cnpjBase = String(row[0]).padStart(8, '0');
+                for await (const row of csvParser) {
+                  const cnpjBase = String(row[0]).padStart(8, '0');
 
-                if (setCnpjBasicos.has(cnpjBase)) {
-                  bulkOps.push({
-                    updateMany: {
-                      // Atualiza todas as filiais que tiverem esse cnpj básico
-                      filter: { cnpj_basico: cnpjBase },
-                      update: {
-                        $set: {
-                          razao_social: String(row[1]).trim(),
-                          capital_social:
-                            Number(String(row[4]).replace(',', '.')) || 0,
+                  if (setCnpjBasicos.has(cnpjBase)) {
+                    bulkOps.push({
+                      updateMany: {
+                        // Atualiza todas as filiais que tiverem esse cnpj básico
+                        filter: { cnpj_basico: cnpjBase },
+                        update: {
+                          $set: {
+                            razao_social: String(row[1]).trim(),
+                            capital_social:
+                              Number(String(row[4]).replace(',', '.')) || 0,
+                          },
                         },
                       },
-                    },
-                  });
+                    });
 
-                  if (bulkOps.length >= 1000) {
-                    csvParser.pause();
-                    try {
-                      await this.empresaDataLakeModel.bulkWrite(bulkOps, {
-                        ordered: false,
-                      });
-                      bulkOps = [];
-                    } catch (err) {
-                    } finally {
-                      csvParser.resume();
+                    if (bulkOps.length >= 1000) {
+                      csvParser.pause();
+                      try {
+                        await this.empresaDataLakeModel.bulkWrite(bulkOps, {
+                          ordered: false,
+                        });
+                        bulkOps = [];
+                      } catch (err) {
+                        this.logger.error('Bulk write error in Empresas', err);
+                      } finally {
+                        csvParser.resume();
+                      }
                     }
                   }
                 }
-              }
-              if (bulkOps.length > 0)
-                await this.empresaDataLakeModel.bulkWrite(bulkOps, {
-                  ordered: false,
-                });
-              entry.autodrain();
+                if (bulkOps.length > 0)
+                  await this.empresaDataLakeModel.bulkWrite(bulkOps, {
+                    ordered: false,
+                  });
+                entry.autodrain();
+              })().catch((err) => this.logger.error(err));
             });
             unzip.on('close', () => resolve(true));
             unzip.on('error', (err) => reject(err));

@@ -155,15 +155,19 @@ export class FornecedorService {
       oportunidadeId: string;
     },
   ): Promise<void> {
-    const updated = await this.model.findByIdAndUpdate(fornecedorId, {
-      $push: {
-        fornecedor_historico_precos: {
-          ...itemData,
-          data: new Date(),
+    const updated = await this.model.findByIdAndUpdate(
+      fornecedorId,
+      {
+        $push: {
+          fornecedor_historico_precos: {
+            ...itemData,
+            data: new Date(),
+          },
         },
       },
-    }, { new: true });
-    
+      { new: true },
+    );
+
     if (updated) {
       this.gateway.emitFornecedorUpdate(updated);
     }
@@ -174,15 +178,19 @@ export class FornecedorService {
     descricaoItem: string,
     oportunidadeId: string,
   ): Promise<void> {
-    const updated = await this.model.findByIdAndUpdate(fornecedorId, {
-      $pull: {
-        fornecedor_historico_precos: {
-          descricaoItem: descricaoItem,
-          oportunidadeId: oportunidadeId,
+    const updated = await this.model.findByIdAndUpdate(
+      fornecedorId,
+      {
+        $pull: {
+          fornecedor_historico_precos: {
+            descricaoItem: descricaoItem,
+            oportunidadeId: oportunidadeId,
+          },
         },
       },
-    }, { new: true });
-    
+      { new: true },
+    );
+
     if (updated) {
       this.gateway.emitFornecedorUpdate(updated);
     }

@@ -304,7 +304,7 @@ export class CotacaoService {
     }, 0);
 
     await doc.save();
-    
+
     const updatedCotacao = await this.findOne(cotacaoId);
     this.gateway.emitCotacaoUpdate(updatedCotacao);
     return updatedCotacao;

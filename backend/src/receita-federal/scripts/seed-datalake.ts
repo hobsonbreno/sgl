@@ -29,4 +29,4 @@ async function bootstrap() {
   }
 }
 
-bootstrap();
+bootstrap().catch(console.error);
