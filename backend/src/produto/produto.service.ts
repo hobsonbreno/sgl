@@ -2,10 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Produto } from './produto.schema';
+import { ProdutoGateway } from './produto.gateway';
 
 @Injectable()
 export class ProdutoService {
-  constructor(@InjectModel(Produto.name) private model: Model<Produto>) {}
+  constructor(
+    @InjectModel(Produto.name) private model: Model<Produto>,
+    private readonly gateway: ProdutoGateway,
+  ) {}
 
   async findAll(query: any): Promise<{
     data: Produto[];
@@ -45,6 +49,10 @@ export class ProdutoService {
   }
 
   async update(id: string, data: any): Promise<Produto | null> {
-    return this.model.findByIdAndUpdate(id, data, { new: true }).exec();
+    const updated = await this.model.findByIdAndUpdate(id, data, { new: true }).exec();
+    if (updated) {
+      this.gateway.emitProdutoUpdate(updated);
+    }
+    return updated;
   }
 }

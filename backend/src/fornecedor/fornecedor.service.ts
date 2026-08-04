@@ -9,9 +9,9 @@ import { Model, Connection } from 'mongoose';
 import {
   Fornecedor,
   FornecedorDocument,
-  ProdutoBase,
   ProdutoBaseDocument,
 } from './fornecedor.schema';
+import { FornecedorGateway } from './fornecedor.gateway';
 
 @Injectable()
 export class FornecedorService {
@@ -20,6 +20,7 @@ export class FornecedorService {
     @InjectModel(ProdutoBase.name)
     private intelModel: Model<ProdutoBaseDocument>,
     @InjectConnection() private connection: Connection,
+    private readonly gateway: FornecedorGateway,
   ) {}
 
   private validarCNPJ(cnpj: string): boolean {
@@ -37,7 +38,9 @@ export class FornecedorService {
     if (existe)
       throw new BadRequestException('Fornecedor com este CNPJ já existe');
 
-    return this.model.create({ ...data, origem: 'manual' });
+    const created = await this.model.create({ ...data, origem: 'manual' });
+    this.gateway.emitFornecedorUpdate(created);
+    return created;
   }
 
   async findAll(query: any): Promise<{
@@ -103,7 +106,9 @@ export class FornecedorService {
       if (data.contato) doc.contato = data.contato;
     }
 
-    return doc.save();
+    const updated = await doc.save();
+    this.gateway.emitFornecedorUpdate(updated);
+    return updated;
   }
 
   async remove(id: string): Promise<void> {
@@ -132,6 +137,8 @@ export class FornecedorService {
         },
       },
     } as any);
+
+    this.gateway.emitFornecedorDelete(id);
   }
 
   async registrarHistoricoPreco(
@@ -147,14 +154,18 @@ export class FornecedorService {
       oportunidadeId: string;
     },
   ): Promise<void> {
-    await this.model.findByIdAndUpdate(fornecedorId, {
+    const updated = await this.model.findByIdAndUpdate(fornecedorId, {
       $push: {
         fornecedor_historico_precos: {
           ...itemData,
           data: new Date(),
         },
       },
-    });
+    }, { new: true });
+    
+    if (updated) {
+      this.gateway.emitFornecedorUpdate(updated);
+    }
   }
 
   async removerHistoricoPreco(
@@ -162,14 +173,18 @@ export class FornecedorService {
     descricaoItem: string,
     oportunidadeId: string,
   ): Promise<void> {
-    await this.model.findByIdAndUpdate(fornecedorId, {
+    const updated = await this.model.findByIdAndUpdate(fornecedorId, {
       $pull: {
         fornecedor_historico_precos: {
           descricaoItem: descricaoItem,
           oportunidadeId: oportunidadeId,
         },
       },
-    });
+    }, { new: true });
+    
+    if (updated) {
+      this.gateway.emitFornecedorUpdate(updated);
+    }
   }
 
   async getBaseProdutos(query: any = {}): Promise<any> {

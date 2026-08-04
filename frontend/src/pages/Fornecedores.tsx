@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Building2, Search, Edit2, X, Trash2 } from 'lucide-react';
+import { io } from 'socket.io-client';
 
 export default function Fornecedores() {
   const [fornecedores, setFornecedores] = useState<any[]>([]);
@@ -55,6 +56,30 @@ export default function Fornecedores() {
     loadFornecedores();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busca, page]);
+
+  useEffect(() => {
+    const socket = io(window.API_URL);
+
+    socket.on('fornecedor_updated', (updated: any) => {
+      setFornecedores(prev => {
+        const idx = prev.findIndex(f => f._id === updated._id);
+        if (idx !== -1) {
+          const n = [...prev];
+          n[idx] = updated;
+          return n;
+        }
+        return [updated, ...prev];
+      });
+    });
+
+    socket.on('fornecedor_deleted', (data: { id: string }) => {
+      setFornecedores(prev => prev.filter(f => f._id !== data.id));
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   const buscarCnpj = async (cnpjNumber: string, isEdit: boolean) => {
     const apenasNumeros = cnpjNumber.replace(/\D/g, '');

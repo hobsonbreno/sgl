@@ -18,6 +18,7 @@ import {
 import { ProductMatchingService } from './product-matching.service';
 import { CnpjEnrichmentService } from './cnpj-enrichment.service';
 import { CnpjEnrichmentController } from './cnpj-enrichment.controller';
+import { FornecedorGateway } from './fornecedor.gateway';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { CnpjEnrichmentController } from './cnpj-enrichment.controller';
     SupplierDiscoveryService,
     ProductMatchingService,
     CnpjEnrichmentService,
+    FornecedorGateway,
   ],
   exports: [
     MongooseModule,
@@ -42,6 +44,7 @@ import { CnpjEnrichmentController } from './cnpj-enrichment.controller';
     SupplierDiscoveryService,
     ProductMatchingService,
     CnpjEnrichmentService,
+    FornecedorGateway,
   ],
 })
 export class FornecedorModule {}
