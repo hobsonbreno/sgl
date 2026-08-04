@@ -13,6 +13,7 @@ import {
 import { Produto, ProdutoSchema } from '../produto/produto.schema';
 
 import { Cotacao, CotacaoSchema } from '../cotacao/cotacao.schema';
+import { FinanceiroGateway } from './financeiro.gateway';
 
 @Module({
   imports: [
@@ -24,7 +25,7 @@ import { Cotacao, CotacaoSchema } from '../cotacao/cotacao.schema';
     ]),
   ],
   controllers: [FinanceiroController],
-  providers: [FinanceiroService],
-  exports: [FinanceiroService],
+  providers: [FinanceiroService, FinanceiroGateway],
+  exports: [FinanceiroService, FinanceiroGateway],
 })
 export class FinanceiroModule {}

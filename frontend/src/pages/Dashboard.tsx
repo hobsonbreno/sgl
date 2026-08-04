@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Play, TrendingUp, AlertTriangle, FileText, CheckCircle, Clock, RefreshCw, Activity, Bot, ChevronRight } from 'lucide-react';
+import { io } from 'socket.io-client';
 import { Link } from 'react-router-dom';
 import Countdown from '../components/Countdown';
 
@@ -29,18 +30,20 @@ export default function Dashboard() {
 
   useEffect(() => {
     carregarResumo();
-    const eventSource = new EventSource(`${window.API_URL}/dashboard/stream`);
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'update') {
-          carregarResumo();
-        }
-      } catch (e) {
-        console.error(e);
-      }
+    
+    const socket = io(window.API_URL);
+
+    const refresh = () => carregarResumo();
+
+    socket.on('oportunidade_updated', refresh);
+    socket.on('oportunidade_deleted', refresh);
+    socket.on('cotacao_updated', refresh);
+    socket.on('financeiro_updated', refresh);
+    socket.on('bot_execution_updated', refresh); // if we ever need it
+
+    return () => {
+      socket.disconnect();
     };
-    return () => eventSource.close();
   }, []);
 
   const rodarBot = async () => {
