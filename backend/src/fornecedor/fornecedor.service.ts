@@ -9,6 +9,7 @@ import { Model, Connection } from 'mongoose';
 import {
   Fornecedor,
   FornecedorDocument,
+  ProdutoBase,
   ProdutoBaseDocument,
 } from './fornecedor.schema';
 import { FornecedorGateway } from './fornecedor.gateway';
