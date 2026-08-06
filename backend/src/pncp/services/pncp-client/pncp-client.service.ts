@@ -1,7 +1,7 @@
-import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { PncpContratacaoRawDto } from '../../dtos/pncp.dto';
-import { catchError, firstValueFrom, retry, timer, throwError, of } from 'rxjs';
+import { catchError, firstValueFrom, retry, timer } from 'rxjs';
 import { AxiosError } from 'axios';
 
 export interface FiltroBuscaDto {

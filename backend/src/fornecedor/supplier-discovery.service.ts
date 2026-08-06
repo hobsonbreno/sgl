@@ -302,6 +302,7 @@ export class SupplierDiscoveryService {
         }
 
         try {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
           const axios = require('axios');
           let results = [];
           for (const searchQuery of searchQueriesToTry) {
@@ -328,12 +329,10 @@ export class SupplierDiscoveryService {
           for (const res of results) {
             const snippet = (res.snippet || '') + ' ' + (res.title || '');
             // Extrai CNPJ formatado ou apenas digitos
-            const cnpjMatch = snippet.match(
-              /\d{2}\.\d{3}\.\d{3}\/\d{4}\-\d{2}/,
-            );
+            const cnpjMatch = snippet.match(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/);
             const linkCnpjMatch = res.link ? res.link.match(/\d{14}/) : null;
             const telefoneMatch = snippet.match(
-              /\(?\d{2}\)?\s?(?:9\d{4}|\d{4})\-\d{4}/,
+              /\(?\d{2}\)?\s?(?:9\d{4}|\d{4})-\d{4}/,
             );
 
             let cnpjStr = '';

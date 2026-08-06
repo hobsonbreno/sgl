@@ -45,7 +45,7 @@ export class ConfiguracaoService implements OnModuleInit {
       )
       .exec();
     if (config) {
-      await this.botService.registrarCronDinamicoMultiplos(horarios);
+      this.botService.registrarCronDinamicoMultiplos(horarios);
     }
     return config;
   }

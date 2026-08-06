@@ -30,7 +30,7 @@ import { SefazCeModule } from './sefaz-ce/sefaz-ce.module';
             ? { target: 'pino-pretty', options: { colorize: true } }
             : undefined,
         level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
-        customProps: (req, res) => ({
+        customProps: () => ({
           context: 'HTTP',
         }),
         serializers: {
