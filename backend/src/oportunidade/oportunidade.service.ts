@@ -147,11 +147,17 @@ export class OportunidadeService {
         // O usuário informou que o padrão de CoEP (ex: 202627134/2026) pode vir do objeto, número de compra ou tipo.
         // Vamos tentar extrair formatado a partir da string raw.
         const stringRaw = `${doc.numeroCompraOrigem || ''}/${doc.anoCompraOrigem || ''} ${doc.objetoCompra || ''}`;
-        const coepFormatada = this.sefazScraperService.formatarCoepParaPesquisa(stringRaw);
-        
+        const coepFormatada =
+          this.sefazScraperService.formatarCoepParaPesquisa(stringRaw);
+
         if (coepFormatada) {
-          this.logger.info(`Oportunidade do Ceará identificada. Iniciando scraper S2GPR para CoEP: ${coepFormatada}`);
-          statusSefazOverride = await this.sefazScraperService.buscarStatusCotacaoSefaz(coepFormatada);
+          this.logger.info(
+            `Oportunidade do Ceará identificada. Iniciando scraper S2GPR para CoEP: ${coepFormatada}`,
+          );
+          statusSefazOverride =
+            await this.sefazScraperService.buscarStatusCotacaoSefaz(
+              coepFormatada,
+            );
         }
       }
 
@@ -161,24 +167,40 @@ export class OportunidadeService {
         let vencedorNome = '';
         let valorVencedor = 0;
 
-        const situacaoFinal = statusSefazOverride || item.situacaoCompraItemNome || 'Desconhecido';
+        const situacaoFinal =
+          statusSefazOverride || item.situacaoCompraItemNome || 'Desconhecido';
         const st = situacaoFinal.toLowerCase();
 
         // Só busca o resultado no PNCP se já tiver um status que indica conclusão
-        if (st.includes('homologado') || st.includes('adjudicado') || st.includes('finalizada') || st.includes('encerrado')) {
+        if (
+          st.includes('homologado') ||
+          st.includes('adjudicado') ||
+          st.includes('finalizada') ||
+          st.includes('encerrado')
+        ) {
           try {
-             const resultados = await this.pncpClientService.buscarResultadosDoItem(doc.numeroControlePNCP, item.numeroItem);
-             if (resultados && resultados.length > 0) {
-                // A API de resultados do PNCP costuma retornar o campeão
-                const vencedor = resultados[0];
-                vencedorCnpj = vencedor.niFornecedor || '';
-                vencedorNome = vencedor.nomeRazaoSocialFornecedor || '';
-                valorVencedor = vencedor.valorTotalHomologado || vencedor.valorTotalAdjudicado || vencedor.valorProposta || 0;
-             }
-             // Delay curto para não explodir o rate limit do PNCP
-             await new Promise(r => setTimeout(r, 200));
+            const resultados =
+              await this.pncpClientService.buscarResultadosDoItem(
+                doc.numeroControlePNCP,
+                item.numeroItem,
+              );
+            if (resultados && resultados.length > 0) {
+              // A API de resultados do PNCP costuma retornar o campeão
+              const vencedor = resultados[0];
+              vencedorCnpj = vencedor.niFornecedor || '';
+              vencedorNome = vencedor.nomeRazaoSocialFornecedor || '';
+              valorVencedor =
+                vencedor.valorTotalHomologado ||
+                vencedor.valorTotalAdjudicado ||
+                vencedor.valorProposta ||
+                0;
+            }
+            // Delay curto para não explodir o rate limit do PNCP
+            await new Promise((r) => setTimeout(r, 200));
           } catch (e) {
-             this.logger.warn(`Não foi possível buscar o resultado do item ${item.numeroItem}`);
+            this.logger.warn(
+              `Não foi possível buscar o resultado do item ${item.numeroItem}`,
+            );
           }
         }
 
@@ -194,7 +216,7 @@ export class OportunidadeService {
           situacaoJulgamento: situacaoFinal,
           vencedorCnpj,
           vencedorNome,
-          valorVencedor
+          valorVencedor,
         });
       }
 
@@ -211,7 +233,7 @@ export class OportunidadeService {
       this.logger.info(
         `Sincronizados (upsert) ${novosProdutos.length} itens para a oportunidade ${id}`,
       );
-      
+
       // Regra de Negócio: Auto-arquivamento removido para que o usuário
       // possa visualizar o resultado no Kanban e mover manualmente.
 
@@ -383,24 +405,34 @@ export class OportunidadeService {
 
   @Cron(CronExpression.EVERY_4_HOURS)
   async syncAllActiveOpportunities() {
-    this.logger.info('Iniciando sincronização periódica de itens das oportunidades ativas...');
+    this.logger.info(
+      'Iniciando sincronização periódica de itens das oportunidades ativas...',
+    );
     try {
-      const activeOps = await this.model.find({ kanbanStatus: { $nin: ['EXCLUIDA', 'ARQUIVADA'] } }).exec();
-      this.logger.info(`Encontradas ${activeOps.length} oportunidades ativas para sincronizar itens.`);
-      
+      const activeOps = await this.model
+        .find({ kanbanStatus: { $nin: ['EXCLUIDA', 'ARQUIVADA'] } })
+        .exec();
+      this.logger.info(
+        `Encontradas ${activeOps.length} oportunidades ativas para sincronizar itens.`,
+      );
+
       for (const op of activeOps) {
         if (!op.numeroControlePNCP) continue;
         try {
           await this.sincronizarItens(op._id.toString());
           // Pausa entre as oportunidades para não sofrer rate limit do PNCP
-          await new Promise(r => setTimeout(r, 2000));
+          await new Promise((r) => setTimeout(r, 2000));
         } catch (err) {
-          this.logger.warn(`Erro na sincronização em background da oportunidade ${op._id}: ${err.message}`);
+          this.logger.warn(
+            `Erro na sincronização em background da oportunidade ${op._id}: ${err.message}`,
+          );
         }
       }
       this.logger.info('Sincronização periódica concluída.');
     } catch (err) {
-      this.logger.error(`Erro ao executar rotina de sincronização de itens: ${err.message}`);
+      this.logger.error(
+        `Erro ao executar rotina de sincronização de itens: ${err.message}`,
+      );
     }
   }
 }

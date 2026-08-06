@@ -31,9 +31,12 @@ export class SefazCeScraperService {
    * @param numeroCoep Ex: "2026/27134"
    */
   async buscarStatusCotacaoSefaz(numeroCoep: string): Promise<string | null> {
-    this.logger.log(`Iniciando raspagem de dados no Sefaz CE via Puppeteer para a CoEP: ${numeroCoep}`);
-    
-    const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser';
+    this.logger.log(
+      `Iniciando raspagem de dados no Sefaz CE via Puppeteer para a CoEP: ${numeroCoep}`,
+    );
+
+    const executablePath =
+      process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser';
     let browser;
     try {
       // Usamos puppeteer-core e apontamos para o Chromium instalado no Alpine (ou no host)
@@ -46,12 +49,12 @@ export class SefazCeScraperService {
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
           '--disable-gpu',
-          '--ignore-certificate-errors'
-        ]
+          '--ignore-certificate-errors',
+        ],
       });
 
       const page = await browser.newPage();
-      
+
       // Bloquear recursos inúteis para acelerar
       await page.setRequestInterception(true);
       page.on('request', (req) => {
@@ -63,10 +66,14 @@ export class SefazCeScraperService {
       });
 
       // 1. Acessa a página principal
-      await page.goto('https://s2gpr.sefaz.ce.gov.br/cotacao-web/paginas/proposta/PropostaList.seam', { waitUntil: 'networkidle2' });
+      await page.goto(
+        'https://s2gpr.sefaz.ce.gov.br/cotacao-web/paginas/proposta/PropostaList.seam',
+        { waitUntil: 'networkidle2' },
+      );
 
       // 2. Espera o campo de CoEP carregar e preenche
-      const inputSelector = 'input[id="formularioDeCrud:numeroCoepDecoration:numeroCoep"]';
+      const inputSelector =
+        'input[id="formularioDeCrud:numeroCoepDecoration:numeroCoep"]';
       await page.waitForSelector(inputSelector);
       await page.type(inputSelector, numeroCoep);
 
@@ -76,32 +83,41 @@ export class SefazCeScraperService {
 
       // 4. Espera a requisição AJAX (a4j) terminar. O rich-table será recarregado.
       // Como o ID da tabela pode ser o mesmo, aguardamos que a linha contenha o número da CoEP que buscamos.
-      this.logger.log(`Aguardando tabela atualizar com os dados de ${numeroCoep}...`);
-      
+      this.logger.log(
+        `Aguardando tabela atualizar com os dados de ${numeroCoep}...`,
+      );
+
       // Função no browser para procurar o status na tabela
-      const extractedStatus = await page.waitForFunction((coep) => {
-        const rows = document.querySelectorAll('.rich-table tr.rich-table-row');
-        for (let row of rows) {
-          const cols = row.querySelectorAll('td');
-          // No Sefaz CE, CoEP geralmente é a coluna 1 ou 2, Status é 3 ou 4.
-          // Baseado no teste empírico: [Checkbox/Vazio] [Nº COEP] [Status] [Protocolo]
-          // Index: 0=Vazio, 1=COEP, 2=Status, 3=Protocolo
-          if (cols.length >= 3) {
-            const rowCoep = cols[1].innerText.trim();
-            if (rowCoep === coep) {
-              return cols[2].innerText.trim();
+      const extractedStatus = await page.waitForFunction(
+        (coep) => {
+          const rows = document.querySelectorAll(
+            '.rich-table tr.rich-table-row',
+          );
+          for (const row of rows) {
+            const cols = row.querySelectorAll('td');
+            // No Sefaz CE, CoEP geralmente é a coluna 1 ou 2, Status é 3 ou 4.
+            // Baseado no teste empírico: [Checkbox/Vazio] [Nº COEP] [Status] [Protocolo]
+            // Index: 0=Vazio, 1=COEP, 2=Status, 3=Protocolo
+            if (cols.length >= 3) {
+              const rowCoep = cols[1].innerText.trim();
+              if (rowCoep === coep) {
+                return cols[2].innerText.trim();
+              }
             }
           }
-        }
-        return false;
-      }, { timeout: 15000 }, numeroCoep); // 15s timeout
+          return false;
+        },
+        { timeout: 15000 },
+        numeroCoep,
+      ); // 15s timeout
 
       const status = await extractedStatus.jsonValue();
       this.logger.log(`Status encontrado para ${numeroCoep}: ${status}`);
       return status as string;
-
     } catch (error) {
-      this.logger.error(`Erro ao consultar Sefaz CE via Puppeteer: ${error.message}`);
+      this.logger.error(
+        `Erro ao consultar Sefaz CE via Puppeteer: ${error.message}`,
+      );
       return null;
     } finally {
       if (browser) {
