@@ -2,10 +2,12 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { Oportunidade, OportunidadeDocument } from './oportunidade.schema';
 import { PncpClientService } from '../pncp/services/pncp-client/pncp-client.service';
 import { Produto, ProdutoDocument } from '../produto/produto.schema';
@@ -20,6 +22,7 @@ import {
 import { FinanceiroService } from '../financeiro/financeiro.service';
 import { Cotacao, CotacaoDocument } from '../cotacao/cotacao.schema';
 import { OportunidadeGateway } from './oportunidade.gateway';
+import { SefazCeScraperService } from '../sefaz-ce/sefaz-ce-scraper.service';
 
 @Injectable()
 export class OportunidadeService {
@@ -34,6 +37,7 @@ export class OportunidadeService {
     private readonly financeiroService: FinanceiroService,
     @InjectModel(Cotacao.name) private cotacaoModel: Model<CotacaoDocument>,
     private readonly gateway: OportunidadeGateway,
+    private readonly sefazScraperService: SefazCeScraperService,
   ) {}
 
   async findAll(query: any): Promise<{
@@ -137,16 +141,62 @@ export class OportunidadeService {
         return { message: 'Nenhum item retornado pela API da PNCP', total: 0 };
       }
 
-      const novosProdutos = itensRaw.map((item: any) => ({
-        oportunidadeId: id,
-        numeroItem: item.numeroItem || 0,
-        descricao: item.descricao || 'Item sem descrição',
-        quantidade: item.quantidade || 1,
-        unidadeMedida: item.unidadeMedida || 'UN',
-        valorUnitarioEstimado: item.valorUnitarioEstimado || 0,
-        valorTotalEstimado: item.valorTotal || 0,
-        valorEstimado: item.valorTotal || 0,
-      }));
+      // INTEGRAÇÃO SEFAZ CE - SCRAPER EM TEMPO REAL
+      let statusSefazOverride = null;
+      if (doc.orgaoNome && doc.orgaoNome.toLowerCase().includes('ceara')) {
+        // O usuário informou que o padrão de CoEP (ex: 202627134/2026) pode vir do objeto, número de compra ou tipo.
+        // Vamos tentar extrair formatado a partir da string raw.
+        const stringRaw = `${doc.numeroCompraOrigem || ''}/${doc.anoCompraOrigem || ''} ${doc.objetoCompra || ''}`;
+        const coepFormatada = this.sefazScraperService.formatarCoepParaPesquisa(stringRaw);
+        
+        if (coepFormatada) {
+          this.logger.info(`Oportunidade do Ceará identificada. Iniciando scraper S2GPR para CoEP: ${coepFormatada}`);
+          statusSefazOverride = await this.sefazScraperService.buscarStatusCotacaoSefaz(coepFormatada);
+        }
+      }
+
+      const novosProdutos = [];
+      for (const item of itensRaw) {
+        let vencedorCnpj = '';
+        let vencedorNome = '';
+        let valorVencedor = 0;
+
+        const situacaoFinal = statusSefazOverride || item.situacaoCompraItemNome || 'Desconhecido';
+        const st = situacaoFinal.toLowerCase();
+
+        // Só busca o resultado no PNCP se já tiver um status que indica conclusão
+        if (st.includes('homologado') || st.includes('adjudicado') || st.includes('finalizada') || st.includes('encerrado')) {
+          try {
+             const resultados = await this.pncpClientService.buscarResultadosDoItem(doc.numeroControlePNCP, item.numeroItem);
+             if (resultados && resultados.length > 0) {
+                // A API de resultados do PNCP costuma retornar o campeão
+                const vencedor = resultados[0];
+                vencedorCnpj = vencedor.niFornecedor || '';
+                vencedorNome = vencedor.nomeRazaoSocialFornecedor || '';
+                valorVencedor = vencedor.valorTotalHomologado || vencedor.valorTotalAdjudicado || vencedor.valorProposta || 0;
+             }
+             // Delay curto para não explodir o rate limit do PNCP
+             await new Promise(r => setTimeout(r, 200));
+          } catch (e) {
+             this.logger.warn(`Não foi possível buscar o resultado do item ${item.numeroItem}`);
+          }
+        }
+
+        novosProdutos.push({
+          oportunidadeId: id,
+          numeroItem: item.numeroItem || 0,
+          descricao: item.descricao || 'Item sem descrição',
+          quantidade: item.quantidade || 1,
+          unidadeMedida: item.unidadeMedida || 'UN',
+          valorUnitarioEstimado: item.valorUnitarioEstimado || 0,
+          valorTotalEstimado: item.valorTotal || 0,
+          valorEstimado: item.valorTotal || 0,
+          situacaoJulgamento: situacaoFinal,
+          vencedorCnpj,
+          vencedorNome,
+          valorVencedor
+        });
+      }
 
       const ops = novosProdutos.map((prod) => ({
         updateOne: {
@@ -161,6 +211,10 @@ export class OportunidadeService {
       this.logger.info(
         `Sincronizados (upsert) ${novosProdutos.length} itens para a oportunidade ${id}`,
       );
+      
+      // Regra de Negócio: Auto-arquivamento removido para que o usuário
+      // possa visualizar o resultado no Kanban e mover manualmente.
+
       return {
         message: 'Itens sincronizados com sucesso',
         total: novosProdutos.length,
@@ -325,5 +379,28 @@ export class OportunidadeService {
       statusOperacao,
       projecaoMensal,
     };
+  }
+
+  @Cron(CronExpression.EVERY_4_HOURS)
+  async syncAllActiveOpportunities() {
+    this.logger.info('Iniciando sincronização periódica de itens das oportunidades ativas...');
+    try {
+      const activeOps = await this.model.find({ kanbanStatus: { $nin: ['EXCLUIDA', 'ARQUIVADA'] } }).exec();
+      this.logger.info(`Encontradas ${activeOps.length} oportunidades ativas para sincronizar itens.`);
+      
+      for (const op of activeOps) {
+        if (!op.numeroControlePNCP) continue;
+        try {
+          await this.sincronizarItens(op._id.toString());
+          // Pausa entre as oportunidades para não sofrer rate limit do PNCP
+          await new Promise(r => setTimeout(r, 2000));
+        } catch (err) {
+          this.logger.warn(`Erro na sincronização em background da oportunidade ${op._id}: ${err.message}`);
+        }
+      }
+      this.logger.info('Sincronização periódica concluída.');
+    } catch (err) {
+      this.logger.error(`Erro ao executar rotina de sincronização de itens: ${err.message}`);
+    }
   }
 }

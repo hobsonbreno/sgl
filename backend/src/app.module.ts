@@ -19,6 +19,7 @@ import { EventsModule } from './events/events.module';
 import { FinanceiroModule } from './financeiro/financeiro.module';
 import { ReceitaFederalModule } from './receita-federal/receita-federal.module';
 import { ObservabilityModule } from './observability/observability.module';
+import { SefazCeModule } from './sefaz-ce/sefaz-ce.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { ObservabilityModule } from './observability/observability.module';
     FinanceiroModule,
     ReceitaFederalModule,
     ObservabilityModule,
+    SefazCeModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -3,7 +3,7 @@ import type { MouseEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import type { DropResult } from '@hello-pangea/dnd';
-import { Trash2, Trophy, Settings, Plus, ArrowUp, ArrowDown, ChevronUp, ChevronDown } from 'lucide-react';
+import { Trash2, Trophy, Settings, Plus, ArrowUp, ArrowDown, ChevronUp, ChevronDown, Archive } from 'lucide-react';
 import { io } from 'socket.io-client';
 import Countdown from '../components/Countdown';
 
@@ -99,8 +99,8 @@ export default function Kanban() {
   const carregarOportunidadesEProdutos = async () => {
     try {
       const [resOp, resProd, resConfig] = await Promise.all([
-        fetch(`${window.API_URL}/oportunidades?limit=100`),
-        fetch(`${window.API_URL}/produto?limit=1000`),
+        fetch(`${window.API_URL}/oportunidades?limit=500`),
+        fetch(`${window.API_URL}/produto?limit=10000`),
         fetch(`${window.API_URL}/configuracoes`)
       ]);
       const dataOp = await resOp.json();
@@ -133,9 +133,11 @@ export default function Kanban() {
         }
 
         let st = op.kanbanStatus?.toUpperCase() || '';
+        const opProdutos = dataProd.data ? dataProd.data.filter((p: any) => p.oportunidadeId === op._id) : [];
+        const hasProdutos = opProdutos.length > 0;
         
-        // Regra 3: A_FAZER expirados movem para EXCLUÍDAS automaticamente
-        if (st === 'A_FAZER' && expirou) {
+        // Auto-Excluir: Expirou e não fez cotações/puxou -> move pra EXCLUIDA
+        if (expirou && !hasProdutos && st !== 'EXCLUIDA' && st !== 'ARQUIVADA') {
           fetch(`${window.API_URL}/oportunidades/${op._id}/status`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -144,15 +146,37 @@ export default function Kanban() {
           st = 'EXCLUIDA';
           op.kanbanStatus = 'EXCLUIDA';
         }
+
+        // Auto-Venceu: Finalizada e empresa campeã -> move pra NEGÓCIO FECHADO
+        const isFinalizada = opProdutos.some((p: any) => {
+          const s = p.situacaoJulgamento?.toLowerCase() || '';
+          return s.includes('finalizada') || s.includes('homologado') || s.includes('adjudicado');
+        });
+        const won = opProdutos.some((p: any) => p.vencedorNome?.includes('GRUPO IRMAOS NASCIMENTO') || p.vencedorNome?.includes('48.262.939'));
+        
+        if (isFinalizada && won && st !== 'ARQUIVADA') {
+          const fechadoCol = dataConfig?.colunasKanban?.find((c: any) => c.nome.toUpperCase().includes('FECHADO') || c.nome.toUpperCase().includes('NEGÓCIO'))?.id;
+          if (fechadoCol && st !== fechadoCol) {
+             fetch(`${window.API_URL}/oportunidades/${op._id}/status`, {
+               method: 'PATCH',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({ kanbanStatus: fechadoCol })
+             }).catch(console.error);
+             st = fechadoCol;
+             op.kanbanStatus = fechadoCol;
+          }
+        }
         
         // Regra 1: ARQUIVADAS somem imediatamente da tela
         if (st === 'ARQUIVADA' || st === 'ARQUIVADAS') {
           continue; 
         }
         
-        // Regra 2: EXCLUÍDAS somem APENAS se estiverem expiradas
-        if ((st === 'EXCLUIDA' || st === 'EXCLUIDAS') && expirou) {
-          continue;
+        // Regra 2: EXCLUÍDAS somem a não ser que seja o sistema mostrando as que não foram puxadas
+        if (st === 'EXCLUIDA' || st === 'EXCLUIDAS') {
+          if (!(expirou && !hasProdutos)) {
+            continue; // Movimentação manual para excluída (SOME DA TELA)
+          }
         }
 
         validOps.push(op);
@@ -454,6 +478,10 @@ export default function Kanban() {
                       <div className="kanban-list" style={{ flex: 1, minHeight: '100px' }}>
                       {itensDaColuna.map((item, index) => {
                         const prods = produtos.filter(p => p.oportunidadeId === item._id);
+                        const isFinalizada = prods.some(p => {
+                          const s = p.situacaoJulgamento?.toLowerCase() || '';
+                          return s.includes('finalizada') || s.includes('homologado') || s.includes('adjudicado');
+                        });
                         const bestOffer = getBestOfferInfo(item._id);
                         
                         return (
@@ -485,16 +513,6 @@ export default function Kanban() {
                                       ⚠️ Você já excluiu esta proposta antes
                                     </div>
                                   )}
-                                  
-                                  {prods.length > 0 && !bestOffer && (
-                                    <div style={{ background: '#f1f5f9', padding: '0.5rem', borderRadius: '4px', marginBottom: '1rem', fontSize: '0.75rem', border: '1px solid #e2e8f0' }}>
-                                      <strong style={{ color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.25rem' }}>Produtos/Serviços:</strong>
-                                      <ul style={{ margin: 0, paddingLeft: '1rem', color: '#334155' }}>
-                                        {prods.slice(0, 3).map(p => <li key={p._id}>{p.descricao}</li>)}
-                                        {prods.length > 3 && <li style={{ color: '#64748b' }}>+{prods.length - 3} mais...</li>}
-                                      </ul>
-                                    </div>
-                                  )}
 
                                   {/* Melhor proposta em destaque */}
                                   {bestOffer && (
@@ -506,7 +524,7 @@ export default function Kanban() {
                                         🏢 {bestOffer.nomeVencedor}
                                       </div>
                                       <div style={{ color: '#475569', marginBottom: '0.4rem' }}>
-                                        📦 {bestOffer.descricao} — {bestOffer.quantidade} un.
+                                        📦 {bestOffer.descricao.split(',')[0]} — {bestOffer.quantidade} un.
                                       </div>
 
                                       {/* Preços e economy */}
@@ -568,7 +586,86 @@ export default function Kanban() {
                                   targetDate={item.dataEncerramentoProposta} 
                                   onExpire={() => {}}
                                 />
-                                {getSuffixMessage(col.nome) && (
+                                
+                                {prods.length > 0 && (
+                                  <div style={{ background: '#f1f5f9', padding: '0.5rem', borderRadius: '4px', fontSize: '0.75rem', border: '1px solid #e2e8f0' }}>
+                                    <strong style={{ color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.25rem' }}>Status dos Itens:</strong>
+                                    <ul style={{ margin: 0, paddingLeft: '1rem', color: '#334155' }}>
+                                      {prods.slice(0, 5).map(p => (
+                                        <li key={p._id} style={{ marginBottom: '0.25rem' }}>
+                                          item: {p.descricao.split(',')[0]} - <strong>{p.situacaoJulgamento || 'Aguardando atualização'}</strong>
+                                          {p.vencedorNome && (
+                                            <div style={{ fontSize: '0.65rem', color: '#166534', marginTop: '0.1rem' }}>
+                                              🏆 {p.vencedorNome} (R$ {p.valorVencedor?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })})
+                                            </div>
+                                          )}
+                                        </li>
+                                      ))}
+                                      {prods.length > 5 && <li style={{ color: '#64748b' }}>+{prods.length - 5} mais...</li>}
+                                    </ul>
+                                  </div>
+                                )}
+                                
+                                {isFinalizada ? (
+                                  <>
+                                    <button 
+                                      onClick={(e) => { e.stopPropagation(); moverPorMenu(item._id, 'ARQUIVADA'); }}
+                                      title="Mover para Arquivadas"
+                                      style={{ 
+                                        background: 'linear-gradient(135deg, #f3e8ff, #e9d5ff)', 
+                                        color: '#7e22ce', 
+                                        padding: '0.4rem 0.8rem', 
+                                        borderRadius: '12px', 
+                                        fontSize: '0.75rem', 
+                                        fontWeight: '800',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.5px',
+                                        width: 'fit-content',
+                                        lineHeight: '1.2',
+                                        boxShadow: '0 2px 4px rgba(126, 34, 206, 0.15)',
+                                        border: '1px solid #d8b4fe',
+                                        cursor: 'pointer',
+                                        marginBottom: '0.5rem',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.25rem'
+                                      }}>
+                                      <Archive size={14} /> Favor Arquivar Proposta
+                                    </button>
+                                    {getSuffixMessage(col.nome) && col.nome.toUpperCase().includes('FECHADO') && (
+                                      <span style={{ 
+                                        background: '#dcfce7', 
+                                        color: '#166534', 
+                                        padding: '0.4rem 0.8rem', 
+                                        borderRadius: '12px', 
+                                        fontSize: '0.75rem', 
+                                        fontWeight: '800',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.5px',
+                                        width: 'fit-content',
+                                        lineHeight: '1.2'
+                                      }}>
+                                        {getSuffixMessage(col.nome)}
+                                      </span>
+                                    )}
+                                  </>
+                                ) : (col.nome.toUpperCase().includes('FAZENDO') && !bestOffer) ? (
+                                  <span style={{ 
+                                    background: 'linear-gradient(135deg, #fef3c7, #fde68a)', 
+                                    color: '#92400e', 
+                                    padding: '0.4rem 0.8rem', 
+                                    borderRadius: '12px', 
+                                    fontSize: '0.75rem', 
+                                    fontWeight: '800',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.5px',
+                                    width: 'fit-content',
+                                    lineHeight: '1.2',
+                                    border: '1px solid #fcd34d'
+                                  }}>
+                                    ⚠️ VOCÊ AINDA NÃO INSERIU COTAÇÕES PARA ESTA PROPOSTA. FAVOR ANALISAR, CASO CONTRÁRIO ELA SERÁ EXCLUÍDA ASSIM QUE EXPIRAR O TEMPO.
+                                  </span>
+                                ) : getSuffixMessage(col.nome) ? (
                                   <span style={{ 
                                     background: (col.nome.toUpperCase().includes('FECHADO') || col.nome.toUpperCase().includes('NEGÓCIO')) ? '#dcfce7' : '#eff6ff', 
                                     color: (col.nome.toUpperCase().includes('FECHADO') || col.nome.toUpperCase().includes('NEGÓCIO')) ? '#166534' : '#1d4ed8', 
@@ -583,7 +680,7 @@ export default function Kanban() {
                                   }}>
                                     {getSuffixMessage(col.nome)}
                                   </span>
-                                )}
+                                ) : null}
                               </div>
 
                               <div className="kanban-card-footer">

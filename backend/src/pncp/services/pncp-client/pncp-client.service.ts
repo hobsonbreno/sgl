@@ -123,6 +123,72 @@ export class PncpClientService {
     }
   }
 
+  async buscarResultadosDoItem(
+    numeroControlePNCP: string,
+    numeroItem: number,
+  ): Promise<any[]> {
+    this.logger.log(
+      `Buscando resultados para o item ${numeroItem} da contratação: ${numeroControlePNCP}`,
+    );
+    const parts = numeroControlePNCP.split('-');
+    if (parts.length < 3) return [];
+
+    const [cnpjESeq, ano] = numeroControlePNCP.split('/');
+    if (!ano) return [];
+
+    const splitDash = cnpjESeq.split('-');
+    if (splitDash.length < 3) return [];
+
+    const cnpj = splitDash[0];
+    const sequencial = splitDash[2];
+
+    const baseUrl = `https://pncp.gov.br/api/pncp/v1/orgaos/${cnpj}/compras/${ano}/${sequencial}/itens/${numeroItem}/resultados`;
+
+    try {
+      let todosResultados: any[] = [];
+      let pagina = 1;
+      const tamanhoPagina = 50;
+      let temMais = true;
+
+      while (temMais) {
+        const url = `${baseUrl}?pagina=${pagina}&tamanhoPagina=${tamanhoPagina}`;
+        const response = await firstValueFrom(
+          this.httpService.get(url, { timeout: 60000 }).pipe(
+            retry({
+              count: 2,
+              delay: (error: AxiosError, retryCount: number) => {
+                this.logger.warn(
+                  `Falha ao buscar resultados para ${url}. Tentativa ${retryCount}/2.`,
+                );
+                return timer(2000 * retryCount);
+              },
+            }),
+          ),
+        );
+
+        const resultadosDaPagina = response?.data || [];
+        todosResultados = todosResultados.concat(resultadosDaPagina);
+
+        if (resultadosDaPagina.length < tamanhoPagina) {
+          temMais = false;
+        } else {
+          pagina++;
+          await new Promise((r) => setTimeout(r, 800));
+        }
+      }
+      return todosResultados;
+    } catch (e) {
+      if (e.response && e.response.status === 404) {
+        // Normal se não houver resultado ainda
+        return [];
+      }
+      this.logger.error(
+        `Erro ao buscar resultados do item ${numeroItem} de ${numeroControlePNCP}: ${e.message}`,
+      );
+      return [];
+    }
+  }
+
   private async fazerRequisicaoComRetry(
     endpoint: string,
     params: any,
