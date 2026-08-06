@@ -2,7 +2,6 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
-  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -197,7 +196,7 @@ export class OportunidadeService {
             }
             // Delay curto para não explodir o rate limit do PNCP
             await new Promise((r) => setTimeout(r, 200));
-          } catch (e) {
+          } catch {
             this.logger.warn(
               `Não foi possível buscar o resultado do item ${item.numeroItem}`,
             );
@@ -422,9 +421,9 @@ export class OportunidadeService {
           await this.sincronizarItens(op._id.toString());
           // Pausa entre as oportunidades para não sofrer rate limit do PNCP
           await new Promise((r) => setTimeout(r, 2000));
-        } catch (err) {
+        } catch (err: any) {
           this.logger.warn(
-            `Erro na sincronização em background da oportunidade ${op._id}: ${err.message}`,
+            `Erro na sincronização em background da oportunidade ${op._id.toString()}: ${err.message}`,
           );
         }
       }
