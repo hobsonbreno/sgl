@@ -16,3 +16,6 @@ sgl_backup.gz
 # Env
 .env
 .env.*
+backend/test-ajax.js
+backend/test-puppeteer.js
+sync_all.js
