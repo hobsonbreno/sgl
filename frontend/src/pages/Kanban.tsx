@@ -625,7 +625,22 @@ export default function Kanban() {
                                 )}
                                 
                                 {isFinalizada ? (
-                                  <>
+                                  col.nome.toUpperCase().includes('FECHADO') || col.nome.toUpperCase().includes('NEGÓCIO') ? (
+                                    <span style={{ 
+                                      background: '#dcfce7', 
+                                      color: '#166534', 
+                                      padding: '0.4rem 0.8rem', 
+                                      borderRadius: '12px', 
+                                      fontSize: '0.75rem', 
+                                      fontWeight: '800',
+                                      textTransform: 'uppercase',
+                                      letterSpacing: '0.5px',
+                                      width: 'fit-content',
+                                      lineHeight: '1.2'
+                                    }}>
+                                      Favor Acompanhar Assinatura Do Contrato
+                                    </span>
+                                  ) : (
                                     <button 
                                       onClick={(e) => { e.stopPropagation(); moverPorMenu(item._id, 'ARQUIVADA'); }}
                                       title="Mover para Arquivadas"
@@ -650,23 +665,7 @@ export default function Kanban() {
                                       }}>
                                       <Archive size={14} /> Favor Arquivar Proposta
                                     </button>
-                                    {getSuffixMessage(col.nome) && col.nome.toUpperCase().includes('FECHADO') && (
-                                      <span style={{ 
-                                        background: '#dcfce7', 
-                                        color: '#166534', 
-                                        padding: '0.4rem 0.8rem', 
-                                        borderRadius: '12px', 
-                                        fontSize: '0.75rem', 
-                                        fontWeight: '800',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.5px',
-                                        width: 'fit-content',
-                                        lineHeight: '1.2'
-                                      }}>
-                                        {getSuffixMessage(col.nome)}
-                                      </span>
-                                    )}
-                                  </>
+                                  )
                                 ) : (col.nome.toUpperCase().includes('FAZENDO') && !bestOffer) ? (
                                   <div style={{ 
                                     background: 'linear-gradient(135deg, #fef3c7, #fde68a)', 
