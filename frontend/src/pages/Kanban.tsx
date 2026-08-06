@@ -148,9 +148,9 @@ export default function Kanban() {
         }
 
         // Auto-Venceu: Finalizada e empresa campeã -> move pra NEGÓCIO FECHADO
-        const isFinalizada = opProdutos.some((p: any) => {
+        const isFinalizada = opProdutos.length > 0 && opProdutos.every((p: any) => {
           const s = p.situacaoJulgamento?.toLowerCase() || '';
-          return s.includes('finalizada') || s.includes('homologado') || s.includes('adjudicado');
+          return s.includes('finalizada') || s.includes('homologado') || s.includes('adjudicado') || s.includes('fracassada') || s.includes('fracassado') || s.includes('cancelad') || s.includes('deserta');
         });
         const won = opProdutos.some((p: any) => {
           const nome = p.vencedorNome?.toUpperCase() || '';
