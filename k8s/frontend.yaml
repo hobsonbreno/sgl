@@ -13,7 +13,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: hobson007breno/sgl-frontend:dee2ccf
+        image: hobson007breno/sgl-frontend:d5da7f1
         ports:
         - containerPort: 80
 ---
