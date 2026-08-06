@@ -606,8 +606,23 @@ export default function Kanban() {
                                 />
                                 
                                 {prods.length > 0 && (
-                                  <div style={{ background: '#f1f5f9', padding: '0.5rem', borderRadius: '4px', fontSize: '0.75rem', border: '1px solid #e2e8f0' }}>
-                                    <strong style={{ color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.25rem' }}>Status dos Itens:</strong>
+                                  <div style={{ background: '#f1f5f9', padding: '0.5rem', borderRadius: '4px', fontSize: '0.75rem', border: '1px solid #e2e8f0', position: 'relative' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                                      <strong style={{ color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>Status dos Itens:</strong>
+                                      <button 
+                                        title="Buscar status agora no Órgão"
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          try {
+                                            await fetch(`${window.API_URL}/oportunidades/${item._id}/sincronizar-itens`, { method: 'POST' });
+                                            window.location.reload();
+                                          } catch (err) { console.error(err); }
+                                        }}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', padding: '0.2rem' }}
+                                      >
+                                        🔄
+                                      </button>
+                                    </div>
                                     <ul style={{ margin: 0, paddingLeft: '1rem', color: '#334155' }}>
                                       {prods.slice(0, 5).map(p => (
                                         <li key={p._id} style={{ marginBottom: '0.25rem' }}>
