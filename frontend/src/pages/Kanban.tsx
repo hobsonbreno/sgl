@@ -152,7 +152,11 @@ export default function Kanban() {
           const s = p.situacaoJulgamento?.toLowerCase() || '';
           return s.includes('finalizada') || s.includes('homologado') || s.includes('adjudicado');
         });
-        const won = opProdutos.some((p: any) => p.vencedorNome?.includes('GRUPO IRMAOS NASCIMENTO') || p.vencedorNome?.includes('48.262.939'));
+        const won = opProdutos.some((p: any) => {
+          const nome = p.vencedorNome?.toUpperCase() || '';
+          const cnpj = p.vencedorCnpj || '';
+          return nome.includes('IRMÃOS NASCIMENTO') || nome.includes('IRMAOS NASCIMENTO') || cnpj.includes('48262939') || cnpj.includes('48.262.939');
+        });
         
         if (isFinalizada && won && st !== 'ARQUIVADA') {
           const fechadoCol = dataConfig?.colunasKanban?.find((c: any) => c.nome.toUpperCase().includes('FECHADO') || c.nome.toUpperCase().includes('NEGÓCIO'))?.id;
@@ -650,21 +654,24 @@ export default function Kanban() {
                                     )}
                                   </>
                                 ) : (col.nome.toUpperCase().includes('FAZENDO') && !bestOffer) ? (
-                                  <span style={{ 
+                                  <div style={{ 
                                     background: 'linear-gradient(135deg, #fef3c7, #fde68a)', 
                                     color: '#92400e', 
-                                    padding: '0.4rem 0.8rem', 
-                                    borderRadius: '12px', 
+                                    padding: '0.6rem 0.8rem', 
+                                    borderRadius: '8px', 
                                     fontSize: '0.75rem', 
-                                    fontWeight: '800',
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.5px',
-                                    width: 'fit-content',
-                                    lineHeight: '1.2',
-                                    border: '1px solid #fcd34d'
+                                    fontWeight: '600',
+                                    lineHeight: '1.4',
+                                    border: '1px solid #fcd34d',
+                                    width: '100%',
+                                    boxSizing: 'border-box',
+                                    display: 'block',
+                                    marginTop: '0.5rem',
+                                    wordBreak: 'break-word'
                                   }}>
-                                    ⚠️ VOCÊ AINDA NÃO INSERIU COTAÇÕES PARA ESTA PROPOSTA. FAVOR ANALISAR, CASO CONTRÁRIO ELA SERÁ EXCLUÍDA ASSIM QUE EXPIRAR O TEMPO.
-                                  </span>
+                                    <strong style={{ display: 'block', marginBottom: '0.2rem' }}>⚠️ ATENÇÃO:</strong> 
+                                    Você ainda não inseriu cotações para esta proposta. Favor analisar, caso contrário ela será excluída assim que expirar.
+                                  </div>
                                 ) : getSuffixMessage(col.nome) ? (
                                   <span style={{ 
                                     background: (col.nome.toUpperCase().includes('FECHADO') || col.nome.toUpperCase().includes('NEGÓCIO')) ? '#dcfce7' : '#eff6ff', 
