@@ -496,9 +496,9 @@ export default function Kanban() {
                       <div className="kanban-list" style={{ flex: 1, minHeight: '100px' }}>
                       {itensDaColuna.map((item, index) => {
                         const prods = produtos.filter(p => p.oportunidadeId === item._id);
-                        const isFinalizada = prods.some(p => {
+                        const isFinalizada = prods.length > 0 && prods.every(p => {
                           const s = p.situacaoJulgamento?.toLowerCase() || '';
-                          return s.includes('finalizada') || s.includes('homologado') || s.includes('adjudicado');
+                          return s.includes('finalizada') || s.includes('homologado') || s.includes('adjudicado') || s.includes('fracassada') || s.includes('fracassado') || s.includes('cancelad') || s.includes('deserta');
                         });
                         const bestOffer = getBestOfferInfo(item._id);
                         
@@ -624,8 +624,8 @@ export default function Kanban() {
                                   </div>
                                 )}
                                 
-                                {isFinalizada ? (
-                                  col.nome.toUpperCase().includes('FECHADO') || col.nome.toUpperCase().includes('NEGÓCIO') ? (
+                                {(isFinalizada || col.nome.toUpperCase().includes('ARQUIVADOS') || col.nome.toUpperCase() === 'ARQUIVADO') ? (
+                                  (isFinalizada && (col.nome.toUpperCase().includes('FECHADO') || col.nome.toUpperCase().includes('NEGÓCIO'))) ? (
                                     <span style={{ 
                                       background: '#dcfce7', 
                                       color: '#166534', 
