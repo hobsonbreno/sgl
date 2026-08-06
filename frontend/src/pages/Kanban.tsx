@@ -158,16 +158,30 @@ export default function Kanban() {
           return nome.includes('IRMÃOS NASCIMENTO') || nome.includes('IRMAOS NASCIMENTO') || cnpj.includes('48262939') || cnpj.includes('48.262.939');
         });
         
-        if (isFinalizada && won && st !== 'ARQUIVADA') {
-          const fechadoCol = dataConfig?.colunasKanban?.find((c: any) => c.nome.toUpperCase().includes('FECHADO') || c.nome.toUpperCase().includes('NEGÓCIO'))?.id;
-          if (fechadoCol && st !== fechadoCol) {
-             fetch(`${window.API_URL}/oportunidades/${op._id}/status`, {
-               method: 'PATCH',
-               headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify({ kanbanStatus: fechadoCol })
-             }).catch(console.error);
-             st = fechadoCol;
-             op.kanbanStatus = fechadoCol;
+        if (isFinalizada && st !== 'ARQUIVADA') {
+          if (won) {
+            const fechadoCol = dataConfig?.colunasKanban?.find((c: any) => c.nome.toUpperCase().includes('FECHADO') || c.nome.toUpperCase().includes('NEGÓCIO'))?.id;
+            if (fechadoCol && st !== fechadoCol) {
+               fetch(`${window.API_URL}/oportunidades/${op._id}/status`, {
+                 method: 'PATCH',
+                 headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify({ kanbanStatus: fechadoCol })
+               }).catch(console.error);
+               st = fechadoCol;
+               op.kanbanStatus = fechadoCol;
+            }
+          } else {
+            // Não venceu, move automaticamente para a coluna de Arquivados (para aprovação manual posterior)
+            const arquivadosCol = dataConfig?.colunasKanban?.find((c: any) => c.nome.toUpperCase().includes('ARQUIVADOS') || c.nome.toUpperCase() === 'ARQUIVADO')?.id;
+            if (arquivadosCol && st !== arquivadosCol) {
+               fetch(`${window.API_URL}/oportunidades/${op._id}/status`, {
+                 method: 'PATCH',
+                 headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify({ kanbanStatus: arquivadosCol })
+               }).catch(console.error);
+               st = arquivadosCol;
+               op.kanbanStatus = arquivadosCol;
+            }
           }
         }
         
