@@ -498,7 +498,7 @@ export default function Kanban() {
         >
           {colunas.map(col => {
             const colId = col.id;
-            const itensDaColuna = oportunidades
+            let itensDaColuna = oportunidades
               .filter(op => op.kanbanStatus === colId)
               .filter(op => {
                 const search = searchTerm.toLowerCase().trim();
@@ -568,6 +568,10 @@ export default function Kanban() {
                 const dateB = new Date(b.dataEncerramentoProposta).getTime() || 0;
                 return dateA - dateB;
               });
+
+            if (itensDaColuna.length === 0) {
+              return null;
+            }
 
             const isCollapsed = collapsedCols[colId] !== undefined ? collapsedCols[colId] : (itensDaColuna.length === 0);
 
