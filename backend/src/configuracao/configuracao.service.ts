@@ -65,4 +65,10 @@ export class ConfiguracaoService implements OnModuleInit {
       .findOneAndUpdate({}, { colunasKanban: colunas }, { new: true })
       .exec();
   }
+
+  async setColunasRecolhidas(colunasRecolhidas: string[]) {
+    return this.configModel
+      .findOneAndUpdate({}, { colunasRecolhidas }, { new: true })
+      .exec();
+  }
 }

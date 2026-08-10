@@ -36,6 +36,14 @@ export class ConfiguracaoController {
       }
       return this.configuracaoService.setColunas(body.colunasKanban);
     }
+    
+    if (body.colunasRecolhidas !== undefined) {
+      if (!Array.isArray(body.colunasRecolhidas)) {
+        throw new BadRequestException('Formato de colunas recolhidas inválido.');
+      }
+      return this.configuracaoService.setColunasRecolhidas(body.colunasRecolhidas);
+    }
+    
     throw new BadRequestException('Nenhum campo válido para atualização');
   }
 }
