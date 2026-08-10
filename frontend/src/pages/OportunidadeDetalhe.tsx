@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, AlertCircle, Trash2, ChevronDown, ChevronUp, X, ExternalLink, Copy, XCircle, RotateCw, Search } from 'lucide-react';
+import { ArrowLeft, Check, AlertCircle, Trash2, ChevronDown, ChevronUp, X, ExternalLink, Copy, XCircle, RotateCw, Search, CheckCircle2 } from 'lucide-react';
 import { io } from 'socket.io-client';
 
 function calcularAliquotaEfetivaSimples(rbt12: number): number {
@@ -1659,12 +1659,19 @@ export default function OportunidadeDetalhe() {
                              <span style={{ background: infoExtraida.editalStyle.bg, color: infoExtraida.editalStyle.text, padding: '0.2rem 0.6rem', borderRadius: '4px', border: `1px solid ${infoExtraida.editalStyle.border}`, fontWeight: 'bold', userSelect: 'text', cursor: 'text' }} onMouseDown={(e) => e.stopPropagation()}>{infoExtraida.edital}</span>
                              <button 
                                onClick={(e) => { e.stopPropagation(); handleCopy(infoExtraida.editalCopia, 'edital-detalhe'); }} 
-                               style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.15rem', color: copiedId === 'edital-detalhe' ? '#16a34a' : infoExtraida.editalStyle.icon, display: 'flex', alignItems: 'center', borderRadius: '4px', transition: 'all 0.2s' }}
+                               style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.15rem', color: copiedId === 'edital-detalhe' ? '#16a34a' : infoExtraida.editalStyle.icon, display: 'flex', alignItems: 'center', gap: '0.2rem', borderRadius: '4px', transition: 'all 0.2s' }}
                                title={copiedId === 'edital-detalhe' ? "Copiado!" : `Copiar ${infoExtraida.labelEdital}`}
                                onMouseEnter={(e) => e.currentTarget.style.color = copiedId === 'edital-detalhe' ? '#16a34a' : infoExtraida.editalStyle.iconHover}
                                onMouseLeave={(e) => e.currentTarget.style.color = copiedId === 'edital-detalhe' ? '#16a34a' : infoExtraida.editalStyle.icon}
                              >
-                               {copiedId === 'edital-detalhe' ? <Check size={16} /> : <Copy size={16} />}
+                               {copiedId === 'edital-detalhe' ? (
+                                 <>
+                                   <CheckCircle2 size={16} />
+                                   <span style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Copiado</span>
+                                 </>
+                               ) : (
+                                 <Copy size={16} />
+                               )}
                              </button>
                            </div>
                          </div>

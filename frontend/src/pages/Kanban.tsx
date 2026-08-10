@@ -3,7 +3,7 @@ import type { MouseEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import type { DropResult } from '@hello-pangea/dnd';
-import { Trash2, Trophy, Settings, Plus, ArrowUp, ArrowDown, ChevronUp, ChevronDown, Archive, Copy, ExternalLink, Check } from 'lucide-react';
+import { Trash2, Trophy, Settings, Plus, ArrowUp, ArrowDown, ChevronUp, ChevronDown, Archive, Copy, ExternalLink, CheckCircle2 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import Countdown from '../components/Countdown';
 
@@ -774,14 +774,21 @@ export default function Kanban() {
                                             {infoExtraida.labelEdital}: {infoExtraida.edital}
                                           </span>
                                           <button 
-                                            onClick={(e) => { e.stopPropagation(); handleCopy(infoExtraida.editalCopia, `edital-${item._id}`); }} 
-                                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.15rem', color: copiedId === `edital-${item._id}` ? '#16a34a' : editalStyle.icon, display: 'flex', alignItems: 'center', borderRadius: '4px', transition: 'all 0.2s' }}
-                                            title={copiedId === `edital-${item._id}` ? "Copiado!" : `Copiar ${infoExtraida.labelEdital}`}
-                                            onMouseEnter={(e) => e.currentTarget.style.color = copiedId === `edital-${item._id}` ? '#16a34a' : editalStyle.iconHover}
-                                            onMouseLeave={(e) => e.currentTarget.style.color = copiedId === `edital-${item._id}` ? '#16a34a' : editalStyle.icon}
-                                          >
-                                            {copiedId === `edital-${item._id}` ? <Check size={14} /> : <Copy size={14} />}
-                                          </button>
+                                              onClick={(e) => { e.stopPropagation(); handleCopy(infoExtraida.editalCopia, `edital-${item._id}`); }} 
+                                              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.15rem', color: copiedId === `edital-${item._id}` ? '#16a34a' : editalStyle.icon, display: 'flex', alignItems: 'center', gap: '0.2rem', borderRadius: '4px', transition: 'all 0.2s' }}
+                                              title={copiedId === `edital-${item._id}` ? "Copiado!" : `Copiar ${infoExtraida.labelEdital}`}
+                                              onMouseEnter={(e) => e.currentTarget.style.color = copiedId === `edital-${item._id}` ? '#16a34a' : editalStyle.iconHover}
+                                              onMouseLeave={(e) => e.currentTarget.style.color = copiedId === `edital-${item._id}` ? '#16a34a' : editalStyle.icon}
+                                            >
+                                              {copiedId === `edital-${item._id}` ? (
+                                                <>
+                                                  <CheckCircle2 size={14} />
+                                                  <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>Copiado</span>
+                                                </>
+                                              ) : (
+                                                <Copy size={14} />
+                                              )}
+                                            </button>
                                         </div>
                                         {infoExtraida.uasg && (
                                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', fontWeight: 'bold' }}>
@@ -789,13 +796,20 @@ export default function Kanban() {
                                               UASG: {infoExtraida.uasg}
                                             </span>
                                             <button 
-                                              onClick={(e) => { e.stopPropagation(); handleCopy(infoExtraida.uasg || '', `uasg-${item._id}`); }} 
-                                              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.15rem', color: copiedId === `uasg-${item._id}` ? '#16a34a' : '#f59e0b', display: 'flex', alignItems: 'center', borderRadius: '4px', transition: 'all 0.2s' }}
+                                              onClick={(e) => { e.stopPropagation(); handleCopy(infoExtraida.uasg!, `uasg-${item._id}`); }} 
+                                              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.15rem', color: copiedId === `uasg-${item._id}` ? '#16a34a' : '#b45309', display: 'flex', alignItems: 'center', gap: '0.2rem', borderRadius: '4px', transition: 'all 0.2s' }}
                                               title={copiedId === `uasg-${item._id}` ? "Copiado!" : "Copiar UASG"}
-                                              onMouseEnter={(e) => e.currentTarget.style.color = copiedId === `uasg-${item._id}` ? '#16a34a' : '#b45309'}
-                                              onMouseLeave={(e) => e.currentTarget.style.color = copiedId === `uasg-${item._id}` ? '#16a34a' : '#f59e0b'}
+                                              onMouseEnter={(e) => e.currentTarget.style.color = copiedId === `uasg-${item._id}` ? '#16a34a' : '#92400e'}
+                                              onMouseLeave={(e) => e.currentTarget.style.color = copiedId === `uasg-${item._id}` ? '#16a34a' : '#b45309'}
                                             >
-                                              {copiedId === `uasg-${item._id}` ? <Check size={14} /> : <Copy size={14} />}
+                                              {copiedId === `uasg-${item._id}` ? (
+                                                <>
+                                                  <CheckCircle2 size={14} />
+                                                  <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>Copiado</span>
+                                                </>
+                                              ) : (
+                                                <Copy size={14} />
+                                              )}
                                             </button>
                                           </div>
                                         )}
