@@ -19,3 +19,10 @@ sgl_backup.gz
 backend/test-ajax.js
 backend/test-puppeteer.js
 sync_all.js
+
+# Scripts e arquivos temporários
+extract.js
+force_sync_now.js
+test_pncp.js
+user_requests.txt
+eslint_report.txt
