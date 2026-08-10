@@ -1699,8 +1699,8 @@ export default function OportunidadeDetalhe() {
                         const num = item.numeroItem || (itemInicial + idx);
                         const desc = item.descricaoItem || item.descricao || item.produtoId?.descricao || item.produtoId?.nome || 'Sem descrição';
                         const qtde = item.quantidade || 1;
-                        const valUnit = item.valorReferencia || item.produtoId?.valorReferencia;
-                        const valTotal = valUnit ? (valUnit * qtde) : null;
+                        const valUnit = item.valorUnitarioEstimado || item.produtoId?.valorUnitarioEstimado || item.valorReferencia || item.produtoId?.valorReferencia;
+                        const valTotal = valUnit ? (valUnit * qtde) : (item.valorTotalEstimado || item.produtoId?.valorTotalEstimado || null);
                         
                         const formatVal = (v: number | null | undefined) => {
                           if (v === null || v === undefined) return 'Sigiloso';
