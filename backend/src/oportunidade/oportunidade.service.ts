@@ -57,17 +57,20 @@ export class OportunidadeService {
       filters.dataEncerramentoProposta = { $lte: hoje, $gte: new Date() };
     }
 
-    // Regra de tempo de vida para EXCLUIDA: ocultar se a data de encerramento já passou
-    const agora = new Date();
-    filters.$or = [
-      { kanbanStatus: { $ne: 'EXCLUIDA' } },
-      { kanbanStatus: 'EXCLUIDA', dataEncerramentoProposta: { $gte: agora } },
-      { kanbanStatus: 'EXCLUIDA', dataEncerramentoProposta: null },
-      {
-        kanbanStatus: 'EXCLUIDA',
-        dataEncerramentoProposta: { $exists: false },
-      },
-    ];
+    // Regra de tempo de vida para EXCLUIDA: ocultar se a data de encerramento já passou, 
+    // a menos que estejamos consultando explicitamente a lixeira/arquivo
+    if (query.includeDeleted !== 'true' && query.kanbanStatus !== 'EXCLUIDA') {
+      const agora = new Date();
+      filters.$or = [
+        { kanbanStatus: { $ne: 'EXCLUIDA' } },
+        { kanbanStatus: 'EXCLUIDA', dataEncerramentoProposta: { $gte: agora } },
+        { kanbanStatus: 'EXCLUIDA', dataEncerramentoProposta: null },
+        {
+          kanbanStatus: 'EXCLUIDA',
+          dataEncerramentoProposta: { $exists: false },
+        },
+      ];
+    }
 
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 50;

@@ -10,7 +10,8 @@ import MarketIntelligence from './pages/MarketIntelligence';
 import Financeiro from './pages/Financeiro';
 import Configuracoes from './pages/Configuracoes';
 import OportunidadeDetalhe from './pages/OportunidadeDetalhe';
-import { LayoutDashboard, KanbanSquare, Settings, Users, Building, PieChart, BrainCircuit, Wrench, Wallet, Database } from 'lucide-react';
+import LixeiraArquivo from './pages/LixeiraArquivo';
+import { LayoutDashboard, KanbanSquare, Settings, Users, Building, PieChart, BrainCircuit, Wrench, Wallet, Database, Archive } from 'lucide-react';
 import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
 
@@ -38,6 +39,7 @@ function App() {
             <nav className="nav-menu">
               <NavItem to="/" icon={LayoutDashboard}>Dashboard</NavItem>
               <NavItem to="/kanban" icon={KanbanSquare}>Kanban</NavItem>
+              <NavItem to="/arquivo" icon={Archive}>Lixeira / Arquivo</NavItem>
               <NavItem to="/orgaos" icon={Building}>Órgãos</NavItem>
               <NavItem to="/fornecedores" icon={Users}>Fornecedores</NavItem>
               <NavItem to="/base-produtos" icon={Database}>Base de Produtos</NavItem>
@@ -52,6 +54,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/kanban" element={<Kanban />} />
+              <Route path="/arquivo" element={<LixeiraArquivo />} />
               <Route path="/perfis-busca" element={<PerfisBusca />} />
               <Route path="/orgaos" element={<Orgaos />} />
               <Route path="/fornecedores" element={<Fornecedores />} />
