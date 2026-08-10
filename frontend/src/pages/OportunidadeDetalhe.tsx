@@ -1174,9 +1174,38 @@ export default function OportunidadeDetalhe() {
   const navigate = useNavigate();
 
   const handleCopy = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text)
+        .then(() => {
+          setCopiedId(id);
+          setTimeout(() => setCopiedId(null), 2000);
+        })
+        .catch(() => {
+          fallbackCopyTextToClipboard(text, id);
+        });
+    } else {
+      fallbackCopyTextToClipboard(text, id);
+    }
+  };
+
+  const fallbackCopyTextToClipboard = (text: string, id: string) => {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.opacity = "0";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch (err) {
+      console.error('Fallback: falha ao copiar', err);
+    }
+    document.body.removeChild(textArea);
   };
 
   // Form state para adicionar fornecedor na cotacao (placeholder simples)
