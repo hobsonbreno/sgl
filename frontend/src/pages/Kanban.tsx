@@ -1040,11 +1040,11 @@ export default function Kanban() {
                                         <span style={{ fontSize: '0.6rem', fontWeight: '800', color: finColor, textTransform: 'uppercase', letterSpacing: '0.5px' }} title={finLabel}>
                                           {finLabel}
                                         </span>
-                                        <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', width: '100%' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', width: '100%' }}>
                                           <span className="kanban-card-price" style={{ fontSize: '1.05rem', fontWeight: '800', color: finColor, letterSpacing: '-0.5px', lineHeight: '1', whiteSpace: 'nowrap' }} aria-label={`${finLabel}: R$ ${item.valorTotalEstimado?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
                                             R$ {item.valorTotalEstimado?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                           </span>
-                                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0, marginLeft: 'auto' }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>
                                             <select 
                                               value={colId} 
                                               onChange={(e) => {
