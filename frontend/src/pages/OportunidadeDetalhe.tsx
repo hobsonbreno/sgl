@@ -1170,7 +1170,14 @@ export default function OportunidadeDetalhe() {
   const ITENS_POR_PAGINA = 50;
   const [loading, setLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const navigate = useNavigate();
+
+  const handleCopy = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   // Form state para adicionar fornecedor na cotacao (placeholder simples)
   const [novoFornecedorId, setNovoFornecedorId] = useState('');
@@ -1620,13 +1627,15 @@ export default function OportunidadeDetalhe() {
                          <div style={{ marginBottom: '1rem' }}>
                            <span style={{ fontWeight: 600, color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.4rem' }}>{infoExtraida.labelEdital}</span>
                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                             <span style={{ background: infoExtraida.editalStyle.bg, color: infoExtraida.editalStyle.text, padding: '0.2rem 0.6rem', borderRadius: '4px', border: `1px solid ${infoExtraida.editalStyle.border}`, fontWeight: 'bold' }}>{infoExtraida.edital}</span>
+                             <span style={{ background: infoExtraida.editalStyle.bg, color: infoExtraida.editalStyle.text, padding: '0.2rem 0.6rem', borderRadius: '4px', border: `1px solid ${infoExtraida.editalStyle.border}`, fontWeight: 'bold', userSelect: 'text', cursor: 'text' }} onMouseDown={(e) => e.stopPropagation()}>{infoExtraida.edital}</span>
                              <button 
-                               onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(infoExtraida.editalCopia); alert(`${infoExtraida.labelEdital} copiado: ${infoExtraida.editalCopia}`); }} 
-                               style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.15rem', color: infoExtraida.editalStyle.icon, display: 'flex', alignItems: 'center', borderRadius: '4px' }}
-                               title={`Copiar ${infoExtraida.labelEdital}`}
+                               onClick={(e) => { e.stopPropagation(); handleCopy(infoExtraida.editalCopia, 'edital-detalhe'); }} 
+                               style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.15rem', color: copiedId === 'edital-detalhe' ? '#16a34a' : infoExtraida.editalStyle.icon, display: 'flex', alignItems: 'center', borderRadius: '4px', transition: 'all 0.2s' }}
+                               title={copiedId === 'edital-detalhe' ? "Copiado!" : `Copiar ${infoExtraida.labelEdital}`}
+                               onMouseEnter={(e) => e.currentTarget.style.color = copiedId === 'edital-detalhe' ? '#16a34a' : infoExtraida.editalStyle.iconHover}
+                               onMouseLeave={(e) => e.currentTarget.style.color = copiedId === 'edital-detalhe' ? '#16a34a' : infoExtraida.editalStyle.icon}
                              >
-                               <Copy size={16} />
+                               {copiedId === 'edital-detalhe' ? <Check size={16} /> : <Copy size={16} />}
                              </button>
                            </div>
                          </div>

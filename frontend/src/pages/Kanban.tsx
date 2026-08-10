@@ -3,7 +3,7 @@ import type { MouseEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import type { DropResult } from '@hello-pangea/dnd';
-import { Trash2, Trophy, Settings, Plus, ArrowUp, ArrowDown, ChevronUp, ChevronDown, Archive, Copy, ExternalLink } from 'lucide-react';
+import { Trash2, Trophy, Settings, Plus, ArrowUp, ArrowDown, ChevronUp, ChevronDown, Archive, Copy, ExternalLink, Check } from 'lucide-react';
 import { io } from 'socket.io-client';
 import Countdown from '../components/Countdown';
 
@@ -28,6 +28,7 @@ export default function Kanban() {
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
 
   const [socketRef, setSocketRef] = useState<any>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   
   const toggleObjectExpand = (cardId: string) => {
     setExpandedObjects(prev => ({
@@ -68,6 +69,12 @@ export default function Kanban() {
     if (upper.includes('HOMOLOGA')) return 'DOCUMENTOS APROVADOS AGUARDANDO ASSINATURA DO CONTRATO';
     if (upper.includes('FECHADO') || upper.includes('NEGÓCIO')) return '🎉 PARABÉNS NEGÓCIO FECHADO 🏆';
     return undefined;
+  };
+
+  const handleCopy = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
   };
 
   const [colunas, setColunas] = useState<{ id: string, nome: string }[]>([]);
@@ -114,8 +121,8 @@ export default function Kanban() {
     const newState = !collapsedCols[colId];
     setCollapsedCols(prev => ({ ...prev, [colId]: newState }));
 
-    if (socketRef && socketRef.current) {
-      socketRef.current.emit('toggle_column_collapse', { colId, collapsed: newState });
+    if (socketRef) {
+      socketRef.emit('toggle_column_collapse', { colId, collapsed: newState });
     }
 
     try {
@@ -576,11 +583,23 @@ export default function Kanban() {
                 const matchCompra = regexCompra.test(numeroCompraCompleto.toLowerCase()) || 
                                     regexCompra.test(numeroCompraFormatado.toLowerCase()) ||
                                     (searchDigits.length > 0 && numeroCompraCompleto.replace(/[^\d]/g, '') === searchDigits);
+                
+                const isEditalSearch = /^(?:edital|aviso|pregão|pregao|dispensa)?\s*\d{1,6}[\/\-]\d{4}$/i.test(search.trim());
+                if (isEditalSearch) {
+                  return matchCompra || matchPncp || matchUasg;
+                }
+
+                const linkFonteStr = op.linkSistemaOrigem || '';
+                const isCearaFonte = op.orgaoNome?.toLowerCase().includes('ceara');
+                const isComprasnetFonte = linkFonteStr.includes('comprasnet') || linkFonteStr.includes('cnetmobile') || op.usuarioNome?.toLowerCase().includes('compras.gov.br');
+                const nomeFonte = isCearaFonte ? 'Sefaz-CE' : isComprasnetFonte ? 'Compras.gov.br' : (linkFonteStr ? 'Portal de Origem' : 'Não informada');
+                const matchFonte = nomeFonte.toLowerCase().includes(search);
+                const matchSituacaoCompra = op.situacaoCompraNome?.toLowerCase().includes(search);
                                   
                 const prods = produtos.filter(p => p.oportunidadeId === op._id);
-                const matchProd = prods.some(p => p.descricao?.toLowerCase().includes(search));
+                const matchProduto = prods.some(p => p.descricao?.toLowerCase().includes(search) || p.situacaoJulgamento?.toLowerCase().includes(search));
                 
-                return matchOrgao || matchObjeto || matchModalidade || matchCnpj || matchUasg || matchPncp || matchCompra || matchProd;
+                return matchOrgao || matchObjeto || matchModalidade || matchCnpj || matchUasg || matchPncp || matchCompra || matchFonte || matchSituacaoCompra || matchProduto;
               })
               .sort((a, b) => {
                 const dateA = new Date(a.dataEncerramentoProposta).getTime() || 0;
@@ -722,32 +741,32 @@ export default function Kanban() {
                                     return (
                                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginBottom: '0.25rem' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                          <span style={{ fontSize: '0.75rem', fontWeight: 'bold', background: editalStyle.bg, color: editalStyle.text, padding: '0.1rem 0.4rem', borderRadius: '4px', border: `1px solid ${editalStyle.border}` }} title={infoExtraida.labelEdital === 'Aviso' ? 'Aviso de Contratação Direta' : 'Edital'}>
+                                          <span style={{ fontSize: '0.75rem', fontWeight: 'bold', background: editalStyle.bg, color: editalStyle.text, padding: '0.1rem 0.4rem', borderRadius: '4px', border: `1px solid ${editalStyle.border}`, userSelect: 'text', cursor: 'text' }} onMouseDown={(e) => e.stopPropagation()} title={infoExtraida.labelEdital === 'Aviso' ? 'Aviso de Contratação Direta' : 'Edital'}>
                                             {infoExtraida.labelEdital}: {infoExtraida.edital}
                                           </span>
                                           <button 
-                                            onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(infoExtraida.editalCopia); alert(`${infoExtraida.labelEdital} copiado: ${infoExtraida.editalCopia}`); }} 
-                                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.15rem', color: editalStyle.icon, display: 'flex', alignItems: 'center', borderRadius: '4px' }}
-                                            title={`Copiar ${infoExtraida.labelEdital}`}
-                                            onMouseEnter={(e) => e.currentTarget.style.color = editalStyle.iconHover}
-                                            onMouseLeave={(e) => e.currentTarget.style.color = editalStyle.icon}
+                                            onClick={(e) => { e.stopPropagation(); handleCopy(infoExtraida.editalCopia, `edital-${item._id}`); }} 
+                                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.15rem', color: copiedId === `edital-${item._id}` ? '#16a34a' : editalStyle.icon, display: 'flex', alignItems: 'center', borderRadius: '4px', transition: 'all 0.2s' }}
+                                            title={copiedId === `edital-${item._id}` ? "Copiado!" : `Copiar ${infoExtraida.labelEdital}`}
+                                            onMouseEnter={(e) => e.currentTarget.style.color = copiedId === `edital-${item._id}` ? '#16a34a' : editalStyle.iconHover}
+                                            onMouseLeave={(e) => e.currentTarget.style.color = copiedId === `edital-${item._id}` ? '#16a34a' : editalStyle.icon}
                                           >
-                                            <Copy size={14} />
+                                            {copiedId === `edital-${item._id}` ? <Check size={14} /> : <Copy size={14} />}
                                           </button>
                                         </div>
                                         {infoExtraida.uasg && (
                                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', fontWeight: 'bold' }}>
-                                            <span style={{ background: '#fef3c7', color: '#b45309', padding: '0.1rem 0.4rem', borderRadius: '4px', border: '1px solid #fde68a' }} title="Unidade Compradora (UASG)">
+                                            <span style={{ background: '#fef3c7', color: '#b45309', padding: '0.1rem 0.4rem', borderRadius: '4px', border: '1px solid #fde68a', userSelect: 'text', cursor: 'text' }} onMouseDown={(e) => e.stopPropagation()} title="Unidade Compradora (UASG)">
                                               UASG: {infoExtraida.uasg}
                                             </span>
                                             <button 
-                                              onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(infoExtraida.uasg || ''); alert('UASG copiada!'); }} 
-                                              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.15rem', color: '#f59e0b', display: 'flex', alignItems: 'center', borderRadius: '4px' }}
-                                              title="Copiar UASG"
-                                              onMouseEnter={(e) => e.currentTarget.style.color = '#b45309'}
-                                              onMouseLeave={(e) => e.currentTarget.style.color = '#f59e0b'}
+                                              onClick={(e) => { e.stopPropagation(); handleCopy(infoExtraida.uasg || '', `uasg-${item._id}`); }} 
+                                              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.15rem', color: copiedId === `uasg-${item._id}` ? '#16a34a' : '#f59e0b', display: 'flex', alignItems: 'center', borderRadius: '4px', transition: 'all 0.2s' }}
+                                              title={copiedId === `uasg-${item._id}` ? "Copiado!" : "Copiar UASG"}
+                                              onMouseEnter={(e) => e.currentTarget.style.color = copiedId === `uasg-${item._id}` ? '#16a34a' : '#b45309'}
+                                              onMouseLeave={(e) => e.currentTarget.style.color = copiedId === `uasg-${item._id}` ? '#16a34a' : '#f59e0b'}
                                             >
-                                              <Copy size={14} />
+                                              {copiedId === `uasg-${item._id}` ? <Check size={14} /> : <Copy size={14} />}
                                             </button>
                                           </div>
                                         )}

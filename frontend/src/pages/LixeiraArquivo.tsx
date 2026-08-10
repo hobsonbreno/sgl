@@ -91,7 +91,19 @@ export default function LixeiraArquivo() {
                           regexCompra.test(numeroCompraFormatado.toLowerCase()) ||
                           (searchDigits.length > 0 && numeroCompraCompleto.replace(/[^\d]/g, '') === searchDigits);
       
-      return matchOrgao || matchObjeto || matchModalidade || matchCnpj || matchUasg || matchPncp || matchCompra;
+      const isEditalSearch = /^(?:edital|aviso|pregão|pregao|dispensa)?\s*\d{1,6}[\/\-]\d{4}$/i.test(search.trim());
+      if (isEditalSearch) {
+        return matchCompra || matchPncp || matchUasg;
+      }
+
+      const linkFonteStr = op.linkSistemaOrigem || '';
+      const isCearaFonte = op.orgaoNome?.toLowerCase().includes('ceara');
+      const isComprasnetFonte = linkFonteStr.includes('comprasnet') || linkFonteStr.includes('cnetmobile') || op.usuarioNome?.toLowerCase().includes('compras.gov.br');
+      const nomeFonte = isCearaFonte ? 'Sefaz-CE' : isComprasnetFonte ? 'Compras.gov.br' : (linkFonteStr ? 'Portal de Origem' : 'Não informada');
+      const matchFonte = nomeFonte.toLowerCase().includes(search);
+      const matchSituacaoCompra = op.situacaoCompraNome?.toLowerCase().includes(search);
+
+      return matchOrgao || matchObjeto || matchModalidade || matchCnpj || matchUasg || matchPncp || matchCompra || matchFonte || matchSituacaoCompra;
   });
 
   return (
