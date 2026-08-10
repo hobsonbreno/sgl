@@ -1166,6 +1166,8 @@ export default function OportunidadeDetalhe() {
   const [oportunidade, setOportunidade] = useState<any>(null);
   const [cotacao, setCotacao] = useState<any>(null);
   const [aba, setAba] = useState<'edital' | 'cotacao' | 'simulador' | 'portal'>('edital');
+  const [paginaItens, setPaginaItens] = useState(1);
+  const ITENS_POR_PAGINA = 50;
   const [loading, setLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const navigate = useNavigate();
@@ -1508,37 +1510,249 @@ export default function OportunidadeDetalhe() {
       </div>
 
       {aba === 'edital' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-          <div className="stat-card" style={{ height: 'fit-content' }}>
-            <h3 style={{ marginBottom: '1rem', color: 'var(--text-main)', fontSize: '1rem' }}>Informações Básicas</h3>
-            <p style={{ marginBottom: '0.5rem' }}><strong>Objeto:</strong> {oportunidade.objetoCompra}</p>
-            <p style={{ marginBottom: '0.5rem' }}><strong>Modalidade:</strong> {oportunidade.modalidadeNome}</p>
-            <p style={{ marginBottom: '0.5rem' }}><strong>UASG / Órgão:</strong> {oportunidade.orgaoCnpj} - {oportunidade.orgaoNome}</p>
-            <p style={{ marginBottom: '0.5rem' }}><strong>Local:</strong> {oportunidade.municipio} - {oportunidade.uf}</p>
-            <p style={{ marginBottom: '0.5rem' }}><strong>Valor Estimado:</strong> R$ {oportunidade.valorTotalEstimado?.toLocaleString('pt-BR')}</p>
-            <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-              {oportunidade.linkSistemaOrigem && (
-                <a href={oportunidade.linkSistemaOrigem} target="_blank" rel="noreferrer" className="btn-primary" style={{ display: 'inline-block', padding: '0.5rem 1rem', textDecoration: 'none', fontSize: '0.9rem' }}>
-                  📄 Sistema de Origem
-                </a>
-              )}
-              {oportunidade.numeroControlePNCP && (
-                <a 
-                  href={`https://pncp.gov.br/app/editais/${oportunidade.numeroControlePNCP.split('-')[0]}/${oportunidade.numeroControlePNCP.split('/')[1]}/${parseInt(oportunidade.numeroControlePNCP.split('-')[2]?.split('/')[0] || '0')}`}
-                  target="_blank" 
-                  rel="noreferrer" 
-                  className="btn-primary" 
-                  style={{ display: 'inline-block', padding: '0.5rem 1rem', textDecoration: 'none', background: '#0ea5e9', fontSize: '0.9rem' }}
-                >
-                  📄 Portal PNCP (Baixar Edital)
-                </a>
-              )}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '2rem' }}>
+          <div className="stat-card" style={{ height: 'fit-content', padding: '2rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+              <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.25rem' }}>Informações Básicas</h3>
+              
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                {oportunidade.linkSistemaOrigem && (
+                  <a 
+                    href={oportunidade.linkSistemaOrigem} 
+                    target="_blank" 
+                    rel="noreferrer" 
+                    className="btn-primary" 
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', textDecoration: 'none', background: '#3b82f6', fontSize: '0.9rem', color: 'white', borderRadius: '4px', fontWeight: 500 }}
+                  >
+                    📄 Sistema de Origem
+                  </a>
+                )}
+                
+                {oportunidade.numeroControlePNCP && (
+                  <a 
+                    href={`https://pncp.gov.br/app/editais/${oportunidade.numeroControlePNCP.split('-')[0]}/${oportunidade.numeroControlePNCP.split('/')[1]}/${parseInt(oportunidade.numeroControlePNCP.split('-')[2]?.split('/')[0] || '0')}`}
+                    target="_blank" 
+                    rel="noreferrer" 
+                    className="btn-primary" 
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', textDecoration: 'none', background: '#0ea5e9', fontSize: '0.9rem', color: 'white', borderRadius: '4px', fontWeight: 500 }}
+                    title="Acessar o portal PNCP para baixar o Edital e Anexos"
+                  >
+                    📄 Portal PNCP (Baixar Edital)
+                  </a>
+                )}
+              </div>
             </div>
-            <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              <AlertCircle size={18} color="#4f46e5" />
-              <span>Status atual: <strong>{oportunidade.kanbanStatus.replace('_', ' ')}</strong></span>
-            </div>
+            
+            {(() => {
+              const infoExtraida = (() => {
+                let edital = null;
+                let uasg = oportunidade.unidadeCompradora || null;
+                
+                if (oportunidade.numeroCompraOrigem && oportunidade.anoCompraOrigem) {
+                  edital = `${oportunidade.numeroCompraOrigem}/${oportunidade.anoCompraOrigem}`;
+                }
+                if (oportunidade.linkSistemaOrigem && oportunidade.linkSistemaOrigem.includes('compra=')) {
+                  const match = oportunidade.linkSistemaOrigem.match(/compra=(\d{6})\d{2}(\d{5})(\d{4})/);
+                  if (match) {
+                    if (!edital) edital = `${parseInt(match[2], 10)}/${match[3]}`;
+                    if (!uasg) uasg = match[1];
+                  }
+                }
+                if (!edital && oportunidade.numeroControlePNCP) {
+                  const parts = oportunidade.numeroControlePNCP.split('-');
+                  if (parts.length >= 3) {
+                    const numYear = parts[2].split('/');
+                    if (numYear.length === 2) edital = `${parseInt(numYear[0], 10)}/${numYear[1]}`;
+                    else edital = parts[2];
+                  }
+                }
+                if (!edital) edital = oportunidade.numeroCompraOrigem || null;
+
+                let editalCopia = edital || '';
+                let isCeara = false;
+                if (edital) {
+                    const parts = edital.split('/');
+                    if (parts.length === 2 && parts[0].length === 9 && parts[0].startsWith('20')) {
+                        const year = parts[0].substring(0, 4);
+                        const seq = parts[0].substring(4);
+                        editalCopia = `${year}/${seq}`;
+                        isCeara = true;
+                    }
+                }
+                const isDispensa = oportunidade.modalidadeNome?.toLowerCase().includes('dispensa') || oportunidade.tipo === 'dispensa';
+                const labelEdital = (isDispensa && isCeara) ? 'Aviso' : (isDispensa ? 'Dispensa' : 'Edital');
+                
+                let editalStyle;
+                if (isDispensa && isCeara) {
+                    editalStyle = { bg: '#d1fae5', text: '#047857', border: '#a7f3d0', icon: '#10b981', iconHover: '#047857' };
+                } else if (isDispensa && !isCeara) {
+                    editalStyle = { bg: '#f3e8ff', text: '#7e22ce', border: '#e9d5ff', icon: '#a855f7', iconHover: '#7e22ce' };
+                } else {
+                    editalStyle = { bg: '#e0e7ff', text: '#4338ca', border: '#c7d2fe', icon: '#6366f1', iconHover: '#4338ca' };
+                }
+                
+                let linkFonte = oportunidade.linkSistemaOrigem || '';
+                let isComprasnet = linkFonte.includes('comprasnet') || linkFonte.includes('cnetmobile') || oportunidade.usuarioNome?.toLowerCase().includes('compras.gov.br');
+                let nomeFonte = isCeara ? 'Sefaz-CE' : isComprasnet ? 'Compras.gov.br' : (linkFonte ? 'Portal de Origem' : 'Não informada');
+                
+                return { edital, editalCopia, labelEdital, editalStyle, uasg, nomeFonte };
+              })();
+
+              const formatDate = (dateStr: any) => {
+                if (!dateStr) return 'Não informada';
+                const d = new Date(dateStr);
+                if (isNaN(d.getTime())) return 'Não informada';
+                return d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }) + ' (horário de Brasília)';
+              };
+
+              const InfoItem = ({ label, value, children }: any) => (
+                <div style={{ marginBottom: '1rem' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.2rem' }}>{label}</span>
+                  <span style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>{value}{children}</span>
+                </div>
+              );
+
+              return (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                       {infoExtraida.edital && (
+                         <div style={{ marginBottom: '1rem' }}>
+                           <span style={{ fontWeight: 600, color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.4rem' }}>{infoExtraida.labelEdital}</span>
+                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                             <span style={{ background: infoExtraida.editalStyle.bg, color: infoExtraida.editalStyle.text, padding: '0.2rem 0.6rem', borderRadius: '4px', border: `1px solid ${infoExtraida.editalStyle.border}`, fontWeight: 'bold' }}>{infoExtraida.edital}</span>
+                             <button 
+                               onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(infoExtraida.editalCopia); alert(`${infoExtraida.labelEdital} copiado: ${infoExtraida.editalCopia}`); }} 
+                               style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.15rem', color: infoExtraida.editalStyle.icon, display: 'flex', alignItems: 'center', borderRadius: '4px' }}
+                               title={`Copiar ${infoExtraida.labelEdital}`}
+                             >
+                               <Copy size={16} />
+                             </button>
+                           </div>
+                         </div>
+                       )}
+                       <InfoItem label="Órgão" value={oportunidade.orgaoNome}>
+                          <div style={{ color: 'var(--text-muted)', fontSize: '0.85em', marginTop: '0.1rem' }}>CNPJ: {oportunidade.orgaoCnpj}</div>
+                       </InfoItem>
+                       <InfoItem label="Unidade Compradora (UASG)" value={infoExtraida.uasg || 'N/A'} />
+                       <InfoItem label="Local" value={`${oportunidade.municipio || ''} - ${oportunidade.uf || ''}`} />
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                       <InfoItem label="Modalidade da contratação" value={oportunidade.modalidadeNome || 'Não informada'} />
+                       <InfoItem label="Tipo" value={oportunidade.tipo ? (oportunidade.tipo.charAt(0).toUpperCase() + oportunidade.tipo.slice(1)) : 'Não informado'} />
+                       <InfoItem label="Id contratação PNCP" value={oportunidade.numeroControlePNCP || 'Não informado'} />
+                       <InfoItem label="Fonte" value={infoExtraida.nomeFonte} />
+                    </div>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                       <InfoItem label="Situação da Compra" value={oportunidade.situacaoCompraNome || oportunidade.kanbanStatus.replace('_', ' ')} />
+                       <InfoItem label="Início de recebimento de propostas" value={formatDate(oportunidade.dataAberturaProposta)} />
+                       <InfoItem label="Fim de recebimento de propostas" value={formatDate(oportunidade.dataEncerramentoProposta)} />
+                    </div>
+                  </div>
+
+                  <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem', marginTop: '0.5rem' }}>
+                    <InfoItem label="Objeto" value={oportunidade.objetoCompra} />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginTop: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                    <div>
+                      <span style={{ fontWeight: 600, color: 'var(--text-main)', display: 'block', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.5rem' }}>VALOR TOTAL ESTIMADO DA COMPRA</span>
+                      <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#0f172a' }}>
+                        R$ {oportunidade.valorTotalEstimado?.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) || '0,00'}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: '#e0e7ff', color: '#4338ca', padding: '0.5rem 1rem', borderRadius: '20px', fontWeight: 600, fontSize: '0.9rem' }}>
+                      <AlertCircle size={16} />
+                      Status Kanban: {oportunidade.kanbanStatus.replace('_', ' ')}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </div>
+          
+          {cotacao?.itens && cotacao.itens.length > 0 && (() => {
+            const totalItens = cotacao.itens.length;
+            const totalPaginas = Math.ceil(totalItens / ITENS_POR_PAGINA);
+            const itensAtual = cotacao.itens.slice((paginaItens - 1) * ITENS_POR_PAGINA, paginaItens * ITENS_POR_PAGINA);
+            const itemInicial = (paginaItens - 1) * ITENS_POR_PAGINA + 1;
+            const itemFinal = Math.min(paginaItens * ITENS_POR_PAGINA, totalItens);
+
+            return (
+              <div className="stat-card" style={{ height: 'fit-content', padding: '2rem' }}>
+                <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-main)', fontSize: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', textTransform: 'uppercase' }}>Itens do Edital ({totalItens})</h3>
+                <div className="table-responsive">
+                  <table className="table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                    <thead>
+                      <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+                        <th style={{ padding: '0.75rem 1rem', textAlign: 'left', color: '#64748b', fontWeight: 600 }}>Número</th>
+                        <th style={{ padding: '0.75rem 1rem', textAlign: 'left', color: '#64748b', fontWeight: 600 }}>Descrição</th>
+                        <th style={{ padding: '0.75rem 1rem', textAlign: 'center', color: '#64748b', fontWeight: 600 }}>Quantidade</th>
+                        <th style={{ padding: '0.75rem 1rem', textAlign: 'right', color: '#64748b', fontWeight: 600 }}>Valor Unitário Estimado</th>
+                        <th style={{ padding: '0.75rem 1rem', textAlign: 'right', color: '#64748b', fontWeight: 600 }}>Valor Total Estimado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {itensAtual.map((item: any, idx: number) => {
+                        const num = item.numeroItem || (itemInicial + idx);
+                        const desc = item.descricao || item.produtoId?.nome || 'Sem descrição';
+                        const qtde = item.quantidade || 1;
+                        const valUnit = item.valorReferencia || item.produtoId?.valorReferencia;
+                        const valTotal = valUnit ? (valUnit * qtde) : null;
+                        
+                        const formatVal = (v: number | null | undefined) => {
+                          if (v === null || v === undefined) return 'Sigiloso';
+                          return `R$ ${v.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                        };
+
+                        return (
+                          <tr key={item._id || idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            <td style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 500 }}>{num}</td>
+                            <td style={{ padding: '0.75rem 1rem', textAlign: 'left' }}>{desc}</td>
+                            <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{qtde}</td>
+                            <td style={{ padding: '0.75rem 1rem', textAlign: 'right', color: valUnit ? 'inherit' : '#64748b' }}>{formatVal(valUnit)}</td>
+                            <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: valTotal ? 600 : 400, color: valTotal ? 'inherit' : '#64748b' }}>{formatVal(valTotal)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {totalItens > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0', fontSize: '0.9rem', color: '#64748b' }}>
+                    <div>
+                      <span>Exibir: {ITENS_POR_PAGINA}</span>
+                      <span style={{ margin: '0 0.5rem' }}>|</span>
+                      <span>{itemInicial}-{itemFinal} de {totalItens} itens</span>
+                    </div>
+                    
+                    {totalPaginas > 1 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ marginRight: '0.5rem' }}>Página: {paginaItens}</span>
+                        <button 
+                          disabled={paginaItens === 1}
+                          onClick={() => setPaginaItens(p => Math.max(1, p - 1))}
+                          style={{ padding: '0.25rem 0.75rem', background: paginaItens === 1 ? '#f1f5f9' : '#fff', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: paginaItens === 1 ? 'not-allowed' : 'pointer', color: paginaItens === 1 ? '#94a3b8' : '#0f172a' }}
+                        >
+                          Anterior
+                        </button>
+                        <button 
+                          disabled={paginaItens === totalPaginas}
+                          onClick={() => setPaginaItens(p => Math.min(totalPaginas, p + 1))}
+                          style={{ padding: '0.25rem 0.75rem', background: paginaItens === totalPaginas ? '#f1f5f9' : '#fff', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: paginaItens === totalPaginas ? 'not-allowed' : 'pointer', color: paginaItens === totalPaginas ? '#94a3b8' : '#0f172a' }}
+                        >
+                          Próxima
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -1930,65 +2144,83 @@ export default function OportunidadeDetalhe() {
               Use os botões abaixo para acessar rapidamente o sistema oficial e lançar sua proposta. Use os ícones de cópia ao lado das informações para agilizar o preenchimento no site do governo.
             </p>
 
-            <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
-              {oportunidade.linkSistemaOrigem ? (
-                <a href={oportunidade.linkSistemaOrigem} target="_blank" rel="noreferrer" className="btn-primary" style={{ background: '#7c3aed', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 6px rgba(124, 58, 237, 0.2)' }}>
-                  <ExternalLink size={16} /> Portal Original da Licitação
-                </a>
-              ) : (
-                <>
-                  <a href={`https://pncp.gov.br/app/editais?q=${oportunidade.numeroControlePNCP}`} target="_blank" rel="noreferrer" className="btn-primary" style={{ background: '#7c3aed', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 6px rgba(124, 58, 237, 0.2)' }}>
-                    <ExternalLink size={16} /> Ver no PNCP
-                  </a>
-                  {(function(){
-                    const portaisEstaduais: Record<string, { nome: string, url: string }> = {
-                      'CE': { nome: 'Portal de Compras - CE (S2GPR)', url: 'https://s2gpr.sefaz.ce.gov.br/licita-web/paginas/licita/PublicacaoList.seam' },
-                      'SP': { nome: 'BEC/SP', url: 'https://www.bec.sp.gov.br/' },
-                      'MG': { nome: 'Portal de Compras - MG', url: 'https://www.compras.mg.gov.br/' },
-                      'PR': { nome: 'Compras Paraná', url: 'https://www.comprasparana.pr.gov.br/' },
-                      'RS': { nome: 'Compras RS', url: 'https://www.compras.rs.gov.br/' },
-                      'SC': { nome: 'Portal de Compras - SC', url: 'https://portaldecompras.sc.gov.br/' },
-                      'PE': { nome: 'PE Integrado', url: 'https://www.peintegrado.pe.gov.br/' },
-                      'BA': { nome: 'Comprasnet BA', url: 'https://www.comprasnet.ba.gov.br/' }
-                    };
-                    const portalInfo = portaisEstaduais[oportunidade.uf];
-                    if (portalInfo && oportunidade.orgaoNome?.toUpperCase().includes('ESTADO')) {
-                      return (
-                        <a href={portalInfo.url} target="_blank" rel="noreferrer" className="btn-primary" style={{ background: '#f59e0b', color: '#fff', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 6px rgba(245, 158, 11, 0.2)' }}>
-                          <ExternalLink size={16} /> Acessar {portalInfo.nome}
-                        </a>
-                      );
-                    }
-                    return null;
-                  })()}
-                </>
-              )}
-              <a href="https://www.gov.br/compras" target="_blank" rel="noreferrer" className="btn-primary" style={{ background: '#005b9f', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <ExternalLink size={16} /> Portal Compras.gov
-              </a>
-              <a href="https://www.comprasnet.gov.br/seguro/loginPortal.asp" target="_blank" rel="noreferrer" className="btn-primary" style={{ background: '#16a34a', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <ExternalLink size={16} /> Comprasnet (Área do Fornecedor)
-              </a>
-            </div>
+            {(() => {
+              let edital = null;
+              let uasg = oportunidade.unidadeCompradora || null;
+              let isCeara = false;
 
-            <h4 style={{ marginBottom: '1rem', color: '#334155', fontSize: '0.95rem' }}>Dados Rápidos para Copiar</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {[
-                { label: 'CNPJ do Órgão', value: oportunidade.orgaoCnpj },
-                { label: 'Unidade Compradora (UASG)', value: oportunidade.unidadeCompradora || 'N/A' },
-                { label: 'Número da Compra', value: (oportunidade.numeroCompraOrigem && oportunidade.anoCompraOrigem) ? `${oportunidade.numeroCompraOrigem}${oportunidade.anoCompraOrigem}` : (oportunidade.numeroControlePNCP ? (function(){
-                  const parts = oportunidade.numeroControlePNCP.split('-');
-                  if(parts.length < 3) return oportunidade.numeroControlePNCP;
+              if (oportunidade.numeroCompraOrigem && oportunidade.anoCompraOrigem) {
+                edital = `${oportunidade.numeroCompraOrigem}/${oportunidade.anoCompraOrigem}`;
+              }
+              
+              if (oportunidade.linkSistemaOrigem && oportunidade.linkSistemaOrigem.includes('compra=')) {
+                const match = oportunidade.linkSistemaOrigem.match(/compra=(\d{6})\d{2}(\d{5})(\d{4})/);
+                if (match) {
+                  if (!edital) edital = `${parseInt(match[2], 10)}/${match[3]}`;
+                  if (!uasg) uasg = match[1];
+                }
+              }
+              
+              if (!edital && oportunidade.numeroControlePNCP) {
+                const parts = oportunidade.numeroControlePNCP.split('-');
+                if (parts.length >= 3) {
                   const numYear = parts[2].split('/');
-                  if(numYear.length === 2) return parseInt(numYear[0], 10) + '/' + numYear[1];
-                  return parts[2];
-                })() : oportunidade.numeroControlePNCP) },
-                { label: 'Objeto', value: oportunidade.objetoCompra }
-              ].map((info, i) => {
-                // Estado local injetado via closure para feedback
-                return <CopyRow key={i} label={info.label} value={info.value} />
-              })}
-            </div>
+                  if (numYear.length === 2) edital = `${parseInt(numYear[0], 10)}/${numYear[1]}`;
+                  else edital = parts[2];
+                }
+              }
+              
+              if (!edital) edital = oportunidade.numeroCompraOrigem || null;
+
+              if (edital) {
+                  const parts = edital.split('/');
+                  if (parts.length === 2 && parts[0].length === 9 && parts[0].startsWith('20')) {
+                      isCeara = true;
+                  }
+              }
+              
+              const isDispensa = oportunidade.modalidadeNome?.toLowerCase().includes('dispensa') || oportunidade.tipo === 'dispensa';
+              let linkFonte = oportunidade.linkSistemaOrigem || '';
+              let isComprasnet = linkFonte.includes('comprasnet') || linkFonte.includes('cnetmobile') || oportunidade.usuarioNome?.toLowerCase().includes('compras.gov.br');
+              
+              if (isCeara) {
+                  linkFonte = 'https://s2gpr.sefaz.ce.gov.br/cotacao-web/paginas/proposta/PropostaList.seam';
+              } else if (isDispensa && (!linkFonte || isComprasnet)) {
+                  const match = linkFonte.match(/compra=([^&]+)/);
+                  const compraId = match ? match[1] : '';
+                  linkFonte = `https://cnetmobile.estaleiro.serpro.gov.br/comprasnet-web/seguro/fornecedor/compras?compra=${compraId}`;
+              }
+
+              return (
+                <>
+                  <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
+                    {linkFonte ? (
+                      <a href={linkFonte} target="_blank" rel="noreferrer" className="btn-primary" style={{ background: isCeara ? '#f59e0b' : '#7c3aed', color: '#fff', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+                        <ExternalLink size={16} /> {isCeara ? 'Acessar Sefaz-CE' : isComprasnet ? 'Acessar Compras.gov.br' : 'Portal Original da Licitação'}
+                      </a>
+                    ) : null}
+                    
+                    {!isCeara && !isComprasnet && oportunidade.numeroControlePNCP && (
+                      <a href={`https://pncp.gov.br/app/editais?q=${oportunidade.numeroControlePNCP}`} target="_blank" rel="noreferrer" className="btn-primary" style={{ background: '#005b9f', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 6px rgba(0, 91, 159, 0.2)' }}>
+                        <ExternalLink size={16} /> Ver no PNCP
+                      </a>
+                    )}
+                  </div>
+
+                  <h4 style={{ marginBottom: '1rem', color: '#334155', fontSize: '0.95rem' }}>Dados Rápidos para Copiar</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {[
+                      { label: 'CNPJ do Órgão', value: oportunidade.orgaoCnpj },
+                      { label: 'Unidade Compradora (UASG)', value: uasg || 'N/A' },
+                      { label: 'Número da Compra', value: edital || 'N/A' },
+                      { label: 'Objeto', value: oportunidade.objetoCompra }
+                    ].map((info, i) => {
+                      return <CopyRow key={i} label={info.label} value={info.value} />
+                    })}
+                  </div>
+                </>
+              );
+            })()}
             
             <div style={{ marginTop: '2rem', padding: '1rem', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '6px' }}>
               <h4 style={{ color: '#92400e', fontSize: '0.85rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
