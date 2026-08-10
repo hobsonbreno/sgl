@@ -110,8 +110,25 @@ export default function Kanban() {
     }
   };
 
-  const toggleCollapse = (colId: string) => {
-    setCollapsedCols(prev => ({ ...prev, [colId]: !prev[colId] }));
+  const toggleCollapse = async (colId: string) => {
+    const newState = !collapsedCols[colId];
+    setCollapsedCols(prev => ({ ...prev, [colId]: newState }));
+
+    if (socketRef && socketRef.current) {
+      socketRef.current.emit('toggle_column_collapse', { colId, collapsed: newState });
+    }
+
+    try {
+      const newMap = { ...collapsedCols, [colId]: newState };
+      const arr = Object.keys(newMap).filter(k => newMap[k]);
+      await fetch(`${window.API_URL}/configuracoes`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ colunasRecolhidas: arr })
+      });
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const carregarOportunidadesEProdutos = async () => {
@@ -135,6 +152,12 @@ export default function Kanban() {
           { id: 'AGUARDANDO_RESPOSTA', nome: 'AGUARDANDO RESPOSTA' },
           { id: 'EXCLUIDA', nome: 'EXCLUÍDA' }
         ]);
+      }
+
+      if (dataConfig && dataConfig.colunasRecolhidas) {
+        const initMap: Record<string, boolean> = {};
+        dataConfig.colunasRecolhidas.forEach((c: string) => { initMap[c] = true; });
+        setCollapsedCols(initMap);
       }
 
       const ops = dataOp.data || [];
@@ -280,6 +303,10 @@ export default function Kanban() {
         localStorage.setItem('sgl_collapsed_cards', JSON.stringify(newState));
         return newState;
       });
+    });
+
+    socket.on('kanban_column_collapsed', (data: { colId: string, collapsed: boolean }) => {
+      setCollapsedCols(prev => ({ ...prev, [data.colId]: data.collapsed }));
     });
 
     return () => {

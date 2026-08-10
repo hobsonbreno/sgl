@@ -40,4 +40,12 @@ export class OportunidadeGateway
     // Broadcast para todo mundo, EXCETO para quem enviou
     client.broadcast.emit('kanban_card_collapsed', data);
   }
+
+  @SubscribeMessage('toggle_column_collapse')
+  handleToggleColumnCollapse(
+    @MessageBody() data: { colId: string; collapsed: boolean },
+    @ConnectedSocket() client: Socket,
+  ) {
+    client.broadcast.emit('kanban_column_collapsed', data);
+  }
 }

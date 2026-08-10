@@ -1697,7 +1697,7 @@ export default function OportunidadeDetalhe() {
                     <tbody>
                       {itensAtual.map((item: any, idx: number) => {
                         const num = item.numeroItem || (itemInicial + idx);
-                        const desc = item.descricao || item.produtoId?.nome || 'Sem descrição';
+                        const desc = item.descricaoItem || item.descricao || item.produtoId?.descricao || item.produtoId?.nome || 'Sem descrição';
                         const qtde = item.quantidade || 1;
                         const valUnit = item.valorReferencia || item.produtoId?.valorReferencia;
                         const valTotal = valUnit ? (valUnit * qtde) : null;
