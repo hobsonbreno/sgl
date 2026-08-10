@@ -531,14 +531,6 @@ export default function Kanban() {
                 const search = searchTerm.toLowerCase().trim();
                 if (!search) return true;
                 
-                const isDispensa = op.modalidadeNome?.toLowerCase().includes('dispensa') || op.tipo === 'dispensa';
-                
-                const searchTemAviso = search.includes('aviso');
-                const searchTemEdital = search.includes('edital');
-
-                if (searchTemAviso && !isDispensa) return false;
-                if (searchTemEdital && isDispensa) return false;
-
                 const searchDigits = search.replace(/[^\d]/g, '');
                 
                 const matchOrgao = op.orgaoNome?.toLowerCase().includes(search);

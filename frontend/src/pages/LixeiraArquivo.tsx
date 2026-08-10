@@ -39,14 +39,59 @@ export default function LixeiraArquivo() {
     if (filterType === 'ARQUIVADA' && !status.includes('ARQUIVAD') && !status.includes('PERDID')) return false;
     if (filterType === 'EXCLUIDA' && !status.includes('EXCLUIDA')) return false;
 
-    if (searchTerm) {
-      const search = searchTerm.toLowerCase();
-      const orgao = (op.orgaoNome || '').toLowerCase();
-      const objeto = (op.objetoCompra || '').toLowerCase();
-      const num = (op.numeroControlePNCP || op.numeroCompraOrigem || '').toLowerCase();
-      return orgao.includes(search) || objeto.includes(search) || num.includes(search);
-    }
-    return true;
+      const search = searchTerm.toLowerCase().trim();
+      if (!search) return true;
+
+      const searchDigits = search.replace(/[^\d]/g, '');
+
+      const matchOrgao = (op.orgaoNome || '').toLowerCase().includes(search);
+      const matchObjeto = (op.objetoCompra || '').toLowerCase().includes(search);
+      const matchModalidade = (op.modalidadeNome || '').toLowerCase().includes(search);
+      
+      const matchCnpj = (op.orgaoCnpj || '').toLowerCase().includes(search) || 
+                        (searchDigits.length > 3 && (op.orgaoCnpj || '').replace(/[^\d]/g, '').includes(searchDigits));
+      
+      const matchUasg = (op.unidadeCompradora || '').toLowerCase().includes(search) ||
+                        (searchDigits.length > 3 && (op.unidadeCompradora || '').replace(/[^\d]/g, '').includes(searchDigits));
+                        
+      const matchPncp = (op.numeroControlePNCP || '').toLowerCase().includes(search) || 
+                        (searchDigits.length > 4 && (op.numeroControlePNCP || '').replace(/[^\d]/g, '').includes(searchDigits));
+
+      const numeroCompraCompleto = (() => {
+        if (op.numeroCompraOrigem && op.anoCompraOrigem) return `${op.numeroCompraOrigem}/${op.anoCompraOrigem}`;
+        if (op.linkSistemaOrigem && op.linkSistemaOrigem.includes('compra=')) {
+          const match = op.linkSistemaOrigem.match(/compra=\d{8}(\d{5})(\d{4})/);
+          if (match) return `${parseInt(match[1], 10)}/${match[2]}`;
+        }
+        if (op.numeroControlePNCP) {
+          const parts = op.numeroControlePNCP.split('-');
+          if (parts.length >= 3) {
+            const numYear = parts[2].split('/');
+            if (numYear.length === 2) return `${parseInt(numYear[0], 10)}/${numYear[1]}`;
+            return parts[2];
+          }
+        }
+        return op.numeroCompraOrigem || '';
+      })();
+
+      const numeroCompraFormatado = (() => {
+        if (!numeroCompraCompleto) return '';
+        const parts = numeroCompraCompleto.split('/');
+        if (parts.length === 2 && parts[0].length === 9 && parts[0].startsWith('20')) {
+            const year = parts[0].substring(0, 4);
+            const seq = parts[0].substring(4);
+            return `${year}/${seq}`;
+        }
+        return numeroCompraCompleto;
+      })();
+
+      const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regexCompra = new RegExp(`(?:^|[^\\d])${escapedSearch}(?:[^\\d]|$)`, 'i');
+      const matchCompra = regexCompra.test(numeroCompraCompleto.toLowerCase()) || 
+                          regexCompra.test(numeroCompraFormatado.toLowerCase()) ||
+                          (searchDigits.length > 0 && numeroCompraCompleto.replace(/[^\d]/g, '') === searchDigits);
+      
+      return matchOrgao || matchObjeto || matchModalidade || matchCnpj || matchUasg || matchPncp || matchCompra;
   });
 
   return (
