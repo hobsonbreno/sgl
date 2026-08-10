@@ -18,7 +18,8 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "sync:receita": "ts-node src/receita-federal/scripts/seed-datalake.ts"
+    "sync:receita": "ts-node src/receita-federal/scripts/seed-datalake.ts",
+    "sync:receita:prod": "node dist/receita-federal/scripts/seed-datalake.js"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",

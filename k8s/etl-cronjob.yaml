@@ -16,8 +16,17 @@ spec:
             command:
             - npm
             - run
-            - sync:receita
+            - sync:receita:prod
             env:
             - name: MONGO_URI
               value: "mongodb://mongo:27017/licitacoes"
+            - name: TZ
+              value: "America/Sao_Paulo"
+            - name: PNCP_BASE_URL
+              value: "https://pncp.gov.br/api/consulta"
+            - name: SERPAPI_KEYS
+              valueFrom:
+                secretKeyRef:
+                  name: sgl-secrets
+                  key: SERPAPI_KEYS
           restartPolicy: OnFailure

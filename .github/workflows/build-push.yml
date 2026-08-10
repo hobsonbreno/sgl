@@ -69,6 +69,7 @@ jobs:
           sed -i "s|image: hobson007breno/sgl-backend:.*|image: hobson007breno/sgl-backend:${{ env.sha_short }}|g" k8s/backend.yaml
           sed -i "s|image: hobson007breno/sgl-frontend:.*|image: hobson007breno/sgl-frontend:${{ env.sha_short }}|g" k8s/frontend.yaml
           sed -i "s|image: hobson007breno/sgl-market-intelligence:.*|image: hobson007breno/sgl-market-intelligence:${{ env.sha_short }}|g" k8s/market-intelligence.yaml
+          sed -i "s|image: hobson007breno/sgl-backend:.*|image: hobson007breno/sgl-backend:${{ env.sha_short }}|g" k8s/etl-cronjob.yaml
 
       - name: Commit and push manifest updates
         run: |
