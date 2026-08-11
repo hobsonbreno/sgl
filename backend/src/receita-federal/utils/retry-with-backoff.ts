@@ -26,11 +26,14 @@ export async function retryWithBackoff<T>(
 
       const code = err.code;
       const isRetriable =
-        code === 'ETIMEDOUT' ||
-        code === 'ECONNRESET' ||
-        code === 'ECONNREFUSED' ||
-        code === 'ENOTFOUND' ||
-        (err as Error).message.includes('Status 5');
+        !err.message.includes('Status 404') && 
+        (code === 'ETIMEDOUT' ||
+         code === 'ECONNRESET' ||
+         code === 'ECONNREFUSED' ||
+         code === 'ENOTFOUND' ||
+         err.message.toLowerCase().includes('timeout') ||
+         err.message.includes('Status 5') ||
+         err.message.includes('Status 403'));
 
       if (!isRetriable || attempt === maxRetries) {
         throw lastError;

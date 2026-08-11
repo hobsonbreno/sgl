@@ -82,7 +82,7 @@ export class ReceitaFederalService {
     return retryWithBackoff(
       () =>
         new Promise((resolve, reject) => {
-          const req = https.get(url, (res) => {
+          const req = https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }, timeout: 60000 }, (res) => {
             if (res.statusCode !== 200)
               return reject(
                 new Error(
@@ -112,6 +112,7 @@ export class ReceitaFederalService {
             unzip.on('error', (err) => reject(err));
           });
           req.on('error', (err) => reject(err));
+          req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
         }),
       {
         maxRetries: 5,
@@ -135,7 +136,7 @@ export class ReceitaFederalService {
     return retryWithBackoff(
       () =>
         new Promise((resolve, reject) => {
-          const req = https.get(url, (res) => {
+          const req = https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }, timeout: 60000 }, (res) => {
             if (res.statusCode !== 200) {
               if (res.statusCode === 404) return resolve(false);
               return reject(
@@ -225,6 +226,7 @@ export class ReceitaFederalService {
             unzip.on('error', (err) => reject(err));
           });
           req.on('error', (err) => reject(err));
+          req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
         }),
       {
         maxRetries: 5,
@@ -242,7 +244,7 @@ export class ReceitaFederalService {
     return retryWithBackoff(
       () =>
         new Promise((resolve, reject) => {
-          const req = https.get(url, (res) => {
+          const req = https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }, timeout: 60000 }, (res) => {
             if (res.statusCode !== 200) {
               if (res.statusCode === 404) return resolve(false);
               return reject(
@@ -306,6 +308,7 @@ export class ReceitaFederalService {
             unzip.on('error', (err) => reject(err));
           });
           req.on('error', (err) => reject(err));
+          req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
         }),
       {
         maxRetries: 5,
