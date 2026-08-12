@@ -1282,6 +1282,12 @@ export default function OportunidadeDetalhe() {
       });
       const dataCot = await resCot.json();
 
+      if (!resCot.ok) {
+        alert(`Erro ao iniciar/obter cotação: ${dataCot.message || 'Erro desconhecido'}`);
+        setLoading(false);
+        return;
+      }
+
       // Recarregar com populate
       const resCotFull = await fetch(`${window.API_URL}/cotacoes/${dataCot._id}`);
       setCotacao(await resCotFull.json());
