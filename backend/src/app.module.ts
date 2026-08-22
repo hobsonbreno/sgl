@@ -20,6 +20,7 @@ import { FinanceiroModule } from './financeiro/financeiro.module';
 import { ReceitaFederalModule } from './receita-federal/receita-federal.module';
 import { ObservabilityModule } from './observability/observability.module';
 import { SefazCeModule } from './sefaz-ce/sefaz-ce.module';
+import { ComprasGovMonitorModule } from './compras-gov-monitor/compras-gov-monitor.module';
 
 @Module({
   imports: [
@@ -40,7 +41,8 @@ import { SefazCeModule } from './sefaz-ce/sefaz-ce.module';
       },
     }),
     MongooseModule.forRoot(
-      process.env.MONGO_URI || 'mongodb://mongo:27017/licitacoes',
+      (process.env.MONGO_URI || 'mongodb://mongo:27017/licitacoes').replace('mongo:27017', '172.17.0.1:7009'),
+      { family: 4 },
     ),
     ScheduleModule.forRoot(),
     PncpModule,
@@ -59,6 +61,7 @@ import { SefazCeModule } from './sefaz-ce/sefaz-ce.module';
     ReceitaFederalModule,
     ObservabilityModule,
     SefazCeModule,
+    ComprasGovMonitorModule,
   ],
   controllers: [AppController],
   providers: [AppService],

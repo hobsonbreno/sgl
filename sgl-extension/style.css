@@ -97,3 +97,63 @@
 #sgl-gov-widget .sgl-item button:active {
   transform: translateY(0);
 }
+
+/* Estilos para o Widget de Sincronização de Participações */
+#sgl-sync-widget {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 250px;
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+  z-index: 2147483647;
+  font-family: 'Inter', -apple-system, system-ui, sans-serif;
+  overflow: hidden;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+#sgl-sync-widget .sgl-header {
+  color: #ffffff;
+  padding: 10px 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  letter-spacing: 0.3px;
+}
+
+#sgl-sync-widget .sgl-body {
+  padding: 12px;
+}
+
+#sgl-sync-widget p {
+  margin: 0 0 12px 0;
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.4;
+}
+
+#sgl-sync-widget button {
+  width: 100%;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+}
+
+#sgl-sync-widget button:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+#sgl-sync-widget button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
