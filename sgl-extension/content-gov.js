@@ -177,13 +177,45 @@ window.startScrapingParticipacoes = async function startScrapingParticipacoes() 
             }
             
             const itensEncontrados = [];
-            const iconsItem = Array.from(document.querySelectorAll('.fa-plus-square.fas')).filter(el => el.closest('div[class*="item"]') || el.closest('.row') || el.closest('app-acompanhamento-compra-fornecedor-itens'));
+            
+            // 1. Expandir todos os Grupos/Lotes preventivamente
+            const possibleExpanders = Array.from(document.querySelectorAll('.fa-plus-square.fas'));
+            let expandedAnyGroup = false;
+            for (const exp of possibleExpanders) {
+                const row = exp.closest('.row, div[class*="item"], tr, app-acompanhamento-compra-fornecedor-itens');
+                if (row && (row.innerText.toLowerCase().includes('grupo') || row.innerText.toLowerCase().includes('lote'))) {
+                    logDebug('Expandindo um Lote/Grupo...');
+                    exp.click();
+                    expandedAnyGroup = true;
+                    await wait(1500);
+                }
+            }
+            if (expandedAnyGroup) {
+                await wait(1000); // Aguarda itens renderizarem
+            }
+
+            // 2. Coletar os ícones de item reais (incluindo os que acabaram de aparecer)
+            const iconsItem = Array.from(document.querySelectorAll('.fa-plus-square.fas')).filter(el => {
+                const row = el.closest('div[class*="item"], .row, app-acompanhamento-compra-fornecedor-itens, tr');
+                if (row && (row.innerText.toLowerCase().includes('grupo ') || row.innerText.toLowerCase().includes('lote '))) {
+                    return row.innerText.toLowerCase().includes('item');
+                }
+                return row !== null;
+            });
             
             for (let i = 0; i < iconsItem.length; i++) {
                 logDebug(`Lendo Item ${i+1}/${iconsItem.length}...`);
                 
+                // Recalcula o elemento pois o DOM pode ter mudado
+                const currentIcons = Array.from(document.querySelectorAll('.fa-plus-square.fas')).filter(el => {
+                    const row = el.closest('div[class*="item"], .row, app-acompanhamento-compra-fornecedor-itens, tr');
+                    if (row && (row.innerText.toLowerCase().includes('grupo ') || row.innerText.toLowerCase().includes('lote '))) {
+                        return row.innerText.toLowerCase().includes('item');
+                    }
+                    return row !== null;
+                });
                 
-                const iIcon = Array.from(document.querySelectorAll('.fa-plus-square.fas')).filter(el => el.closest('div[class*="item"]') || el.closest('.row') || el.closest('app-acompanhamento-compra-fornecedor-itens'))[i];
+                const iIcon = currentIcons[i];
                 if (!iIcon) continue;
                 
                 const itemRow = iIcon.closest('.row') || iIcon.closest('div[class*="item"]');
@@ -215,53 +247,45 @@ window.startScrapingParticipacoes = async function startScrapingParticipacoes() 
 
                 let chatTxt = '', propostaTxt = '', anexosTxt = '', faseRecursalTxt = '', diligenciasTxt = '';
                 
-                
-                
-                const titulosAbertos = Array.from(document.querySelectorAll('span.cp-texto-titulo, .p-accordion-header-text, mat-panel-title'));
-                const clickedElements = new Set();
-                
-                for (const tituloEl of titulosAbertos) {
-                    const titulo = tituloEl.textContent.toLowerCase().trim();
-                    if (!titulo) continue;
+                // Encontrar apenas os elementos verdadeiros de accordion (sanfonas)
+                const accordions = Array.from(document.querySelectorAll('p-accordiontab, mat-expansion-panel, .accordion-item, p-accordion .card, div[class*="accordion-tab"]'));
+                const allAccordions = [...new Set(accordions)];
+
+                for (const acc of allAccordions) {
+                    const headerLink = acc.querySelector('a, .p-accordion-header-link, mat-expansion-panel-header, .accordion-button, .ui-accordion-header');
                     
-                    const parentBlock = tituloEl.closest('p-accordiontab, mat-expansion-panel, .card, div[class*="accordion"]');
-                    
-                    // Click para abrir se não foi clicado
-                    if (!parentBlock || !clickedElements.has(parentBlock)) {
-                        if (parentBlock) clickedElements.add(parentBlock);
-                        const setaIcon = parentBlock ? parentBlock.querySelector('i.fa-angle-down, .p-accordion-toggle-icon') : null;
-                        if (setaIcon) setaIcon.click();
-                        else tituloEl.click();
-                        await wait(800); // Dar tempo para a animação de abertura
-                    }
-                    
-                    // Extração do conteúdo
-                    let conteudo = '';
-                    const container = parentBlock || tituloEl.parentElement.parentElement.parentElement;
-                    if (container) {
-                        const contentEl = container.querySelector('.p-accordion-content, .ui-accordion-content, .mat-expansion-panel-body, [id^="p-accordiontab"]');
-                        if (contentEl) {
-                            conteudo = contentEl.innerText || contentEl.textContent;
-                        } else {
-                            // Tentar achar qualquer div genérica de conteúdo
-                            conteudo = container.innerText || container.textContent;
-                            if (conteudo) conteudo = conteudo.replace(tituloEl.innerText || tituloEl.textContent, '');
+                    // Se estiver fechado (ex: aria-expanded="false"), clica para abrir
+                    if (headerLink && headerLink.getAttribute('aria-expanded') === 'false') {
+                        headerLink.click();
+                        await wait(500);
+                    } else if (headerLink) {
+                        // Tentar descobrir de outra forma se tá fechado (sem conteúdo visível)
+                        const content = acc.querySelector('.p-accordion-content, .mat-expansion-panel-body, .accordion-body, .ui-accordion-content');
+                        if (!content || content.offsetHeight === 0) {
+                            headerLink.click();
+                            await wait(500);
                         }
                     }
+                }
+
+                await wait(1000); // Dar tempo geral pra renderizar
+                
+                for (const acc of allAccordions) {
+                    const headerEl = acc.querySelector('.p-accordion-header, mat-expansion-panel-header, .accordion-header, .ui-accordion-header, .cp-texto-titulo');
+                    const titulo = headerEl ? (headerEl.innerText || headerEl.textContent).toLowerCase().trim() : '';
+                    if (!titulo) continue;
                     
-                    if (!conteudo || conteudo.length < 5) {
-                        // Fallback agressivo: pegar todos os blocos de conteúdo visíveis na página e pegar o último modificado/aberto
-                        const allContents = Array.from(document.querySelectorAll('.p-accordion-content, .ui-accordion-content, .mat-expansion-panel-body, .card-body'));
-                        const visible = allContents.filter(el => el.offsetParent !== null && (el.innerText || '').length > 0);
-                        if (visible.length > 0) conteudo = visible[visible.length - 1].innerText;
+                    const contentEl = acc.querySelector('.p-accordion-content, .mat-expansion-panel-body, .accordion-body, .ui-accordion-content');
+                    const conteudo = contentEl ? (contentEl.innerText || contentEl.textContent).trim() : '';
+                    
+                    // Atribui o conteúdo à variável certa se ainda estiver vazia
+                    if (conteudo) {
+                        if (titulo.includes('chat') && !chatTxt) chatTxt = conteudo;
+                        else if (titulo.includes('proposta') && !propostaTxt) propostaTxt = conteudo;
+                        else if (titulo.includes('anexo') && !anexosTxt) anexosTxt = conteudo;
+                        else if ((titulo.includes('fase recursal') || titulo.includes('recurso')) && !faseRecursalTxt) faseRecursalTxt = conteudo;
+                        else if ((titulo.includes('diligência') || titulo.includes('diligencia')) && !diligenciasTxt) diligenciasTxt = conteudo;
                     }
-                    
-                    conteudo = conteudo ? conteudo.trim() : '';
-                    if (titulo.includes('chat')) chatTxt = conteudo;
-                    else if (titulo.includes('proposta')) propostaTxt = conteudo;
-                    else if (titulo.includes('anexo')) anexosTxt = conteudo;
-                    else if (titulo.includes('fase recursal') || titulo.includes('recurso')) faseRecursalTxt = conteudo;
-                    else if (titulo.includes('diligência') || titulo.includes('diligencia')) diligenciasTxt = conteudo;
                 }
 
                 // Clicar na aba "Todas as propostas"
@@ -274,6 +298,14 @@ window.startScrapingParticipacoes = async function startScrapingParticipacoes() 
                 if (abaTodas) {
                     abaTodas.click();
                     await wait(3500); // Esperar a tabela carregar
+                } else {
+                    logDebug(`Aba 'Todas as propostas' não encontrada (talvez Grupo/Lote). Ignorando aba...`);
+                    const isModalOpen = document.querySelector('p-dialog, mat-dialog-container, .modal-dialog');
+                    if (isModalOpen) {
+                        const btnClose = document.querySelector('button.p-dialog-header-close');
+                        if (btnClose) btnClose.click();
+                    }
+                    continue; // Pula este loop pois não é um item validamente aberto
                 }
                 let competidores = [];
                 let temMaisPropostas = true;
@@ -285,19 +317,19 @@ window.startScrapingParticipacoes = async function startScrapingParticipacoes() 
                     linhasPropostas.forEach(linha => {
                         const texto = linha.innerText;
                         if (texto.trim().length > 10) {
-                            const ehInvalida = texto.match(/desclassificad[ao]|inabilitad[ao]|recusad[ao]|cancelad[ao]/i);
                             const cnpjMatch = texto.match(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/);
-                            const cnpj = cnpjMatch ? cnpjMatch[0] : 'Desconhecido';
                             
-                            const posMatch = texto.match(/(\d+)º/);
-                            const posicao = posMatch ? parseInt(posMatch[1]) : 999;
-                            
-                            competidores.push({
-                                textoBruto: texto,
-                                cnpj: cnpj,
-                                status: ehInvalida ? 'Inabilitada' : 'Ativa',
-                                posicaoMarcada: posicao
-                            });
+                            // Apenas processa se for realmente uma linha com CNPJ (evita contar headers ou quebras vazias)
+                            if (cnpjMatch || texto.includes('GRUPO IRMAOS NASCIMENTO') || texto.includes('48262939000150')) {
+                                const ehInvalida = texto.match(/desclassificad[ao]|inabilitad[ao]|recusad[ao]|cancelad[ao]/i);
+                                const cnpj = cnpjMatch ? cnpjMatch[0] : 'Desconhecido';
+                                
+                                competidores.push({
+                                    textoBruto: texto,
+                                    cnpj: cnpj,
+                                    status: ehInvalida ? 'Inabilitada' : 'Ativa'
+                                });
+                            }
                         }
                     });
                     
@@ -336,31 +368,25 @@ window.startScrapingParticipacoes = async function startScrapingParticipacoes() 
                 }
                 
                 if (!achouNossaEmpresa) {
-                    // Fallback agressivo: Buscar o CNPJ no texto puro da tela e ver qual é a ordem dele!
                     const allText = document.querySelector('p-tabpanel, .p-tabview-panels, p-table, table')?.innerText || document.body.innerText;
                     if (allText.includes(meuCnpj) || allText.includes('48262939000150') || allText.includes('GRUPO IRMAOS NASCIMENTO')) {
                         achouNossaEmpresa = true;
-                        const cnpjsMatches = allText.match(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/g);
+                        
+                        // Heurística visual: Extrai CNPJs na ordem do texto e vê nossa posição na tela (subtraindo inabilitados encontrados antes)
+                        const tudoAteAqui = allText.split(new RegExp(meuCnpj.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '|48262939000150|GRUPO IRMAOS NASCIMENTO'))[0];
+                        const cnpjsMatches = tudoAteAqui.match(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/g);
+                        const desclassificacoes = (tudoAteAqui.match(/desclassificad[ao]|inabilitad[ao]|recusad[ao]|cancelad[ao]/gi) || []).length;
+                        
                         if (cnpjsMatches) {
                             const uniqueCnpjs = [...new Set(cnpjsMatches)];
-                            const myIndex = uniqueCnpjs.indexOf(meuCnpj);
-                            if (myIndex !== -1) posicaoReal = myIndex + 1; // Posição pela ordem visual!
-                            else posicaoReal = 1;
+                            posicaoReal = uniqueCnpjs.length + 1 - desclassificacoes;
+                            if (posicaoReal < 1) posicaoReal = 1;
                         } else {
-                            posicaoReal = 1; // Se achou o nome mas não o CNPJ formatado
+                            posicaoReal = 1; 
                         }
                     } else {
                         posicaoReal = 999;
                     }
-                } else if (posicaoReal === 1 || posicaoReal === 999) {
-                     // Achou a empresa, mas a posição não foi extraída corretamente (faltou o 'º' ou similar)
-                     const allText = document.querySelector('p-tabpanel, .p-tabview-panels, p-table, table')?.innerText || document.body.innerText;
-                     const cnpjsMatches = allText.match(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/g);
-                     if (cnpjsMatches) {
-                         const uniqueCnpjs = [...new Set(cnpjsMatches)];
-                         const myIndex = uniqueCnpjs.indexOf(meuCnpj);
-                         if (myIndex !== -1) posicaoReal = myIndex + 1;
-                     }
                 }
 
                 itensEncontrados.push({
@@ -375,11 +401,17 @@ window.startScrapingParticipacoes = async function startScrapingParticipacoes() 
                     competidores: competidoresUnicos
                 });
 
-                const btnVoltarItem = Array.from(document.querySelectorAll('button')).find(b => b.innerText?.includes('Voltar') && !b.disabled);
-                if (btnVoltarItem) btnVoltarItem.click();
-                else {
-                    const btnClose = document.querySelector('button.p-dialog-header-close');
-                    if (btnClose) btnClose.click();
+                // Prevenção de Fuga: Só clicar em "Voltar" se estivermos dentro de um modal de Item
+                const isModalOpen = document.querySelector('p-dialog, mat-dialog-container, .modal-dialog');
+                if (isModalOpen) {
+                    const btnVoltarItem = Array.from(isModalOpen.querySelectorAll('button')).find(b => b.innerText?.includes('Voltar') && !b.disabled);
+                    if (btnVoltarItem) btnVoltarItem.click();
+                    else {
+                        const btnClose = isModalOpen.querySelector('button.p-dialog-header-close, .modal-close');
+                        if (btnClose) btnClose.click();
+                    }
+                } else {
+                    logDebug('Aviso: Modal de item não detectado na hora de fechar.');
                 }
                 await wait(1500); // Reduzido de 2s para 1.5s
             }

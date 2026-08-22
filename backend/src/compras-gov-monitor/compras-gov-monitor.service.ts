@@ -5,6 +5,8 @@ import { Model } from 'mongoose';
 import { Proposta, PropostaDocument } from '../proposta/proposta.schema';
 import { ComprasGovScraperService } from './compras-gov-scraper.service';
 import { EventsService } from '../events/events.service';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class ComprasGovMonitorService {
@@ -15,12 +17,42 @@ export class ComprasGovMonitorService {
   private ultimaVarreduraResultados: any[] = [];
   private dataUltimaVarredura: Date | null = null;
 
+  private readonly cachePath = path.join(process.cwd(), 'compras-gov-cache.json');
+
   constructor(
     @InjectModel(Proposta.name)
     private propostaModel: Model<PropostaDocument>,
     private readonly scraperService: ComprasGovScraperService,
     private readonly eventsService: EventsService,
-  ) {}
+  ) {
+    this.carregarCache();
+  }
+
+  private carregarCache() {
+    try {
+      if (fs.existsSync(this.cachePath)) {
+        const data = fs.readFileSync(this.cachePath, 'utf8');
+        const parsed = JSON.parse(data);
+        this.ultimaVarreduraResultados = parsed.pregoes || [];
+        this.dataUltimaVarredura = parsed.data ? new Date(parsed.data) : null;
+        this.logger.log(`Cache de monitoramento carregado com ${this.ultimaVarreduraResultados.length} pregões.`);
+      }
+    } catch (e) {
+      this.logger.error('Erro ao carregar cache do monitoramento', e);
+    }
+  }
+
+  private salvarCache() {
+    try {
+      const data = {
+        data: this.dataUltimaVarredura,
+        pregoes: this.ultimaVarreduraResultados
+      };
+      fs.writeFileSync(this.cachePath, JSON.stringify(data, null, 2), 'utf8');
+    } catch (e) {
+      this.logger.error('Erro ao salvar cache do monitoramento', e);
+    }
+  }
 
   public getLatestResults() {
     return {
@@ -69,6 +101,7 @@ export class ComprasGovMonitorService {
       
       this.ultimaVarreduraResultados = Array.from(pregoesMap.values());
       this.dataUltimaVarredura = new Date();
+      this.salvarCache();
       
       this.logger.log(`Monitoramento finalizado. ${this.ultimaVarreduraResultados.length} pregões atualizados.`);
       
@@ -99,6 +132,8 @@ export class ComprasGovMonitorService {
     }
     
     this.dataUltimaVarredura = new Date();
+    this.salvarCache();
+    
     this.logger.log(`Monitoramento sincronizado via Extensão. ${pregoes.length} pregões recebidos. Total: ${this.ultimaVarreduraResultados.length}.`);
     this.eventsService.emitirMonitoramentoConcluido(this.getLatestResults());
     return { success: true, count: this.ultimaVarreduraResultados.length };
