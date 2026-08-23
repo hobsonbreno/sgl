@@ -41,7 +41,7 @@ import { ComprasGovMonitorModule } from './compras-gov-monitor/compras-gov-monit
       },
     }),
     MongooseModule.forRoot(
-      (process.env.MONGO_URI || 'mongodb://mongo:27017/licitacoes').replace('mongo:27017', '172.17.0.1:7009'),
+      process.env.MONGO_URI || 'mongodb://mongo:27017/licitacoes',
       { family: 4 },
     ),
     ScheduleModule.forRoot(),

@@ -13,6 +13,7 @@ import {
   ProdutoBaseDocument,
 } from './fornecedor.schema';
 import { FornecedorGateway } from './fornecedor.gateway';
+import { getCategoriaDoProduto } from './produtos-catalogo';
 
 @Injectable()
 export class FornecedorService {
@@ -207,8 +208,28 @@ export class FornecedorService {
     for (const f of fornecedores) {
       for (const hist of f.fornecedor_historico_precos) {
         const pNome = hist.descricaoItem;
+        const razaoSocial = f.razaoSocial || '';
+        const categoriaBase = getCategoriaDoProduto(pNome) || '';
 
-        if (busca && !pNome.toLowerCase().includes(busca)) {
+        let match = false;
+        if (!busca) {
+            match = true;
+        } else {
+            const prodMatch = pNome.toLowerCase().includes(busca);
+            const empMatch = razaoSocial.toLowerCase().includes(busca);
+            
+            // Check category match, considering our frontend custom rule for CEREAIS
+            const isCereais = /açucar|acucar|arroz|feijao|feijão|milho|trigo|soja|aveia|cevada/i.test(pNome);
+            let computedCat = categoriaBase;
+            if (!computedCat || computedCat === 'OUTROS') {
+                computedCat = isCereais ? 'Categoria - Cereais' : 'Categoria - Cereais';
+            }
+            const catMatch = computedCat.toLowerCase().includes(busca);
+            
+            match = prodMatch || empMatch || catMatch;
+        }
+
+        if (!match) {
           continue;
         }
 
@@ -274,13 +295,15 @@ export class FornecedorService {
       }
       return {
         ...prod,
+        categoria: getCategoriaDoProduto(prod.descricaoItem),
         campea,
       };
     });
 
     // Pagination
-    const page = Number(query.page) || 1;
-    const limit = Number(query.limit) || 10;
+    const isMatrix = query.matrix === 'true';
+    const page = isMatrix ? 1 : (Number(query.page) || 1);
+    const limit = isMatrix ? 5000 : (Number(query.limit) || 10);
     const total = baseProdutos.length;
     const totalPages = Math.ceil(total / limit) || 1;
     const skip = (page - 1) * limit;
