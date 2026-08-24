@@ -1257,6 +1257,7 @@ export default function OportunidadeDetalhe() {
       
       // Sincronizar itens se a oportunidade não tiver nenhum
       if (!dataProds.data || dataProds.data.length === 0) {
+        setIsSyncing(true);
         try {
           const syncRes = await fetch(`${window.API_URL}/oportunidades/${id}/sincronizar-itens`, { method: 'POST' });
           if (!syncRes.ok) {
@@ -1269,6 +1270,8 @@ export default function OportunidadeDetalhe() {
           }
         } catch {
           console.error('Falha ao sincronizar itens');
+        } finally {
+          setIsSyncing(false);
         }
       }
 
@@ -1441,7 +1444,21 @@ export default function OportunidadeDetalhe() {
     document.body.removeChild(linkObj);
   };
 
-  if (loading || !oportunidade) return <div style={{ padding: '2rem' }}>Carregando dados da negociação...</div>;
+  if (loading || !oportunidade) {
+    return (
+      <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '50vh' }}>
+        <RotateCw size={40} color="#3b82f6" style={{ animation: 'spin 1.2s cubic-bezier(0.5, 0.1, 0.4, 0.9) infinite', marginBottom: '1rem' }} />
+        <h3 style={{ color: '#334155' }}>
+          {isSyncing ? 'Sincronizando itens com o Portal de Compras...' : 'Carregando dados da negociação...'}
+        </h3>
+        {isSyncing && (
+          <p style={{ color: '#64748b', fontSize: '0.9rem', marginTop: '0.5rem', textAlign: 'center', maxWidth: '400px' }}>
+            Aguarde. Dependendo da estabilidade do PNCP ou Compras.gov, isso pode demorar até 1 minuto.
+          </p>
+        )}
+      </div>
+    );
+  }
 
   // Montar as colunas (fornecedores distintos que já cotaram algo nesta oportunidade)
   const fornecedoresCotados = new Map<string, { id: string, razaoSocial: string }>();

@@ -12,6 +12,9 @@ export class Produto {
   descricao: string;
 
   @Prop()
+  categoria: string;
+
+  @Prop()
   quantidade: number;
 
   @Prop()

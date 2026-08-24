@@ -21,6 +21,7 @@ import { ReceitaFederalModule } from './receita-federal/receita-federal.module';
 import { ObservabilityModule } from './observability/observability.module';
 import { SefazCeModule } from './sefaz-ce/sefaz-ce.module';
 import { ComprasGovMonitorModule } from './compras-gov-monitor/compras-gov-monitor.module';
+import { CategoriaModule } from './categoria/categoria.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { ComprasGovMonitorModule } from './compras-gov-monitor/compras-gov-monit
     ObservabilityModule,
     SefazCeModule,
     ComprasGovMonitorModule,
+    CategoriaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

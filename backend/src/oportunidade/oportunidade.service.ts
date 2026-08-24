@@ -22,6 +22,7 @@ import { FinanceiroService } from '../financeiro/financeiro.service';
 import { Cotacao, CotacaoDocument } from '../cotacao/cotacao.schema';
 import { OportunidadeGateway } from './oportunidade.gateway';
 import { SefazCeScraperService } from '../sefaz-ce/sefaz-ce-scraper.service';
+import { CategoriaService } from '../categoria/categoria.service';
 
 @Injectable()
 export class OportunidadeService {
@@ -37,6 +38,7 @@ export class OportunidadeService {
     @InjectModel(Cotacao.name) private cotacaoModel: Model<CotacaoDocument>,
     private readonly gateway: OportunidadeGateway,
     private readonly sefazScraperService: SefazCeScraperService,
+    private readonly categoriaService: CategoriaService,
   ) {}
 
   async findAll(query: any): Promise<{
@@ -210,6 +212,7 @@ export class OportunidadeService {
           oportunidadeId: id,
           numeroItem: item.numeroItem || 0,
           descricao: item.descricao || 'Item sem descrição',
+          categoria: this.categoriaService.categorizeProduto(item.descricao || ''),
           quantidade: item.quantidade || 1,
           unidadeMedida: item.unidadeMedida || 'UN',
           valorUnitarioEstimado: item.valorUnitarioEstimado || 0,

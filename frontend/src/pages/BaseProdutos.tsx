@@ -7,6 +7,10 @@ export default function BaseProdutos() {
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState('');
   const [refresh, setRefresh] = useState(0);
+  const [produtosSelecionados, setProdutosSelecionados] = useState<string[]>([]);
+  const [showUnifyModal, setShowUnifyModal] = useState(false);
+  const [nomeDestino, setNomeDestino] = useState('');
+  const [unificando, setUnificando] = useState(false);
   
   useEffect(() => {
     carregarBase();
@@ -35,9 +39,38 @@ export default function BaseProdutos() {
     }
   };
 
+  const handleUnificar = async () => {
+    if (!nomeDestino) return;
+    setUnificando(true);
+    try {
+      const res = await fetch(`${window.API_URL}/fornecedores/produtos/base/unificar`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ produtosOrigem: produtosSelecionados, produtoDestino: nomeDestino })
+      });
+      if (res.ok) {
+        setProdutosSelecionados([]);
+        setShowUnifyModal(false);
+        carregarBase();
+      } else {
+        alert('Erro ao unificar produtos');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao unificar produtos');
+    } finally {
+      setUnificando(false);
+    }
+  };
+
   const formatCurrency = (val: any) => {
     if (val === null || val === undefined || isNaN(val)) return '-';
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+  };
+
+  const formatDate = (val: any) => {
+    if (!val) return '';
+    return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(val));
   };
 
   // Process data for Matrix View
@@ -50,8 +83,8 @@ export default function BaseProdutos() {
     produtos.forEach(p => {
       // Agrupar por Categoria
       let cat = p.categoria;
-      if (!cat || cat === 'OUTROS') {
-        cat = 'Categoria - Cereais'; // Substituindo o nome padrao OUTROS por Categoria - Cereais
+      if (!cat) {
+        cat = 'OUTROS';
       }
 
       // Filtro local instantâneo
@@ -133,14 +166,14 @@ export default function BaseProdutos() {
           <thead style={{ position: 'sticky', top: 0, zIndex: 3, background: 'white' }}>
             {/* Header Title Row like Spreadsheet */}
             <tr>
-              <th style={{ background: '#000', color: '#fff', padding: '0.75rem', minWidth: '300px', borderRight: '2px solid #cbd5e1', position: 'sticky', left: 0, zIndex: 4, textTransform: 'uppercase', textAlign: 'center' }}>
+              <th style={{ background: '#000', color: '#fff', padding: '0.75rem', minWidth: '300px', maxWidth: '300px', borderRight: '2px solid #cbd5e1', position: 'sticky', left: 0, zIndex: 4, textTransform: 'uppercase', textAlign: 'center' }}>
                 PRODUTOS
               </th>
-              <th colSpan={2} style={{ background: '#000', color: 'white', textAlign: 'center', padding: '0.75rem', fontWeight: 'bold', fontSize: '1rem', borderBottom: '2px solid #333', borderRight: '2px solid #cbd5e1' }}>
+              <th colSpan={2} style={{ background: '#000', color: 'white', textAlign: 'center', padding: '0.75rem', fontWeight: 'bold', fontSize: '1rem', borderBottom: '2px solid #333', borderRight: '2px solid #cbd5e1', position: 'sticky', left: '300px', zIndex: 4, minWidth: '300px', maxWidth: '300px' }}>
                 INTELIGÊNCIA
               </th>
               {fornecedoresUnicos.length > 0 && (
-                <th colSpan={fornecedoresUnicos.length} style={{ background: '#000', color: 'white', textAlign: 'center', padding: '0.75rem', fontWeight: 'bold', fontSize: '1rem', borderBottom: '2px solid #333' }}>
+                <th colSpan={1} style={{ background: '#000', color: 'white', textAlign: 'center', padding: '0.75rem', fontWeight: 'bold', fontSize: '1rem', borderBottom: '2px solid #333' }}>
                   FORNECEDORES
                 </th>
               )}
@@ -160,19 +193,18 @@ export default function BaseProdutos() {
                     borderBottom: '1px solid #fcd34d',
                     position: 'sticky',
                     left: 0,
-                    zIndex: 2,
+                    zIndex: 3,
                     textTransform: 'uppercase',
-                    textAlign: 'center'
+                    textAlign: 'center',
+                    minWidth: '300px', 
+                    maxWidth: '300px'
                   }}>
                     {categoria}
                   </td>
-                  <td style={{ background: '#fef3c7', borderTop: '2px solid #fcd34d', borderBottom: '1px solid #fcd34d', textAlign: 'center', fontWeight: 'bold', color: '#92400e', fontSize: '0.85rem', borderRight: '1px solid #fde68a', padding: '0.5rem' }}>Melhor Preço</td>
-                  <td style={{ background: '#fef3c7', borderTop: '2px solid #fcd34d', borderBottom: '1px solid #fcd34d', textAlign: 'center', fontWeight: 'bold', color: '#92400e', fontSize: '0.85rem', borderRight: '2px solid #fde68a', padding: '0.5rem' }}>Nosso Lance</td>
-                  {fornecedoresUnicos.map(f => (
-                    <td key={f.id} style={{ background: '#fef3c7', borderTop: '2px solid #fcd34d', borderBottom: '1px solid #fcd34d', textAlign: 'center', fontWeight: 'bold', color: '#92400e', fontSize: '0.75rem', borderRight: '1px solid #fde68a', maxWidth: '150px', padding: '0.5rem' }}>
-                      {f.razaoSocial}
-                    </td>
-                  ))}
+                  <td style={{ background: '#fef3c7', borderTop: '2px solid #fcd34d', borderBottom: '1px solid #fcd34d', textAlign: 'center', fontWeight: 'bold', color: '#92400e', fontSize: '0.85rem', borderRight: '1px solid #fde68a', padding: '0.5rem', position: 'sticky', left: '300px', zIndex: 3, minWidth: '150px', maxWidth: '150px' }}>Melhor Preço</td>
+                  <td style={{ background: '#fef3c7', borderTop: '2px solid #fcd34d', borderBottom: '1px solid #fcd34d', textAlign: 'center', fontWeight: 'bold', color: '#92400e', fontSize: '0.85rem', padding: '0.5rem' }}>
+                    Empresas Classificadas
+                  </td>
                 </tr>
                 
                 {/* Products Rows */}
@@ -190,12 +222,28 @@ export default function BaseProdutos() {
 
                   return (
                   <tr key={p.descricaoItem} style={{ background: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
-                    <td style={{ padding: '0.75rem', borderRight: '2px solid #cbd5e1', borderBottom: '1px solid #e2e8f0', position: 'sticky', left: 0, background: 'inherit', zIndex: 1, textAlign: 'center' }}>
-                      <div style={{ fontWeight: 500, color: '#334155', fontSize: '0.85rem' }}>{p.descricaoItem}</div>
+                    <td style={{ padding: '0.75rem', borderRight: '2px solid #cbd5e1', borderBottom: '1px solid #e2e8f0', position: 'sticky', left: 0, background: idx % 2 === 0 ? '#ffffff' : '#f8fafc', zIndex: 2, textAlign: 'center', minWidth: '300px', maxWidth: '300px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <input 
+                           type="checkbox" 
+                           checked={produtosSelecionados.includes(p.descricaoItem)}
+                           onChange={(e) => {
+                              if (e.target.checked) setProdutosSelecionados([...produtosSelecionados, p.descricaoItem]);
+                              else setProdutosSelecionados(produtosSelecionados.filter(item => item !== p.descricaoItem));
+                           }}
+                           style={{ cursor: 'pointer', width: '16px', height: '16px', flexShrink: 0 }}
+                        />
+                        <div 
+                          style={{ fontWeight: 500, color: '#334155', fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left' }}
+                          title={p.descricaoItem}
+                        >
+                          {p.descricaoItem ? p.descricaoItem.split(/[,;:]/)[0].trim() : ''}
+                        </div>
+                      </div>
                     </td>
                     
-                    {/* Inteligencia Cells first (Melhor Preço e Nosso Lance) */}
-                    <td style={{ padding: '0.75rem', textAlign: 'center', borderRight: '1px solid #cbd5e1', borderBottom: '1px solid #e2e8f0', background: '#dcfce3' }}>
+                    {/* Inteligencia Cells first (Melhor Preço) */}
+                    <td style={{ padding: '0.75rem', textAlign: 'center', borderRight: '1px solid #cbd5e1', borderBottom: '1px solid #e2e8f0', background: '#dcfce3', position: 'sticky', left: '300px', zIndex: 2, minWidth: '150px', maxWidth: '150px' }}>
                        {temCampeao ? (
                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' }}>
                            <span style={{ fontWeight: 900, color: '#15803d', fontSize: '1.1rem', background: '#bbf7d0', padding: '0.2rem 0.6rem', borderRadius: '4px', border: '1px solid #4ade80' }}>
@@ -204,67 +252,93 @@ export default function BaseProdutos() {
                            <span style={{ fontSize: '0.75rem', color: '#166534', fontWeight: 700, textTransform: 'uppercase', background: '#86efac', padding: '0.2rem 0.5rem', borderRadius: '4px', textAlign: 'center', lineHeight: '1.2' }}>
                              {campeao.razaoSocial}
                            </span>
+                           {campeao.data && (
+                             <span style={{ fontSize: '0.65rem', color: '#15803d', fontWeight: 600 }}>
+                               {formatDate(campeao.data)}
+                             </span>
+                           )}
                          </div>
                        ) : (
                          <span style={{ color: '#cbd5e1' }}>-</span>
                        )}
                     </td>
-                    <td style={{ padding: '0.75rem', textAlign: 'center', borderRight: '2px solid #cbd5e1', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
-                      <span style={{ fontWeight: 600, color: '#334155', fontSize: '0.85rem' }}>{formatCurrency(p.nossoLanceOficial)}</span>
+
+                    {/* Fornecedores Ranked */}
+                    <td style={{ padding: '0.75rem', borderBottom: '1px solid #e2e8f0', background: 'transparent' }}>
+                      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'nowrap', alignItems: 'center' }}>
+                        {cotacoesValidas.map((cotacao: any) => {
+                             let rank = precosUnicos.indexOf(cotacao.precoUnitario) + 1;
+                             const fornecedor = fornecedoresUnicos.find(f => f.id.toString() === cotacao.fornecedorId.toString());
+                             const razaoSocial = fornecedor ? fornecedor.razaoSocial : 'Desconhecido';
+
+                             let bgColor = '#f8fafc';
+                             let badgeColor = '#475569';
+                             let badgeBg = '#e2e8f0';
+                             let icon = '';
+                             let label = '';
+                             
+                             if (rank === 1) {
+                                 bgColor = '#fef9c3';
+                                 badgeColor = '#a16207';
+                                 badgeBg = '#fef08a';
+                                 icon = '🥇';
+                                 label = '1º Ouro';
+                             } else if (rank === 2) {
+                                 bgColor = '#f1f5f9';
+                                 badgeColor = '#334155';
+                                 badgeBg = '#e2e8f0';
+                                 icon = '🥈';
+                                 label = '2º Prata';
+                             } else if (rank === 3) {
+                                 bgColor = '#fff7ed';
+                                 badgeColor = '#9a3412';
+                                 badgeBg = '#ffedd5';
+                                 icon = '🥉';
+                                 label = '3º Bronze';
+                             } else {
+                                 label = `${rank}º Lugar`;
+                             }
+
+                             return (
+                               <div key={cotacao.fornecedorId} style={{ 
+                                  display: 'flex', flexDirection: 'column', alignItems: 'center', 
+                                  background: bgColor, border: `1px solid ${badgeBg}`, borderRadius: '6px', 
+                                  padding: '0.5rem', minWidth: '120px'
+                               }}>
+                                 <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: badgeColor, textTransform: 'uppercase', textAlign: 'center', marginBottom: '0.25rem' }}>
+                                   {razaoSocial}
+                                 </span>
+                                 <span style={{ fontWeight: rank <= 3 ? 800 : 600, color: rank === 1 ? '#a16207' : (rank === 2 ? '#475569' : (rank === 3 ? '#9a3412' : '#334155')) }}>
+                                   {formatCurrency(cotacao.precoUnitario)}
+                                 </span>
+                                 {cotacao.observacao && (
+                                   <div style={{ fontSize: '0.65rem', color: '#64748b', textAlign: 'center', marginTop: '2px', fontStyle: 'italic', maxWidth: '110px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={cotacao.observacao.replace('Original: ', '')}>
+                                     {cotacao.observacao.replace('Original: ', '')}
+                                   </div>
+                                 )}
+                                 {cotacao.data && (
+                                   <div style={{ fontSize: '0.65rem', color: '#94a3b8', textAlign: 'center', marginTop: '2px' }}>
+                                     {formatDate(cotacao.data)}
+                                   </div>
+                                 )}
+                                 {rank <= 3 && (
+                                   <div style={{ fontSize: '0.7rem', color: badgeColor, background: badgeBg, padding: '0.1rem 0.4rem', borderRadius: '4px', marginTop: '4px', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', fontWeight: 700 }}>
+                                     <span>{icon}</span> {label}
+                                   </div>
+                                 )}
+                                 {rank > 3 && (
+                                   <div style={{ fontSize: '0.7rem', color: '#64748b', background: '#f1f5f9', padding: '0.1rem 0.4rem', borderRadius: '4px', marginTop: '4px', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', fontWeight: 600 }}>
+                                     {label}
+                                   </div>
+                                 )}
+                               </div>
+                             );
+                        })}
+                        {cotacoesValidas.length === 0 && (
+                           <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.85rem' }}>Nenhuma empresa cotou este produto</span>
+                        )}
+                      </div>
                     </td>
-
-                    {/* Fornecedores Cells */}
-                    {fornecedoresUnicos.map(f => {
-                      const cotacao = p.cotacoes.find((c: any) => c.fornecedorId.toString() === f.id.toString());
-                      
-                      let rank = -1;
-                      if (cotacao && !cotacao.desclassificado && cotacao.precoUnitario != null) {
-                          rank = precosUnicos.indexOf(cotacao.precoUnitario) + 1; // 1-based rank
-                      }
-
-                      let bgColor = 'transparent';
-                      let badgeColor = '';
-                      let badgeBg = '';
-                      let icon = '';
-                      let label = '';
-                      
-                      if (rank === 1) {
-                          bgColor = '#fef9c3';
-                          badgeColor = '#a16207';
-                          badgeBg = '#fef08a';
-                          icon = '🥇';
-                          label = '1º Lugar';
-                      } else if (rank === 2) {
-                          bgColor = '#f8fafc';
-                          badgeColor = '#475569';
-                          badgeBg = '#e2e8f0';
-                          icon = '🥈';
-                          label = '2º Lugar';
-                      } else if (rank === 3) {
-                          bgColor = '#fff7ed';
-                          badgeColor = '#9a3412';
-                          badgeBg = '#ffedd5';
-                          icon = '🥉';
-                          label = '3º Lugar';
-                      }
-
-                      return (
-                        <td key={f.id} style={{ padding: '0.75rem', textAlign: 'center', borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', fontSize: '0.85rem', background: bgColor }}>
-                          {cotacao ? (
-                            <div style={{ color: cotacao.desclassificado ? '#ef4444' : (rank === 1 ? '#a16207' : (rank === 2 ? '#475569' : (rank === 3 ? '#9a3412' : '#334155'))), textDecoration: cotacao.desclassificado ? 'line-through' : 'none', fontWeight: rank > 0 && rank <= 3 ? 800 : 600 }}>
-                              {formatCurrency(cotacao.precoUnitario)}
-                              {rank > 0 && rank <= 3 && (
-                                <div style={{ fontSize: '0.7rem', color: badgeColor, background: badgeBg, padding: '0.1rem 0.3rem', borderRadius: '4px', marginTop: '4px', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', fontWeight: 700 }}>
-                                  <span>{icon}</span> {label}
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <span style={{ color: '#cbd5e1' }}>-</span>
-                          )}
-                        </td>
-                      );
-                    })}
                   </tr>
                 )})}
               </React.Fragment>
@@ -272,7 +346,7 @@ export default function BaseProdutos() {
 
             {!loading && produtos.length === 0 && (
               <tr>
-                <td colSpan={fornecedoresUnicos.length + 3} style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
+                <td colSpan={4} style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
                   Nenhum produto encontrado.
                 </td>
               </tr>
@@ -287,6 +361,59 @@ export default function BaseProdutos() {
           </tbody>
         </table>
       </div>
+
+      {produtosSelecionados.length > 1 && (
+        <div style={{ position: 'fixed', bottom: '2rem', left: '50%', transform: 'translateX(-50%)', background: '#1e293b', color: 'white', padding: '1rem 2rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '1.5rem', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)', zIndex: 50 }}>
+          <span style={{ fontWeight: 600 }}>{produtosSelecionados.length} produtos selecionados</span>
+          <button 
+            onClick={() => { setNomeDestino(produtosSelecionados[0]); setShowUnifyModal(true); }}
+            style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}
+          >
+            UNIFICAR
+          </button>
+          <button 
+            onClick={() => setProdutosSelecionados([])}
+            style={{ background: 'transparent', color: '#94a3b8', border: '1px solid #475569', padding: '0.5rem 1rem', borderRadius: '4px', cursor: 'pointer' }}
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
+
+      {showUnifyModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div style={{ background: 'white', padding: '2rem', borderRadius: '8px', width: '90%', maxWidth: '500px', color: '#334155' }}>
+            <h2 style={{ marginBottom: '1rem' }}>Unificar Produtos</h2>
+            <p style={{ marginBottom: '1rem', color: '#475569' }}>Você está unificando <strong>{produtosSelecionados.length}</strong> produtos. Eles serão mesclados em um único item consolidando todos os fornecedores (com a data mais recente valendo para cada).</p>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Nome Final do Produto</label>
+              <input 
+                type="text" 
+                className="form-control" 
+                value={nomeDestino} 
+                onChange={e => setNomeDestino(e.target.value)}
+                style={{ width: '100%', padding: '0.75rem', border: '1px solid #cbd5e1', borderRadius: '4px' }}
+              />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+              <button 
+                onClick={() => setShowUnifyModal(false)}
+                style={{ padding: '0.5rem 1rem', border: '1px solid #cbd5e1', background: 'transparent', borderRadius: '4px', cursor: 'pointer' }}
+                disabled={unificando}
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleUnificar}
+                style={{ padding: '0.5rem 1rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                disabled={unificando || !nomeDestino}
+              >
+                {unificando ? 'Unificando...' : 'Confirmar Unificação'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

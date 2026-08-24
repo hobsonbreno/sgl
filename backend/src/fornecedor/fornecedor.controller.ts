@@ -43,6 +43,14 @@ export class FornecedorController {
     return this.service.getBaseProdutos(query);
   }
 
+  @Put('produtos/base/unificar')
+  @ApiOperation({ summary: 'Unificar múltiplos produtos em um só' })
+  unificarProdutos(
+    @Body() data: { produtosOrigem: string[]; produtoDestino: string }
+  ) {
+    return this.service.unificarProdutosBase(data.produtosOrigem, data.produtoDestino);
+  }
+
   @Put('produtos/base')
   @ApiOperation({ summary: 'Atualizar inteligência de um produto na base' })
   updateProdutoBase(

@@ -13,7 +13,7 @@ import {
   ProdutoBaseDocument,
 } from './fornecedor.schema';
 import { FornecedorGateway } from './fornecedor.gateway';
-import { getCategoriaDoProduto } from './produtos-catalogo';
+import { CategoriaService } from '../categoria/categoria.service';
 
 @Injectable()
 export class FornecedorService {
@@ -23,6 +23,7 @@ export class FornecedorService {
     private intelModel: Model<ProdutoBaseDocument>,
     @InjectConnection() private connection: Connection,
     private readonly gateway: FornecedorGateway,
+    private readonly categoriaService: CategoriaService,
   ) {}
 
   private validarCNPJ(cnpj: string): boolean {
@@ -209,7 +210,7 @@ export class FornecedorService {
       for (const hist of f.fornecedor_historico_precos) {
         const pNome = hist.descricaoItem;
         const razaoSocial = f.razaoSocial || '';
-        const categoriaBase = getCategoriaDoProduto(pNome) || '';
+        const categoriaBase = this.categoriaService.categorizeProduto(pNome) || 'OUTROS';
 
         let match = false;
         if (!busca) {
@@ -217,14 +218,7 @@ export class FornecedorService {
         } else {
             const prodMatch = pNome.toLowerCase().includes(busca);
             const empMatch = razaoSocial.toLowerCase().includes(busca);
-            
-            // Check category match, considering our frontend custom rule for CEREAIS
-            const isCereais = /açucar|acucar|arroz|feijao|feijão|milho|trigo|soja|aveia|cevada/i.test(pNome);
-            let computedCat = categoriaBase;
-            if (!computedCat || computedCat === 'OUTROS') {
-                computedCat = isCereais ? 'Categoria - Cereais' : 'Categoria - Cereais';
-            }
-            const catMatch = computedCat.toLowerCase().includes(busca);
+            const catMatch = categoriaBase.toLowerCase().includes(busca);
             
             match = prodMatch || empMatch || catMatch;
         }
@@ -295,7 +289,7 @@ export class FornecedorService {
       }
       return {
         ...prod,
-        categoria: getCategoriaDoProduto(prod.descricaoItem),
+        categoria: this.categoriaService.categorizeProduto(prod.descricaoItem),
         campea,
       };
     });
@@ -353,5 +347,72 @@ export class FornecedorService {
         valorCampeaoLicitacao: data.valorCampeaoLicitacao,
       });
     }
+  }
+  async unificarProdutosBase(produtosOrigem: string[], produtoDestino: string): Promise<any> {
+    if (!produtosOrigem || produtosOrigem.length === 0 || !produtoDestino) {
+      throw new BadRequestException('Parâmetros inválidos para unificação');
+    }
+
+    const fornecedores = await this.model.find({
+      'fornecedor_historico_precos.descricaoItem': { $in: produtosOrigem }
+    }).exec();
+
+    let updatedCount = 0;
+    for (const f of fornecedores) {
+      let modified = false;
+      for (const hist of f.fornecedor_historico_precos) {
+        if (produtosOrigem.includes(hist.descricaoItem)) {
+          // Preserve the original name in 'observacao' so we don't lose the brand/details
+          if (!hist.observacao) {
+            hist.observacao = `Original: ${hist.descricaoItem}`;
+          } else if (!hist.observacao.includes(hist.descricaoItem)) {
+            hist.observacao = `Original: ${hist.descricaoItem} | ${hist.observacao}`;
+          }
+          hist.descricaoItem = produtoDestino;
+          modified = true;
+        }
+      }
+      if (modified) {
+        f.markModified('fornecedor_historico_precos');
+        await f.save();
+        updatedCount++;
+      }
+    }
+
+    // Update ProdutoBase (Inteligência)
+    const intelDocs = await this.intelModel.find({ descricaoItem: { $in: [...produtosOrigem, produtoDestino] } }).exec();
+    
+    if (intelDocs.length > 0) {
+      let targetIntel = intelDocs.find(d => d.descricaoItem === produtoDestino);
+      const originIntels = intelDocs.filter(d => produtosOrigem.includes(d.descricaoItem) && d.descricaoItem !== produtoDestino);
+      
+      let bestLance = null;
+      let bestCampeao = null;
+      
+      // Find the first valid (non-null) lance/campeao among ALL docs involved
+      for (const doc of intelDocs) {
+        if (doc.nossoLanceOficial && !bestLance) bestLance = doc.nossoLanceOficial;
+        if (doc.valorCampeaoLicitacao && !bestCampeao) bestCampeao = doc.valorCampeaoLicitacao;
+      }
+
+      if (!targetIntel && originIntels.length > 0) {
+        targetIntel = originIntels[0];
+        targetIntel.descricaoItem = produtoDestino;
+      }
+      
+      if (targetIntel) {
+        if (bestLance) targetIntel.nossoLanceOficial = bestLance;
+        if (bestCampeao) targetIntel.valorCampeaoLicitacao = bestCampeao;
+        await targetIntel.save();
+      }
+
+      // Remove the origin intels that are NOT the targetIntel
+      for (const origin of originIntels) {
+         if (targetIntel && origin._id.toString() === targetIntel._id.toString()) continue;
+         await this.intelModel.deleteOne({ _id: origin._id }).exec();
+      }
+    }
+
+    return { message: 'Produtos unificados com sucesso', updatedFornecedores: updatedCount };
   }
 }
