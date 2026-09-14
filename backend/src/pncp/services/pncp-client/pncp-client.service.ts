@@ -80,7 +80,7 @@ export class PncpClientService {
     const cnpj = splitDash[0];
     const sequencial = splitDash[2];
 
-    const baseUrl = `https://pncp.gov.br/api/pncp/v1/orgaos/${cnpj}/compras/${ano}/${sequencial}/itens`;
+    const baseUrl = `https://pncp.gov.br/api/consulta/v1/orgaos/${cnpj}/compras/${ano}/${sequencial}/itens`;
 
     try {
       let todosItens: any[] = [];
@@ -142,7 +142,7 @@ export class PncpClientService {
     const cnpj = splitDash[0];
     const sequencial = splitDash[2];
 
-    const baseUrl = `https://pncp.gov.br/api/pncp/v1/orgaos/${cnpj}/compras/${ano}/${sequencial}/itens/${numeroItem}/resultados`;
+    const baseUrl = `https://pncp.gov.br/api/consulta/v1/orgaos/${cnpj}/compras/${ano}/${sequencial}/itens/${numeroItem}/resultados`;
 
     try {
       let todosResultados: any[] = [];
@@ -224,7 +224,7 @@ export class PncpClientService {
 
   async buscarContratacaoEspecifica(cnpj: string, ano: string, sequencial: string): Promise<any> {
     this.logger.log(`Buscando contratacao especifica: CNPJ ${cnpj}, Ano ${ano}, Seq ${sequencial}`);
-    const url = `https://pncp.gov.br/api/pncp/v1/orgaos/${cnpj}/compras/${ano}/${sequencial}`;
+    const url = `https://pncp.gov.br/api/consulta/v1/orgaos/${cnpj}/compras/${ano}/${sequencial}`;
     
     try {
       const response = await firstValueFrom(
