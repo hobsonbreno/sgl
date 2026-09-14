@@ -242,7 +242,8 @@ export default function Kanban() {
         const hasProdutos = opProdutos.length > 0;
         
         // Auto-Excluir: Expirou e não fez cotações/puxou -> move pra EXCLUIDA
-        if (expirou && !hasProdutos && st !== 'EXCLUIDA' && st !== 'ARQUIVADA') {
+        // Só auto-exclui se estiver na coluna A_FAZER (ignoradas). Se o usuário já puxou para FAZENDO, mantém.
+        if (expirou && !hasProdutos && st === 'A_FAZER') {
           fetch(`${window.API_URL}/oportunidades/${op._id}/status`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
