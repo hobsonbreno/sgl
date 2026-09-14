@@ -463,7 +463,7 @@ export class OportunidadeService {
 
       if (existe) {
         this.logger.info(`Oportunidade ${opDto.numeroControlePNCP} já existe. Atualizando status.`);
-        return this.model.findOneAndUpdate(
+        const updated = await this.model.findOneAndUpdate(
           { numeroControlePNCP: opDto.numeroControlePNCP },
           {
             $set: {
@@ -474,6 +474,7 @@ export class OportunidadeService {
           },
           { new: true }
         ).exec();
+        return updated as Oportunidade;
       }
 
       const created = await this.model.create(opDto);
