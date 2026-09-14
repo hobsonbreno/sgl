@@ -473,6 +473,7 @@ export class OportunidadeService {
               situacaoCompraNome: opDto.situacaoCompraNome,
               dataEncerramentoProposta: opDto.dataEncerramentoProposta,
               valorTotalEstimado: opDto.valorTotalEstimado,
+              kanbanStatus: 'FAZENDO', // Ressuscita o card caso estivesse excluído
             },
           },
           { new: true }
