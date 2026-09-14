@@ -8,7 +8,10 @@ import { Model } from 'mongoose';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Oportunidade, OportunidadeDocument } from './oportunidade.schema';
-import { mapPncpParaOportunidade } from '../pncp/dtos/pncp.dto';
+import {
+  mapPncpParaOportunidade,
+  PncpContratacaoRawDto,
+} from '../pncp/dtos/pncp.dto';
 
 import { PncpClientService } from '../pncp/services/pncp-client/pncp-client.service';
 import { Produto, ProdutoDocument } from '../produto/produto.schema';
@@ -188,7 +191,7 @@ export class OportunidadeService {
             const resultados =
               await this.pncpClientService.buscarResultadosDoItem(
                 doc.numeroControlePNCP,
-                item.numeroItem,
+                Number(item.numeroItem),
               );
             if (resultados && resultados.length > 0) {
               // A API de resultados do PNCP costuma retornar o campeão
@@ -215,7 +218,7 @@ export class OportunidadeService {
           numeroItem: item.numeroItem || 0,
           descricao: item.descricao || 'Item sem descrição',
           categoria: this.categoriaService.categorizeProduto(
-            item.descricao || '',
+            String(item.descricao || ''),
           ),
           quantidade: item.quantidade || 1,
           unidadeMedida: item.unidadeMedida || 'UN',
@@ -448,14 +451,17 @@ export class OportunidadeService {
   async importarManual(input: string): Promise<Oportunidade> {
     try {
       this.logger.info(`Iniciando importação manual para: ${input}`);
-      const raw = await this.pncpClientService.buscarContratacaoPorUrlOuControle(input);
-      
+      const raw =
+        await this.pncpClientService.buscarContratacaoPorUrlOuControle(input);
+
       if (!raw) {
-        throw new BadRequestException('Não foi possível carregar os dados dessa oportunidade no PNCP.');
+        throw new BadRequestException(
+          'Não foi possível carregar os dados dessa oportunidade no PNCP.',
+        );
       }
 
-      const opDto = mapPncpParaOportunidade(raw);
-      
+      const opDto = mapPncpParaOportunidade(raw as PncpContratacaoRawDto);
+
       // Importações manuais devem cair direto na coluna FAZENDO (em vez de A_FAZER)
       opDto.kanbanStatus = 'FAZENDO';
 
@@ -465,33 +471,40 @@ export class OportunidadeService {
       });
 
       if (existe) {
-        this.logger.info(`Oportunidade ${opDto.numeroControlePNCP} já existe. Atualizando status.`);
-        const updated = await this.model.findOneAndUpdate(
-          { numeroControlePNCP: opDto.numeroControlePNCP },
-          {
-            $set: {
-              situacaoCompraNome: opDto.situacaoCompraNome,
-              dataEncerramentoProposta: opDto.dataEncerramentoProposta,
-              valorTotalEstimado: opDto.valorTotalEstimado,
-              kanbanStatus: 'FAZENDO', // Ressuscita o card caso estivesse excluído
+        this.logger.info(
+          `Oportunidade ${opDto.numeroControlePNCP} já existe. Atualizando status.`,
+        );
+        const updated = await this.model
+          .findOneAndUpdate(
+            { numeroControlePNCP: opDto.numeroControlePNCP },
+            {
+              $set: {
+                situacaoCompraNome: opDto.situacaoCompraNome,
+                dataEncerramentoProposta: opDto.dataEncerramentoProposta,
+                valorTotalEstimado: opDto.valorTotalEstimado,
+                kanbanStatus: 'FAZENDO', // Ressuscita o card caso estivesse excluído
+              },
             },
-          },
-          { new: true }
-        ).exec();
+            { new: true },
+          )
+          .exec();
         return updated as Oportunidade;
       }
 
       const created = await this.model.create(opDto);
-      this.logger.info(`Oportunidade importada com sucesso: ${created._id}`);
-      
+      this.logger.info(
+        `Oportunidade importada com sucesso: ${String(created._id)}`,
+      );
+
       // Emitir evento WebSocket para atualizar a UI em tempo real
       this.gateway.emitOportunidadeUpdate(created);
 
       return created;
     } catch (e) {
       this.logger.error(`Erro na importação manual: ${e.message}`);
-      throw new BadRequestException(`Erro ao importar oportunidade: ${e.message}`);
+      throw new BadRequestException(
+        `Erro ao importar oportunidade: ${e.message}`,
+      );
     }
   }
-
 }

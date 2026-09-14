@@ -210,17 +210,18 @@ export class FornecedorService {
       for (const hist of f.fornecedor_historico_precos) {
         const pNome = hist.descricaoItem;
         const razaoSocial = f.razaoSocial || '';
-        const categoriaBase = this.categoriaService.categorizeProduto(pNome) || 'OUTROS';
+        const categoriaBase =
+          this.categoriaService.categorizeProduto(pNome) || 'OUTROS';
 
         let match = false;
         if (!busca) {
-            match = true;
+          match = true;
         } else {
-            const prodMatch = pNome.toLowerCase().includes(busca);
-            const empMatch = razaoSocial.toLowerCase().includes(busca);
-            const catMatch = categoriaBase.toLowerCase().includes(busca);
-            
-            match = prodMatch || empMatch || catMatch;
+          const prodMatch = pNome.toLowerCase().includes(busca);
+          const empMatch = razaoSocial.toLowerCase().includes(busca);
+          const catMatch = categoriaBase.toLowerCase().includes(busca);
+
+          match = prodMatch || empMatch || catMatch;
         }
 
         if (!match) {
@@ -296,8 +297,8 @@ export class FornecedorService {
 
     // Pagination
     const isMatrix = query.matrix === 'true';
-    const page = isMatrix ? 1 : (Number(query.page) || 1);
-    const limit = isMatrix ? 5000 : (Number(query.limit) || 10);
+    const page = isMatrix ? 1 : Number(query.page) || 1;
+    const limit = isMatrix ? 5000 : Number(query.limit) || 10;
     const total = baseProdutos.length;
     const totalPages = Math.ceil(total / limit) || 1;
     const skip = (page - 1) * limit;
@@ -348,14 +349,19 @@ export class FornecedorService {
       });
     }
   }
-  async unificarProdutosBase(produtosOrigem: string[], produtoDestino: string): Promise<any> {
+  async unificarProdutosBase(
+    produtosOrigem: string[],
+    produtoDestino: string,
+  ): Promise<any> {
     if (!produtosOrigem || produtosOrigem.length === 0 || !produtoDestino) {
       throw new BadRequestException('Parâmetros inválidos para unificação');
     }
 
-    const fornecedores = await this.model.find({
-      'fornecedor_historico_precos.descricaoItem': { $in: produtosOrigem }
-    }).exec();
+    const fornecedores = await this.model
+      .find({
+        'fornecedor_historico_precos.descricaoItem': { $in: produtosOrigem },
+      })
+      .exec();
 
     let updatedCount = 0;
     for (const f of fornecedores) {
@@ -380,26 +386,36 @@ export class FornecedorService {
     }
 
     // Update ProdutoBase (Inteligência)
-    const intelDocs = await this.intelModel.find({ descricaoItem: { $in: [...produtosOrigem, produtoDestino] } }).exec();
-    
+    const intelDocs = await this.intelModel
+      .find({ descricaoItem: { $in: [...produtosOrigem, produtoDestino] } })
+      .exec();
+
     if (intelDocs.length > 0) {
-      let targetIntel = intelDocs.find(d => d.descricaoItem === produtoDestino);
-      const originIntels = intelDocs.filter(d => produtosOrigem.includes(d.descricaoItem) && d.descricaoItem !== produtoDestino);
-      
+      let targetIntel = intelDocs.find(
+        (d) => d.descricaoItem === produtoDestino,
+      );
+      const originIntels = intelDocs.filter(
+        (d) =>
+          produtosOrigem.includes(d.descricaoItem) &&
+          d.descricaoItem !== produtoDestino,
+      );
+
       let bestLance = null;
       let bestCampeao = null;
-      
+
       // Find the first valid (non-null) lance/campeao among ALL docs involved
       for (const doc of intelDocs) {
-        if (doc.nossoLanceOficial && !bestLance) bestLance = doc.nossoLanceOficial;
-        if (doc.valorCampeaoLicitacao && !bestCampeao) bestCampeao = doc.valorCampeaoLicitacao;
+        if (doc.nossoLanceOficial && !bestLance)
+          bestLance = doc.nossoLanceOficial;
+        if (doc.valorCampeaoLicitacao && !bestCampeao)
+          bestCampeao = doc.valorCampeaoLicitacao;
       }
 
       if (!targetIntel && originIntels.length > 0) {
         targetIntel = originIntels[0];
         targetIntel.descricaoItem = produtoDestino;
       }
-      
+
       if (targetIntel) {
         if (bestLance) targetIntel.nossoLanceOficial = bestLance;
         if (bestCampeao) targetIntel.valorCampeaoLicitacao = bestCampeao;
@@ -408,11 +424,15 @@ export class FornecedorService {
 
       // Remove the origin intels that are NOT the targetIntel
       for (const origin of originIntels) {
-         if (targetIntel && origin._id.toString() === targetIntel._id.toString()) continue;
-         await this.intelModel.deleteOne({ _id: origin._id }).exec();
+        if (targetIntel && origin._id.toString() === targetIntel._id.toString())
+          continue;
+        await this.intelModel.deleteOne({ _id: origin._id }).exec();
       }
     }
 
-    return { message: 'Produtos unificados com sucesso', updatedFornecedores: updatedCount };
+    return {
+      message: 'Produtos unificados com sucesso',
+      updatedFornecedores: updatedCount,
+    };
   }
 }

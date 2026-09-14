@@ -8,10 +8,12 @@ import { ComprasGovMonitorController } from './compras-gov-monitor.controller';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Proposta.name, schema: PropostaSchema }]),
-    ConfiguracaoModule
+    MongooseModule.forFeature([
+      { name: Proposta.name, schema: PropostaSchema },
+    ]),
+    ConfiguracaoModule,
   ],
   controllers: [ComprasGovMonitorController],
-  providers: [ComprasGovScraperService, ComprasGovMonitorService]
+  providers: [ComprasGovScraperService, ComprasGovMonitorService],
 })
 export class ComprasGovMonitorModule {}

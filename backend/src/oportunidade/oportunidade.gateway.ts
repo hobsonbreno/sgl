@@ -24,7 +24,7 @@ export class OportunidadeGateway
     this.eventsService.getAlertasMonitoramento().subscribe((mensagem) => {
       this.server.emit('alerta_monitoramento', { mensagem });
     });
-    
+
     this.eventsService.getMonitoramentoConcluido().subscribe((dados) => {
       this.server.emit('monitoramento_concluido', dados);
     });

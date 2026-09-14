@@ -8,23 +8,34 @@ export class ComprasGovMonitorController {
   constructor(private readonly monitorService: ComprasGovMonitorService) {}
 
   @Post('run-now')
-  @ApiOperation({ summary: 'Dispara a execução do bot de monitoramento manualmente' })
+  @ApiOperation({
+    summary: 'Dispara a execução do bot de monitoramento manualmente',
+  })
   @ApiResponse({ status: 201, description: 'Resultado da execução do scraper' })
-  async runNow() {
-    this.monitorService.handleCron();
-    return { message: 'Monitoramento do Compras.gov.br iniciado em background.' };
+  runNow() {
+    this.monitorService.handleCron().catch(console.error);
+    return {
+      message: 'Monitoramento do Compras.gov.br iniciado em background.',
+    };
   }
 
   @Post('sync')
-  @ApiOperation({ summary: 'Recebe os dados de sincronização enviados pela Extensão Chrome' })
+  @ApiOperation({
+    summary: 'Recebe os dados de sincronização enviados pela Extensão Chrome',
+  })
   @ApiResponse({ status: 201, description: 'Dados salvos com sucesso' })
-  async syncData(@Body() pregoes: any[]) {
+  syncData(@Body() pregoes: any[]) {
     return this.monitorService.saveSyncData(pregoes);
   }
 
   @Get('latest')
-  @ApiOperation({ summary: 'Obtém os últimos resultados consolidados do monitoramento' })
-  @ApiResponse({ status: 200, description: 'Lista de pregões, itens e posições' })
+  @ApiOperation({
+    summary: 'Obtém os últimos resultados consolidados do monitoramento',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de pregões, itens e posições',
+  })
   getLatest() {
     return this.monitorService.getLatestResults();
   }

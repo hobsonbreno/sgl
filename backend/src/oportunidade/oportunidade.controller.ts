@@ -63,7 +63,9 @@ export class OportunidadeController {
   }
 
   @Post('importar-manual')
-  @ApiOperation({ summary: 'Importar uma oportunidade do PNCP via link ou controle' })
+  @ApiOperation({
+    summary: 'Importar uma oportunidade do PNCP via link ou controle',
+  })
   importarManual(@Body() body: ImportarManualDto) {
     return this.service.importarManual(body.linkOuControle);
   }

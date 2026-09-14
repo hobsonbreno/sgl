@@ -91,7 +91,7 @@ export default function LixeiraArquivo() {
                           regexCompra.test(numeroCompraFormatado.toLowerCase()) ||
                           (searchDigits.length > 0 && numeroCompraCompleto.replace(/[^\d]/g, '') === searchDigits);
       
-      const isEditalSearch = /^(?:edital|aviso|pregão|pregao|dispensa)?\s*\d{1,6}[\/\-]\d{4}$/i.test(search.trim());
+      const isEditalSearch = /^(?:edital|aviso|pregão|pregao|dispensa)?\s*\d{1,6}[/-]\d{4}$/i.test(search.trim());
       if (isEditalSearch) {
         return matchCompra || matchPncp || matchUasg;
       }

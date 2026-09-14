@@ -73,7 +73,7 @@ export default function Dashboard() {
                   if (newPos < oldPos && newPos <= 2) {
                     setAlertasMonitoramento(a => [...a, { 
                       id: Math.random().toString(), 
-                      msg: `ALERTA: Subimos para o ${newPos}º LUGAR no Pregão ${newP.pregao} (${newI.itemId})!` 
+                      msg: `ALERTA: Subimos para o ${newPos}º LUGAR no Pregão ${newP.pregao} (${newI.itemId})!${newPos === 2 ? '\\n🚨 PREPARAR TODA DOCUMENTAÇÃO URGENTE' : ''}` 
                     }]);
                   }
                 }
@@ -326,7 +326,11 @@ export default function Dashboard() {
                             {[...pregao.itens].sort((a: any, b: any) => (a.nossaPosicao || 999) - (b.nossaPosicao || 999)).map((item: any, idx: number) => {
                               const pos = item.nossaPosicao || 999;
                         let corFundo, corBorda, corTexto, corNumero;
-                        if (pos === 1) {
+                        const isDesclassificada = item.inteligencia?.nossaEmpresaStatus && item.inteligencia.nossaEmpresaStatus !== 'Ativa';
+                        
+                        if (isDesclassificada) {
+                          corFundo = '#f1f5f9'; corBorda = '#cbd5e1'; corTexto = '#475569'; corNumero = '#334155'; // Cinza (Desclassificada)
+                        } else if (pos === 1) {
                           corFundo = '#f0fdf4'; corBorda = '#bbf7d0'; corTexto = '#16a34a'; corNumero = '#15803d'; // Verde
                         } else if (pos === 2) {
                           corFundo = '#fefce8'; corBorda = '#fef08a'; corTexto = '#ca8a04'; corNumero = '#a16207'; // Amarelo
@@ -357,43 +361,58 @@ export default function Dashboard() {
                                 <span style={{ background: '#e2e8f0', color: '#475569', fontSize: '0.75rem', fontWeight: 700, padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
                                   {item.itemId || `Item ${idx + 1}`}
                                 </span>
-                                <span style={{ fontWeight: 700, color: '#1e293b' }}>Participando</span>
+                                <span style={{ 
+                                  fontWeight: 700, 
+                                  color: item.status === 'Homologado' || item.status === 'Adjudicado' ? '#16a34a' : 
+                                         item.status === 'Desclassificado' || item.status === 'Cancelado' || item.status === 'Fracassado' ? '#dc2626' : '#1e293b' 
+                                }}>
+                                  {item.status && item.status !== 'Ativo' ? item.status : 'Participando'}
+                                </span>
                               </div>
                               
-                              {/* Explicação da Classificação Detalhada */}
+                              {/* Inteligência Competitiva SGL */}
                               <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: '#475569', lineHeight: '1.5' }}>
-                                {item.competidores && item.competidores.length > 0 ? (
-                                  (() => {
-                                    const empresasNaFrente = item.competidores.filter((c: any) => c.status === 'Ativa').length;
-                                    const inabilitadas = item.competidores.filter((c: any) => c.status === 'Inabilitada').length;
-                                    const primeiroLugar = item.competidores.find((c: any) => c.status === 'Ativa');
-                                    let primeiroNome = 'N/A';
-                                    if (primeiroLugar && primeiroLugar.textoBruto) {
-                                       const matchNome = primeiroLugar.textoBruto.match(/[A-ZÀ-Ÿ0-9\s\.\-\&]{10,}/);
-                                       primeiroNome = matchNome ? matchNome[0].trim() : primeiroLugar.cnpj;
-                                    }
+                                {item.inteligencia ? (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <div style={{ background: corFundo, border: `1px solid ${corBorda}`, padding: '10px', borderRadius: '8px' }}>
+                                      <strong style={{ color: corNumero, fontSize: '1.1rem' }}>
+                                        {item.inteligencia.nossaPosicao < 999 ? `Sua posição: ${item.inteligencia.nossaPosicao}º Lugar` : 'Sua posição: Não Classificada'}
+                                      </strong>
+                                      {item.inteligencia.nossoValor && <span style={{ marginLeft: '10px', fontWeight: 'bold' }}>- R$ {item.inteligencia.nossoValor.toLocaleString('pt-BR', {minimumFractionDigits: 4})}</span>}
+                                      
+                                      <p style={{ marginTop: '5px', marginBottom: 0, fontWeight: 600, color: corTexto }}>
+                                        {item.inteligencia.mensagemEstrategica}
+                                      </p>
+                                    </div>
                                     
-                                    return (
-                                      <>
-                                        <div>
-                                          A empresa se encontra na <strong>posição {pos > 0 && pos < 999 ? pos : 'X'}</strong>.
-                                          Tem <strong>{empresasNaFrente}</strong> empresas ativas na sua frente (<strong>{inabilitadas}</strong> desclassificadas/inabilitadas).
-                                        </div>
-                                        {empresasNaFrente > 0 && primeiroLugar && (
-                                          <div style={{ marginTop: '0.25rem' }}>
-                                            O atual 1º lugar é: <strong>{primeiroNome}</strong>
-                                          </div>
-                                        )}
-                                      </>
-                                    );
-                                  })()
+                                    <div style={{ marginTop: '5px' }}>
+                                      <strong style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: '#94a3b8' }}>Ranking Visível (Ativos):</strong>
+                                      <ul style={{ listStyle: 'none', padding: 0, margin: '5px 0 0 0', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        {item.inteligencia.ranking.slice(0, 5).map((c: any, i: number) => {
+                                          let nome = 'Empresa Desconhecida';
+                                          const matchNome = c.textoBruto.match(/[A-ZÀ-Ÿ0-9\s.\-&]{10,}/);
+                                          if (matchNome) nome = matchNome[0].trim();
+                                          return (
+                                            <li key={i} style={{ display: 'flex', justifyContent: 'space-between', background: i === 0 ? '#fefce8' : '#f8fafc', padding: '4px 8px', borderRadius: '4px', border: i===0?'1px solid #fef08a':'1px solid #f1f5f9' }}>
+                                              <span style={{ fontWeight: i===0 ? 700 : 500, color: '#334155', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '300px' }} title={nome}>
+                                                {i+1}º - {nome}
+                                              </span>
+                                              <strong style={{ color: '#0f172a' }}>R$ {c.valor?.toLocaleString('pt-BR', {minimumFractionDigits:4}) || '?'}</strong>
+                                            </li>
+                                          )
+                                        })}
+                                      </ul>
+                                    </div>
+                                  </div>
                                 ) : (
                                   desclassificados > 0 ? (
                                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', background: '#fef2f2', color: '#b91c1c', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 600 }}>
                                       <AlertTriangle size={14} />
-                                      {desclassificados} empresa(s) na frente desclassificada(s)
+                                      {desclassificados} empresa(s) desclassificada(s)
                                     </div>
-                                  ) : null
+                                  ) : (
+                                    <span>Nenhuma inteligência competitiva coletada ainda.</span>
+                                  )
                                 )}
                               </div>
                               
@@ -440,8 +459,8 @@ export default function Dashboard() {
                                   {pos > 0 && pos < 999 ? `${pos}º` : '-'}
                                 </span>
                               </div>
-                              <span style={{ display: 'block', fontSize: '0.8rem', color: corTexto, marginTop: '0.25rem', fontWeight: 600 }}>
-                                {(pos > 1 && pos < 999) ? `${pos - 1} na frente` : (pos === 1 ? 'Líder' : '')}
+                              <span style={{ display: 'block', fontSize: '0.8rem', color: corTexto, marginTop: '0.25rem', fontWeight: 700, textTransform: 'uppercase' }}>
+                                {isDesclassificada ? (item.inteligencia.nossaEmpresaStatus || 'INAPTA') : (pos > 1 && pos < 999 ? `${pos - 1} na frente` : (pos === 1 ? 'Líder' : ''))}
                               </span>
                             </div>
                           </div>

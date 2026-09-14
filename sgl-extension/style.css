@@ -102,7 +102,7 @@
 #sgl-sync-widget {
   position: fixed;
   bottom: 20px;
-  right: 20px;
+  left: 20px;
   width: 250px;
   background: #ffffff;
   border-radius: 10px;

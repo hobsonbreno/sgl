@@ -13,6 +13,8 @@ import {
 } from '../perfil-busca/perfil-busca.schema';
 import { ProductMatchingService } from './product-matching.service';
 import { CnpjEnrichmentService } from './cnpj-enrichment.service';
+import axios from 'axios';
+import * as https from 'https';
 
 @Injectable()
 export class SupplierDiscoveryService {
@@ -302,16 +304,16 @@ export class SupplierDiscoveryService {
         }
 
         try {
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          const axios = require('axios');
-          const https = require('https');
           let results = [];
           for (const searchQuery of searchQueriesToTry) {
             this.logger.log(`SerpApi searchQuery: ${searchQuery}`);
             const response = await axios.get('https://serpapi.com/search', {
               httpsAgent: new https.Agent({ family: 4 }),
               timeout: 15000,
-              headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+              headers: {
+                'User-Agent':
+                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              },
               params: {
                 q: searchQuery,
                 engine: 'google',
