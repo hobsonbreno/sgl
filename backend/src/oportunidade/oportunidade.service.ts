@@ -455,6 +455,9 @@ export class OportunidadeService {
       }
 
       const opDto = mapPncpParaOportunidade(raw);
+      
+      // Importações manuais devem cair direto na coluna FAZENDO (em vez de A_FAZER)
+      opDto.kanbanStatus = 'FAZENDO';
 
       // Deduplicar
       const existe = await this.model.findOne({
