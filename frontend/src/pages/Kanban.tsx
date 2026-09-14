@@ -30,6 +30,10 @@ export default function Kanban() {
   const [socketRef, setSocketRef] = useState<any>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   
+  const [modalImportOpen, setModalImportOpen] = useState(false);
+  const [importLink, setImportLink] = useState('');
+  const [importing, setImporting] = useState(false);
+  
   const toggleObjectExpand = (cardId: string) => {
     setExpandedObjects(prev => ({
       ...prev,
@@ -108,6 +112,30 @@ export default function Kanban() {
 
   const [colunas, setColunas] = useState<{ id: string, nome: string }[]>([]);
   const [modalConfigColsOpen, setModalConfigColsOpen] = useState(false);
+
+  const handleImportManual = async () => {
+    if (!importLink) return;
+    setImporting(true);
+    try {
+      const res = await fetch(`${window.API_URL}/oportunidades/importar-manual`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ linkOuControle: importLink })
+      });
+      if (res.ok) {
+        alert('Oportunidade importada com sucesso! Ela deve aparecer no Kanban em instantes.');
+        setModalImportOpen(false);
+        setImportLink('');
+      } else {
+        const error = await res.json();
+        alert(`Erro ao importar: ${error.message || 'Desconhecido'}`);
+      }
+    } catch (e) {
+      alert('Erro de conexão ao tentar importar.');
+    } finally {
+      setImporting(false);
+    }
+  };
 
   // Estados para o Drag-to-Scroll
   const boardRef = useRef<HTMLDivElement>(null);
@@ -520,9 +548,14 @@ export default function Kanban() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
         <h1 style={{ margin: 0 }}>Kanban de Oportunidades</h1>
-        <button onClick={() => setModalConfigColsOpen(true)} className="btn-primary" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          <Settings size={18} /> Configurar Colunas
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button onClick={() => setModalImportOpen(true)} className="btn-primary" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', backgroundColor: '#10b981' }}>
+            <Plus size={18} /> Importar PNCP
+          </button>
+          <button onClick={() => setModalConfigColsOpen(true)} className="btn-primary" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <Settings size={18} /> Configurar Colunas
+          </button>
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', alignItems: 'center' }}>
@@ -1259,6 +1292,47 @@ export default function Kanban() {
                   alert('Erro de conexão ao salvar colunas');
                 }
               }} className="btn-primary">Salvar Colunas</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal de Importação Manual */}
+      {modalImportOpen && (
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setModalImportOpen(false); }}>
+          <div className="modal-content" style={{ maxWidth: '500px', width: '100%', padding: '2rem' }}>
+            <h2>Importar Oportunidade do PNCP</h2>
+            <p style={{ color: '#64748b', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+              Cole o link do PNCP ou o Número de Controle para importar a oportunidade manualmente.
+            </p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
+              <label style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#334155' }}>
+                Link ou Número de Controle do PNCP
+              </label>
+              <input 
+                type="text" 
+                value={importLink} 
+                onChange={(e) => setImportLink(e.target.value)}
+                placeholder="Ex: https://pncp.gov.br/app/editais/12345678901234/2026/51"
+                className="form-control"
+              />
+              <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                O sistema tentará baixar o edital diretamente da base nacional e salvar no Kanban.
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+              <button onClick={() => setModalImportOpen(false)} className="btn-primary" style={{ background: '#e2e8f0', color: '#475569' }}>
+                Cancelar
+              </button>
+              <button 
+                onClick={handleImportManual} 
+                className="btn-primary" 
+                disabled={!importLink || importing}
+                style={{ backgroundColor: '#10b981' }}
+              >
+                {importing ? 'Importando...' : 'Importar'}
+              </button>
             </div>
           </div>
         </div>

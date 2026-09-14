@@ -221,4 +221,59 @@ export class PncpClientService {
       ),
     );
   }
+
+  async buscarContratacaoEspecifica(cnpj: string, ano: string, sequencial: string): Promise<any> {
+    this.logger.log(`Buscando contratacao especifica: CNPJ ${cnpj}, Ano ${ano}, Seq ${sequencial}`);
+    const url = `https://pncp.gov.br/api/pncp/v1/orgaos/${cnpj}/compras/${ano}/${sequencial}`;
+    
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get(url, { timeout: 30000 }).pipe(
+          retry({
+            count: 2,
+            delay: (error, retryCount) => {
+              return timer(2000 * retryCount);
+            }
+          })
+        )
+      );
+      return response.data;
+    } catch (e) {
+      this.logger.error(`Erro ao buscar contratacao ${cnpj}/${ano}/${sequencial}: ${e.message}`);
+      throw e;
+    }
+  }
+
+  async buscarContratacaoPorUrlOuControle(input: string): Promise<any> {
+    let cnpj = '';
+    let ano = '';
+    let sequencial = '';
+
+    // Formato URL: https://pncp.gov.br/app/editais/00394494000136/2024/616
+    if (input.includes('pncp.gov.br/app/editais/')) {
+      const parts = input.split('editais/')[1].split('/');
+      if (parts.length >= 3) {
+        cnpj = parts[0];
+        ano = parts[1];
+        sequencial = parts[2].split('?')[0]; // remove query params if any
+      }
+    } 
+    // Formato Numero Controle: 00394494000136-1-000616/2024
+    else if (input.includes('-') && input.includes('/')) {
+      const [cnpjESeq, a] = input.split('/');
+      ano = a;
+      const splitDash = cnpjESeq.split('-');
+      if (splitDash.length >= 3) {
+        cnpj = splitDash[0];
+        sequencial = splitDash[2];
+      }
+    }
+
+    if (!cnpj || !ano || !sequencial) {
+      throw new Error('Formato de Link ou Número de Controle do PNCP inválido.');
+    }
+
+    return this.buscarContratacaoEspecifica(cnpj, ano, sequencial);
+  }
+
 }

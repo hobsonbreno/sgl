@@ -8,6 +8,8 @@ import { Model } from 'mongoose';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Oportunidade, OportunidadeDocument } from './oportunidade.schema';
+import { mapPncpParaOportunidade } from '../pncp/dtos/pncp.dto';
+
 import { PncpClientService } from '../pncp/services/pncp-client/pncp-client.service';
 import { Produto, ProdutoDocument } from '../produto/produto.schema';
 import {
@@ -59,7 +61,7 @@ export class OportunidadeService {
       filters.dataEncerramentoProposta = { $lte: hoje, $gte: new Date() };
     }
 
-    // Regra de tempo de vida para EXCLUIDA: ocultar se a data de encerramento já passou, 
+    // Regra de tempo de vida para EXCLUIDA: ocultar se a data de encerramento já passou,
     // a menos que estejamos consultando explicitamente a lixeira/arquivo
     if (query.includeDeleted !== 'true' && query.kanbanStatus !== 'EXCLUIDA') {
       const agora = new Date();
@@ -212,7 +214,9 @@ export class OportunidadeService {
           oportunidadeId: id,
           numeroItem: item.numeroItem || 0,
           descricao: item.descricao || 'Item sem descrição',
-          categoria: this.categoriaService.categorizeProduto(item.descricao || ''),
+          categoria: this.categoriaService.categorizeProduto(
+            item.descricao || '',
+          ),
           quantidade: item.quantidade || 1,
           unidadeMedida: item.unidadeMedida || 'UN',
           valorUnitarioEstimado: item.valorUnitarioEstimado || 0,
@@ -440,4 +444,49 @@ export class OportunidadeService {
       );
     }
   }
+
+  async importarManual(input: string): Promise<Oportunidade> {
+    try {
+      this.logger.info(`Iniciando importação manual para: ${input}`);
+      const raw = await this.pncpClientService.buscarContratacaoPorUrlOuControle(input);
+      
+      if (!raw) {
+        throw new BadRequestException('Não foi possível carregar os dados dessa oportunidade no PNCP.');
+      }
+
+      const opDto = mapPncpParaOportunidade(raw);
+
+      // Deduplicar
+      const existe = await this.model.findOne({
+        numeroControlePNCP: opDto.numeroControlePNCP,
+      });
+
+      if (existe) {
+        this.logger.info(`Oportunidade ${opDto.numeroControlePNCP} já existe. Atualizando status.`);
+        return this.model.findOneAndUpdate(
+          { numeroControlePNCP: opDto.numeroControlePNCP },
+          {
+            $set: {
+              situacaoCompraNome: opDto.situacaoCompraNome,
+              dataEncerramentoProposta: opDto.dataEncerramentoProposta,
+              valorTotalEstimado: opDto.valorTotalEstimado,
+            },
+          },
+          { new: true }
+        ).exec();
+      }
+
+      const created = await this.model.create(opDto);
+      this.logger.info(`Oportunidade importada com sucesso: ${created._id}`);
+      
+      // Emitir evento WebSocket para atualizar a UI em tempo real
+      this.gateway.emitOportunidadeUpdate(created);
+
+      return created;
+    } catch (e) {
+      this.logger.error(`Erro na importação manual: ${e.message}`);
+      throw new BadRequestException(`Erro ao importar oportunidade: ${e.message}`);
+    }
+  }
+
 }
