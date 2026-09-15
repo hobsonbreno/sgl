@@ -26,3 +26,5 @@ force_sync_now.js
 test_pncp.js
 user_requests.txt
 eslint_report.txt
+backend/cache/
+query.js
