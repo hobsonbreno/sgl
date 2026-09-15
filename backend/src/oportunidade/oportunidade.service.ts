@@ -170,6 +170,14 @@ export class OportunidadeService {
         }
       }
 
+      // Busca itens antigos para preservar dados do usuário
+      const itensAntigos = await this.produtoModel.find({ oportunidadeId: id });
+      const mapaAntigos = new Map();
+      for (const antigo of itensAntigos) {
+        const chave = `${antigo.numeroLote || 0}-${antigo.numeroItem}`;
+        mapaAntigos.set(chave, antigo);
+      }
+
       const novosProdutos = [];
       for (const item of itensRaw) {
         let vencedorCnpj = '';
@@ -213,9 +221,14 @@ export class OportunidadeService {
           }
         }
 
+        const lote = item.numeroLote || item.lote || 0;
+        const chave = `${lote}-${item.numeroItem}`;
+        const itemAntigo = mapaAntigos.get(chave);
+
         novosProdutos.push({
           oportunidadeId: id,
           numeroItem: item.numeroItem || 0,
+          numeroLote: lote,
           descricao: item.descricao || 'Item sem descrição',
           categoria: this.categoriaService.categorizeProduto(
             String(item.descricao || ''),
@@ -229,21 +242,21 @@ export class OportunidadeService {
           vencedorCnpj,
           vencedorNome,
           valorVencedor,
+          valorNossoLance: itemAntigo?.valorNossoLance || 0,
+          valorConcorrente: itemAntigo?.valorConcorrente || 0,
         });
       }
 
-      const ops = novosProdutos.map((prod) => ({
-        updateOne: {
-          filter: { oportunidadeId: id, numeroItem: prod.numeroItem },
-          update: { $set: prod },
-          upsert: true,
-        },
-      }));
+      // Limpa todos os itens antigos desta oportunidade
+      await this.produtoModel.deleteMany({ oportunidadeId: id });
 
-      await this.produtoModel.bulkWrite(ops);
+      // Insere os itens sincronizados
+      if (novosProdutos.length > 0) {
+        await this.produtoModel.insertMany(novosProdutos);
+      }
 
       this.logger.info(
-        `Sincronizados (upsert) ${novosProdutos.length} itens para a oportunidade ${id}`,
+        `Sincronizados ${novosProdutos.length} itens para a oportunidade ${id}`,
       );
 
       // Regra de Negócio: Auto-arquivamento removido para que o usuário
@@ -253,12 +266,12 @@ export class OportunidadeService {
         message: 'Itens sincronizados com sucesso',
         total: novosProdutos.length,
       };
-    } catch (e) {
+    } catch (e: any) {
       this.logger.error(
         `Erro ao sincronizar itens da oportunidade ${id}: ${e.message}`,
       );
       throw new BadRequestException(
-        'Não foi possível carregar os itens agora, tente novamente.',
+        e.response?.data?.message || e.message || 'Não foi possível carregar os itens agora, tente novamente.',
       );
     }
   }

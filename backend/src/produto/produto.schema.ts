@@ -8,6 +8,9 @@ export class Produto {
   @Prop()
   numeroItem: number;
 
+  @Prop({ default: 0 })
+  numeroLote: number;
+
   @Prop({ required: true })
   descricao: string;
 

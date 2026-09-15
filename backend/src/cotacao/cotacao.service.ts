@@ -25,14 +25,21 @@ export class CotacaoService {
       if (initialItems.length > 0) {
         let changed = false;
         for (const initialItem of initialItems) {
-          const itemJaExiste = existe.itens.some(
-            (it) =>
-              it.produtoId &&
-              it.produtoId.toString() === initialItem._id.toString(),
-          );
-          if (!itemJaExiste) {
+          // Busca o item existente pelo número do item e lote, ou pelo produtoId
+          const itemExistenteIndex = existe.itens.findIndex((it) => {
+            const sameNumero = it.numeroItem === (initialItem.numeroItem || 0) && it.numeroLote === (initialItem.numeroLote || 0);
+            const sameProdutoId = it.produtoId && it.produtoId.toString() === initialItem._id.toString();
+            // Se tiver numeroItem no banco, confia nele; senão, cai para o fallback do produtoId
+            if (it.numeroItem !== undefined && it.numeroItem > 0) return sameNumero;
+            return sameProdutoId;
+          });
+
+          if (itemExistenteIndex === -1) {
+            // Não existe, então adiciona
             existe.itens.push({
               produtoId: initialItem._id,
+              numeroItem: initialItem.numeroItem || 0,
+              numeroLote: initialItem.numeroLote || 0,
               descricaoItem: initialItem.descricao,
               quantidade: initialItem.quantidade || 1,
               unidadeMedida: initialItem.unidadeMedida || 'UN',
@@ -40,9 +47,28 @@ export class CotacaoService {
               precosFornecedores: [],
             } as any);
             changed = true;
+          } else {
+            // Existe! Vamos garantir que o produtoId e os números estejam atualizados (caso o produto tenha sido recriado no resync)
+            const it = existe.itens[itemExistenteIndex];
+            if (it.produtoId?.toString() !== initialItem._id.toString()) {
+              it.produtoId = initialItem._id;
+              changed = true;
+            }
+            if (it.numeroItem !== (initialItem.numeroItem || 0) || it.numeroLote !== (initialItem.numeroLote || 0)) {
+              it.numeroItem = initialItem.numeroItem || 0;
+              it.numeroLote = initialItem.numeroLote || 0;
+              changed = true;
+            }
           }
         }
         if (changed) {
+          // Ordena os itens antes de salvar
+          existe.itens.sort((a, b) => {
+            if ((a.numeroLote || 0) !== (b.numeroLote || 0)) {
+              return (a.numeroLote || 0) - (b.numeroLote || 0);
+            }
+            return (a.numeroItem || 0) - (b.numeroItem || 0);
+          });
           await existe.save();
         }
       }
@@ -51,12 +77,22 @@ export class CotacaoService {
 
     const itens = initialItems.map((i) => ({
       produtoId: i._id,
+      numeroItem: i.numeroItem || 0,
+      numeroLote: i.numeroLote || 0,
       descricaoItem: i.descricao,
       quantidade: i.quantidade || 1,
       unidadeMedida: i.unidadeMedida || 'UN',
       valorUnitarioEstimado: i.valorUnitarioEstimado || 0,
       precosFornecedores: [],
     }));
+
+    // Ordena os itens antes de salvar a nova
+    itens.sort((a, b) => {
+      if ((a.numeroLote || 0) !== (b.numeroLote || 0)) {
+        return (a.numeroLote || 0) - (b.numeroLote || 0);
+      }
+      return (a.numeroItem || 0) - (b.numeroItem || 0);
+    });
 
     const nova = new this.model({
       oportunidadeId,

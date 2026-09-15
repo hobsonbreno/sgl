@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { PncpContratacaoRawDto } from '../../dtos/pncp.dto';
-import { catchError, firstValueFrom, retry, timer } from 'rxjs';
+import { catchError, firstValueFrom, retry, timer, of } from 'rxjs';
 import { AxiosError } from 'axios';
 
 export interface FiltroBuscaDto {
@@ -80,39 +80,14 @@ export class PncpClientService {
     const cnpj = splitDash[0];
     const sequencial = splitDash[2];
 
-    const baseUrl = `https://pncp.gov.br/api/consulta/v1/orgaos/${cnpj}/compras/${ano}/${sequencial}/itens`;
+    const baseUrlConsulta = `https://pncp.gov.br/api/consulta/v1/orgaos/${cnpj}/compras/${ano}/${sequencial}/itens`;
+    const baseUrlPncp = `https://pncp.gov.br/api/pncp/v1/orgaos/${cnpj}/compras/${ano}/${sequencial}/itens`;
 
     try {
-      let todosItens: any[] = [];
-      let pagina = 1;
-      const tamanhoPagina = 500;
-      let temMais = true;
-
-      while (temMais) {
-        const url = `${baseUrl}?pagina=${pagina}&tamanhoPagina=${tamanhoPagina}`;
-        const response = await firstValueFrom(
-          this.httpService.get(url, { timeout: 60000 }).pipe(
-            retry({
-              count: 2,
-              delay: (error: AxiosError, retryCount: number) => {
-                this.logger.warn(
-                  `Falha na requisição para ${url}. Tentativa ${retryCount}/2. Erro: ${error.message}`,
-                );
-                return timer(2000 * retryCount);
-              },
-            }),
-          ),
-        );
-
-        const itensDaPagina = response?.data || [];
-        todosItens = todosItens.concat(itensDaPagina);
-
-        if (itensDaPagina.length < tamanhoPagina) {
-          temMais = false;
-        } else {
-          pagina++;
-          await new Promise((r) => setTimeout(r, 800));
-        }
+      let todosItens = await this.executarBuscaPaginada(baseUrlConsulta);
+      if (todosItens.length === 0) {
+        this.logger.log(`API de consulta retornou 0 itens para ${numeroControlePNCP}. Tentando API de integração PNCP.`);
+        todosItens = await this.executarBuscaPaginada(baseUrlPncp);
       }
       return todosItens;
     } catch (e) {
@@ -121,6 +96,47 @@ export class PncpClientService {
       );
       throw e; // Rethrow to let the caller handle it (e.g. OportunidadeController)
     }
+  }
+
+  private async executarBuscaPaginada(baseUrl: string): Promise<any[]> {
+    let todosItens: any[] = [];
+    let pagina = 1;
+    const tamanhoPagina = 50;
+    let temMais = true;
+
+    while (temMais) {
+      const url = `${baseUrl}?pagina=${pagina}&tamanhoPagina=${tamanhoPagina}`;
+      const response = await firstValueFrom(
+        this.httpService.get(url, { timeout: 60000 }).pipe(
+          retry({
+            count: 2,
+            delay: (error: AxiosError, retryCount: number) => {
+              this.logger.warn(
+                `Falha na requisição para ${url}. Tentativa ${retryCount}/2. Erro: ${error.message}`,
+              );
+              return timer(2000 * retryCount);
+            },
+          }),
+          catchError((error: AxiosError) => {
+            if (error.response && error.response.status === 404) {
+              return of({ data: [] });
+            }
+            throw error;
+          })
+        ),
+      );
+
+      const itensDaPagina = response?.data || [];
+      todosItens = todosItens.concat(itensDaPagina);
+
+      if (itensDaPagina.length < tamanhoPagina) {
+        temMais = false;
+      } else {
+        pagina++;
+        await new Promise((r) => setTimeout(r, 800));
+      }
+    }
+    return todosItens;
   }
 
   async buscarResultadosDoItem(

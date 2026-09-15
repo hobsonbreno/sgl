@@ -259,7 +259,7 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
         <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start' }}>
           <div style={{ width: '40%' }}>
             <span style={{ fontWeight: 500, color: '#334155', textTransform: 'uppercase' }}>
-              {item.numeroItem || index + 1} {item.descricaoCurta || ((item.descricaoItem || item.descricao) ? (item.descricaoItem || item.descricao).split(' ')[0] : 'ITEM')}
+              {item.numeroLote ? `Lote ${item.numeroLote} - ` : ''}Item {item.numeroItem || index + 1} - {item.descricaoCurta || ((item.descricaoItem || item.descricao) ? (item.descricaoItem || item.descricao).split(' ')[0] : 'ITEM')}
             </span>
           </div>
           
@@ -1255,8 +1255,8 @@ export default function OportunidadeDetalhe() {
       let resProds = await fetch(`${window.API_URL}/produto?oportunidadeId=${id}&limit=1000`);
       let dataProds = await resProds.json();
       
-      // Sincronizar itens se a oportunidade não tiver nenhum
-      if (!dataProds.data || dataProds.data.length === 0) {
+      // Sincronizar itens se a oportunidade não tiver nenhum e possuir número PNCP
+      if ((!dataProds.data || dataProds.data.length === 0) && dataOp.numeroControlePNCP) {
         setIsSyncing(true);
         try {
           const syncRes = await fetch(`${window.API_URL}/oportunidades/${id}/sincronizar-itens`, { method: 'POST' });
@@ -1510,7 +1510,8 @@ export default function OportunidadeDetalhe() {
             <ArrowLeft size={16} /> Voltar
           </Link>
           <button
-            disabled={isSyncing}
+            disabled={isSyncing || !oportunidade.numeroControlePNCP}
+            title={!oportunidade.numeroControlePNCP ? 'Oportunidade sem número PNCP' : ''}
             onClick={async () => {
               if (window.confirm("Deseja sincronizar novos itens deste edital direto do PNCP? (Isso não apagará suas cotações atuais)")) {
                 setIsSyncing(true);
@@ -1764,7 +1765,7 @@ export default function OportunidadeDetalhe() {
                     </thead>
                     <tbody>
                       {itensAtual.map((item: any, idx: number) => {
-                        const num = item.numeroItem || (itemInicial + idx);
+                        const num = item.numeroLote ? `Lote ${item.numeroLote} / It ${item.numeroItem}` : (item.numeroItem || (itemInicial + idx));
                         const desc = item.descricaoItem || item.descricao || item.produtoId?.descricao || item.produtoId?.nome || 'Sem descrição';
                         const qtde = item.quantidade || 1;
                         const valUnit = item.valorUnitarioEstimado || item.produtoId?.valorUnitarioEstimado || item.valorReferencia || item.produtoId?.valorReferencia;

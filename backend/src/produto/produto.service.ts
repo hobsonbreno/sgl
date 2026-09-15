@@ -34,7 +34,7 @@ export class ProdutoService {
         select:
           'orgaoNome numeroControlePNCP kanbanStatus uf numeroCompraOrigem anoCompraOrigem',
       })
-      .sort({ createdAt: -1 })
+      .sort({ numeroLote: 1, numeroItem: 1 })
       .skip(skip)
       .limit(limit)
       .exec();
