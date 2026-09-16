@@ -27,15 +27,21 @@ export class CotacaoService {
         for (const initialItem of initialItems) {
           // Busca o item existente pelo número do item e lote, ou pelo produtoId
           const itemExistenteIndex = existe.itens.findIndex((it) => {
-            const sameNumero = it.numeroItem === (initialItem.numeroItem || 0) && it.numeroLote === (initialItem.numeroLote || 0);
-            const sameProdutoId = it.produtoId && it.produtoId.toString() === initialItem._id.toString();
+            const sameNumero =
+              it.numeroItem === (initialItem.numeroItem || 0) &&
+              it.numeroLote === (initialItem.numeroLote || 0);
+            const sameProdutoId =
+              it.produtoId &&
+              it.produtoId.toString() === initialItem._id.toString();
             // Se tiver numeroItem no banco, confia nele; senão, cai para o fallback do produtoId
-            if (it.numeroItem !== undefined && it.numeroItem > 0) return sameNumero;
+            if (it.numeroItem !== undefined && it.numeroItem > 0)
+              return sameNumero;
             return sameProdutoId;
           });
 
           if (itemExistenteIndex === -1) {
             // Não existe, então adiciona
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
             existe.itens.push({
               produtoId: initialItem._id,
               numeroItem: initialItem.numeroItem || 0,
@@ -54,7 +60,10 @@ export class CotacaoService {
               it.produtoId = initialItem._id;
               changed = true;
             }
-            if (it.numeroItem !== (initialItem.numeroItem || 0) || it.numeroLote !== (initialItem.numeroLote || 0)) {
+            if (
+              it.numeroItem !== (initialItem.numeroItem || 0) ||
+              it.numeroLote !== (initialItem.numeroLote || 0)
+            ) {
               it.numeroItem = initialItem.numeroItem || 0;
               it.numeroLote = initialItem.numeroLote || 0;
               changed = true;
