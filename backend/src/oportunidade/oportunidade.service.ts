@@ -271,7 +271,9 @@ export class OportunidadeService {
         `Erro ao sincronizar itens da oportunidade ${id}: ${e.message}`,
       );
       throw new BadRequestException(
-        e.response?.data?.message || e.message || 'Não foi possível carregar os itens agora, tente novamente.',
+        e.response?.data?.message ||
+          e.message ||
+          'Não foi possível carregar os itens agora, tente novamente.',
       );
     }
   }

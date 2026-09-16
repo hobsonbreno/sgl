@@ -86,7 +86,9 @@ export class PncpClientService {
     try {
       let todosItens = await this.executarBuscaPaginada(baseUrlConsulta);
       if (todosItens.length === 0) {
-        this.logger.log(`API de consulta retornou 0 itens para ${numeroControlePNCP}. Tentando API de integração PNCP.`);
+        this.logger.log(
+          `API de consulta retornou 0 itens para ${numeroControlePNCP}. Tentando API de integração PNCP.`,
+        );
         todosItens = await this.executarBuscaPaginada(baseUrlPncp);
       }
       return todosItens;
@@ -115,7 +117,9 @@ export class PncpClientService {
                 `Falha na requisição para ${url}. Tentativa ${retryCount}/4. Erro: ${error.message}`,
               );
               if (error.response?.status === 429) {
-                this.logger.warn(`Rate limit atingido (429) na paginação de itens. Aguardando ${5 * retryCount} segundos...`);
+                this.logger.warn(
+                  `Rate limit atingido (429) na paginação de itens. Aguardando ${5 * retryCount} segundos...`,
+                );
                 return timer(5000 * retryCount);
               }
               return timer(2000 * retryCount);
@@ -126,7 +130,7 @@ export class PncpClientService {
               return of({ data: [] });
             }
             throw error;
-          })
+          }),
         ),
       );
 
@@ -181,7 +185,9 @@ export class PncpClientService {
                   `Falha ao buscar resultados para ${url}. Tentativa ${retryCount}/4. Erro: ${error.message}`,
                 );
                 if (error.response?.status === 429) {
-                  this.logger.warn(`Rate limit atingido (429) nos resultados do item. Aguardando ${5 * retryCount} segundos...`);
+                  this.logger.warn(
+                    `Rate limit atingido (429) nos resultados do item. Aguardando ${5 * retryCount} segundos...`,
+                  );
                   return timer(5000 * retryCount);
                 }
                 return timer(2000 * retryCount);
@@ -262,7 +268,9 @@ export class PncpClientService {
           retry({
             count: 4,
             delay: (error: AxiosError, retryCount: number) => {
-              this.logger.warn(`Falha ao buscar contratacao ${cnpj}/${ano}/${sequencial}. Tentativa ${retryCount}/4. Erro: ${error.message}`);
+              this.logger.warn(
+                `Falha ao buscar contratacao ${cnpj}/${ano}/${sequencial}. Tentativa ${retryCount}/4. Erro: ${error.message}`,
+              );
               if (error.response?.status === 429) {
                 return timer(5000 * retryCount);
               }
