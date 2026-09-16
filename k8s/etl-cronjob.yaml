@@ -12,7 +12,7 @@ spec:
           containers:
           - name: sgl-etl
             # Substituir pela sua imagem real hospedada no Docker Hub / Registry (ex: breno/sgl-backend:latest)
-            image: hobson007breno/sgl-backend:bcec2f0
+            image: hobson007breno/sgl-backend:f2108e6
             command:
             - npm
             - run
