@@ -212,8 +212,8 @@ export class OportunidadeService {
                 vencedor.valorProposta ||
                 0;
             }
-            // Delay curto para não explodir o rate limit do PNCP
-            await new Promise((r) => setTimeout(r, 200));
+            // Delay maior para não explodir o rate limit do PNCP
+            await new Promise((r) => setTimeout(r, 800));
           } catch {
             this.logger.warn(
               `Não foi possível buscar o resultado do item ${item.numeroItem}`,
