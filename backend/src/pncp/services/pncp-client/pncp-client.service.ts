@@ -114,7 +114,10 @@ export class PncpClientService {
           retry({
             count: 4,
             delay: (error: AxiosError, retryCount: number) => {
-              if (error.response?.status === 404 || error.response?.status === 400) {
+              if (
+                error.response?.status === 404 ||
+                error.response?.status === 400
+              ) {
                 throw error;
               }
               this.logger.warn(
@@ -234,7 +237,10 @@ export class PncpClientService {
         retry({
           count: 5,
           delay: (error: AxiosError, retryCount: number) => {
-            if (error.response?.status === 404 || error.response?.status === 400) {
+            if (
+              error.response?.status === 404 ||
+              error.response?.status === 400
+            ) {
               throw error;
             }
             this.logger.warn(
