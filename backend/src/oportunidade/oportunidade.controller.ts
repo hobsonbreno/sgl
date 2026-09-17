@@ -15,6 +15,10 @@ export class UpdateStatusDto {
   kanbanStatus: string;
 }
 
+export class ImportarManualDto {
+  linkOuControle: string;
+}
+
 @ApiTags('Oportunidades')
 @Controller('oportunidades')
 export class OportunidadeController {
@@ -56,5 +60,13 @@ export class OportunidadeController {
   @ApiOperation({ summary: 'Excluir oportunidade e seus dados vinculados' })
   remove(@Param('id') id: string) {
     return this.service.remove(id);
+  }
+
+  @Post('importar-manual')
+  @ApiOperation({
+    summary: 'Importar uma oportunidade do PNCP via link ou controle',
+  })
+  importarManual(@Body() body: ImportarManualDto) {
+    return this.service.importarManual(body.linkOuControle);
   }
 }

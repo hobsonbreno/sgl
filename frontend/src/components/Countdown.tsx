@@ -33,7 +33,7 @@ const Countdown = ({ targetDate, onExpire, suffixMessage }: { targetDate: string
 
   if (timeLeft.expirado) {
     return (
-      <span style={{ color: '#ffffff', fontWeight: 800, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px', background: '#dc2626', padding: '0.4rem 0.8rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.4rem', width: 'fit-content' }}>
+      <span style={{ color: '#b91c1c', fontWeight: 'bold', fontSize: '0.75rem', background: '#fee2e2', border: '1px solid #fecaca', padding: '0.1rem 0.4rem', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '0.3rem', width: 'fit-content', marginBottom: '0.25rem' }}>
         <AlertTriangle size={14} /> Expirado {suffixMessage ? `- ${suffixMessage}` : ''}
       </span>
     );
@@ -42,8 +42,9 @@ const Countdown = ({ targetDate, onExpire, suffixMessage }: { targetDate: string
   const isCritical = timeLeft.dias === 0 && timeLeft.horas === 0 && timeLeft.minutos <= 15;
   const isWarning = timeLeft.dias <= 2;
 
-  const bg = isCritical ? '#ef4444' : isWarning ? '#fef2f2' : '#fffbeb';
-  const color = isCritical ? '#ffffff' : isWarning ? '#dc2626' : '#d97706';
+  const bg = isCritical ? '#fee2e2' : isWarning ? '#ffedd5' : '#dcfce7';
+  const color = isCritical ? '#b91c1c' : isWarning ? '#c2410c' : '#15803d';
+  const border = isCritical ? '#fecaca' : isWarning ? '#fed7aa' : '#bbf7d0';
   
   let text = '';
   if (timeLeft.dias > 0) text += `${timeLeft.dias}d `;
@@ -51,7 +52,7 @@ const Countdown = ({ targetDate, onExpire, suffixMessage }: { targetDate: string
   text += `${String(timeLeft.minutos).padStart(2, '0')}m ${String(timeLeft.segundos).padStart(2, '0')}s`;
 
   return (
-    <span style={{ color: color, fontWeight: 800, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px', background: bg, padding: '0.4rem 0.8rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.4rem', width: 'fit-content', marginBottom: '0.5rem' }}>
+    <span style={{ color: color, fontWeight: 'bold', fontSize: '0.75rem', background: bg, border: `1px solid ${border}`, padding: '0.1rem 0.4rem', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '0.3rem', width: 'fit-content', marginBottom: '0.25rem' }}>
       <Timer size={14} /> Faltam {text} {suffixMessage ? `- ${suffixMessage}` : ''}
     </span>
   );

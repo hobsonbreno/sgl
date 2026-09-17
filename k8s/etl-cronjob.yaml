@@ -12,12 +12,21 @@ spec:
           containers:
           - name: sgl-etl
             # Substituir pela sua imagem real hospedada no Docker Hub / Registry (ex: breno/sgl-backend:latest)
-            image: hobson007breno/sgl-backend:latest
+            image: hobson007breno/sgl-backend:f2108e6
             command:
             - npm
             - run
-            - sync:receita
+            - sync:receita:prod
             env:
             - name: MONGO_URI
               value: "mongodb://mongo:27017/licitacoes"
+            - name: TZ
+              value: "America/Sao_Paulo"
+            - name: PNCP_BASE_URL
+              value: "https://pncp.gov.br/api/consulta"
+            - name: SERPAPI_KEYS
+              valueFrom:
+                secretKeyRef:
+                  name: sgl-secrets
+                  key: SERPAPI_KEYS
           restartPolicy: OnFailure

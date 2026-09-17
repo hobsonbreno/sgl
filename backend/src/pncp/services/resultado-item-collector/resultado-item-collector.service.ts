@@ -84,7 +84,7 @@ export class ResultadoItemCollectorService {
               const seq = subPartes[2];
 
               // Verifica se já processou esta compra recentemente (opcional, mas bom pra evitar repetição no mesmo lote)
-              const itensUrl = `https://pncp.gov.br/api/pncp/v1/orgaos/${cnpj}/compras/${ano}/${seq}/itens`;
+              const itensUrl = `https://pncp.gov.br/api/consulta/v1/orgaos/${cnpj}/compras/${ano}/${seq}/itens`;
               const itensResponse = await this.fazerRequisicaoComRetry(
                 itensUrl,
                 true,
@@ -92,7 +92,7 @@ export class ResultadoItemCollectorService {
               const itens = itensResponse || [];
 
               for (const item of itens) {
-                const resUrl = `https://pncp.gov.br/api/pncp/v1/orgaos/${cnpj}/compras/${ano}/${seq}/itens/${item.numeroItem}/resultados`;
+                const resUrl = `https://pncp.gov.br/api/consulta/v1/orgaos/${cnpj}/compras/${ano}/${seq}/itens/${item.numeroItem}/resultados`;
                 const resultados = await this.fazerRequisicaoComRetry(
                   resUrl,
                   true,

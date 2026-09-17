@@ -8,7 +8,7 @@ import {
   Query,
   Delete,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { FornecedorService } from './fornecedor.service';
 
 export class CreateFornecedorDto {
@@ -41,6 +41,17 @@ export class FornecedorController {
   })
   getBaseProdutos(@Query() query: any) {
     return this.service.getBaseProdutos(query);
+  }
+
+  @Put('produtos/base/unificar')
+  @ApiOperation({ summary: 'Unificar múltiplos produtos em um só' })
+  unificarProdutos(
+    @Body() data: { produtosOrigem: string[]; produtoDestino: string },
+  ) {
+    return this.service.unificarProdutosBase(
+      data.produtosOrigem,
+      data.produtoDestino,
+    );
   }
 
   @Put('produtos/base')

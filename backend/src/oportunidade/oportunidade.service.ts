@@ -2,12 +2,17 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
-  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { Oportunidade, OportunidadeDocument } from './oportunidade.schema';
+import {
+  mapPncpParaOportunidade,
+  PncpContratacaoRawDto,
+} from '../pncp/dtos/pncp.dto';
+
 import { PncpClientService } from '../pncp/services/pncp-client/pncp-client.service';
 import { Produto, ProdutoDocument } from '../produto/produto.schema';
 import {
@@ -21,6 +26,8 @@ import {
 import { FinanceiroService } from '../financeiro/financeiro.service';
 import { Cotacao, CotacaoDocument } from '../cotacao/cotacao.schema';
 import { OportunidadeGateway } from './oportunidade.gateway';
+import { SefazCeScraperService } from '../sefaz-ce/sefaz-ce-scraper.service';
+import { CategoriaService } from '../categoria/categoria.service';
 
 @Injectable()
 export class OportunidadeService {
@@ -35,6 +42,8 @@ export class OportunidadeService {
     private readonly financeiroService: FinanceiroService,
     @InjectModel(Cotacao.name) private cotacaoModel: Model<CotacaoDocument>,
     private readonly gateway: OportunidadeGateway,
+    private readonly sefazScraperService: SefazCeScraperService,
+    private readonly categoriaService: CategoriaService,
   ) {}
 
   async findAll(query: any): Promise<{
@@ -55,28 +64,33 @@ export class OportunidadeService {
       filters.dataEncerramentoProposta = { $lte: hoje, $gte: new Date() };
     }
 
-    // Regra de tempo de vida para EXCLUIDA: ocultar se a data de encerramento já passou
-    const agora = new Date();
-    filters.$or = [
-      { kanbanStatus: { $ne: 'EXCLUIDA' } },
-      { kanbanStatus: 'EXCLUIDA', dataEncerramentoProposta: { $gte: agora } },
-      { kanbanStatus: 'EXCLUIDA', dataEncerramentoProposta: null },
-      {
-        kanbanStatus: 'EXCLUIDA',
-        dataEncerramentoProposta: { $exists: false },
-      },
-    ];
+    // Regra de tempo de vida para EXCLUIDA: ocultar se a data de encerramento já passou,
+    // a menos que estejamos consultando explicitamente a lixeira/arquivo
+    if (query.includeDeleted !== 'true' && query.kanbanStatus !== 'EXCLUIDA') {
+      const agora = new Date();
+      filters.$or = [
+        { kanbanStatus: { $ne: 'EXCLUIDA' } },
+        { kanbanStatus: 'EXCLUIDA', dataEncerramentoProposta: { $gte: agora } },
+        { kanbanStatus: 'EXCLUIDA', dataEncerramentoProposta: null },
+        {
+          kanbanStatus: 'EXCLUIDA',
+          dataEncerramentoProposta: { $exists: false },
+        },
+      ];
+    }
 
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 50;
     const skip = (page - 1) * limit;
 
     const data = await this.model
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       .find(filters)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
       .exec();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const total = await this.model.countDocuments(filters).exec();
     const totalPages = Math.ceil(total / limit) || 1;
 
@@ -117,7 +131,6 @@ export class OportunidadeService {
     return doc;
   }
 
-
   async sincronizarItens(id: string) {
     const doc = await this.model.findById(id).exec();
     if (!doc) throw new NotFoundException('Oportunidade não encontrada');
@@ -127,9 +140,6 @@ export class OportunidadeService {
     }
 
     // Sempre busca e faz upsert, pois o órgão pode ter adicionado mais itens ao edital depois da primeira sincronização.
-    const produtosExistentes = await this.produtoModel
-      .countDocuments({ oportunidadeId: id })
-      .exec();
 
     try {
       const itensRaw = await this.pncpClientService.buscarItensDaContratacao(
@@ -140,40 +150,130 @@ export class OportunidadeService {
         return { message: 'Nenhum item retornado pela API da PNCP', total: 0 };
       }
 
-      const novosProdutos = itensRaw.map((item: any) => ({
-        oportunidadeId: id,
-        numeroItem: item.numeroItem || 0,
-        descricao: item.descricao || 'Item sem descrição',
-        quantidade: item.quantidade || 1,
-        unidadeMedida: item.unidadeMedida || 'UN',
-        valorUnitarioEstimado: item.valorUnitarioEstimado || 0,
-        valorTotalEstimado: item.valorTotal || 0,
-        valorEstimado: item.valorTotal || 0,
-      }));
+      // INTEGRAÇÃO SEFAZ CE - SCRAPER EM TEMPO REAL
+      let statusSefazOverride = null;
+      if (doc.orgaoNome && doc.orgaoNome.toLowerCase().includes('ceara')) {
+        // O usuário informou que o padrão de CoEP (ex: 202627134/2026) pode vir do objeto, número de compra ou tipo.
+        // Vamos tentar extrair formatado a partir da string raw.
+        const stringRaw = `${doc.numeroCompraOrigem || ''}/${doc.anoCompraOrigem || ''} ${doc.objetoCompra || ''}`;
+        const coepFormatada =
+          this.sefazScraperService.formatarCoepParaPesquisa(stringRaw);
 
-      const ops = novosProdutos.map((prod) => ({
-        updateOne: {
-          filter: { oportunidadeId: id, numeroItem: prod.numeroItem },
-          update: { $set: prod },
-          upsert: true,
-        },
-      }));
+        if (coepFormatada) {
+          this.logger.info(
+            `Oportunidade do Ceará identificada. Iniciando scraper S2GPR para CoEP: ${coepFormatada}`,
+          );
+          statusSefazOverride =
+            await this.sefazScraperService.buscarStatusCotacaoSefaz(
+              coepFormatada,
+            );
+        }
+      }
 
-      await this.produtoModel.bulkWrite(ops);
+      // Busca itens antigos para preservar dados do usuário
+      const itensAntigos = await this.produtoModel.find({ oportunidadeId: id });
+      const mapaAntigos = new Map();
+      for (const antigo of itensAntigos) {
+        const chave = `${antigo.numeroLote || 0}-${antigo.numeroItem}`;
+        mapaAntigos.set(chave, antigo);
+      }
+
+      const novosProdutos = [];
+      for (const item of itensRaw) {
+        let vencedorCnpj = '';
+        let vencedorNome = '';
+        let valorVencedor = 0;
+
+        const situacaoFinal =
+          statusSefazOverride || item.situacaoCompraItemNome || 'Desconhecido';
+        const st = situacaoFinal.toLowerCase();
+
+        // Só busca o resultado no PNCP se já tiver um status que indica conclusão
+        if (
+          st.includes('homologado') ||
+          st.includes('adjudicado') ||
+          st.includes('finalizada') ||
+          st.includes('encerrado')
+        ) {
+          try {
+            const resultados =
+              await this.pncpClientService.buscarResultadosDoItem(
+                doc.numeroControlePNCP,
+                Number(item.numeroItem),
+              );
+            if (resultados && resultados.length > 0) {
+              // A API de resultados do PNCP costuma retornar o campeão
+              const vencedor = resultados[0];
+              vencedorCnpj = vencedor.niFornecedor || '';
+              vencedorNome = vencedor.nomeRazaoSocialFornecedor || '';
+              valorVencedor =
+                vencedor.valorTotalHomologado ||
+                vencedor.valorTotalAdjudicado ||
+                vencedor.valorProposta ||
+                0;
+            }
+            // Delay maior para não explodir o rate limit do PNCP
+            await new Promise((r) => setTimeout(r, 800));
+          } catch {
+            this.logger.warn(
+              `Não foi possível buscar o resultado do item ${item.numeroItem}`,
+            );
+          }
+        }
+
+        const lote = item.numeroLote || item.lote || 0;
+        const chave = `${lote}-${item.numeroItem}`;
+        const itemAntigo = mapaAntigos.get(chave);
+
+        novosProdutos.push({
+          oportunidadeId: id,
+          numeroItem: item.numeroItem || 0,
+          numeroLote: lote,
+          descricao: item.descricao || 'Item sem descrição',
+          categoria: this.categoriaService.categorizeProduto(
+            String(item.descricao || ''),
+          ),
+          quantidade: item.quantidade || 1,
+          unidadeMedida: item.unidadeMedida || 'UN',
+          valorUnitarioEstimado: item.valorUnitarioEstimado || 0,
+          valorTotalEstimado: item.valorTotal || 0,
+          valorEstimado: item.valorTotal || 0,
+          situacaoJulgamento: situacaoFinal,
+          vencedorCnpj,
+          vencedorNome,
+          valorVencedor,
+          valorNossoLance: itemAntigo?.valorNossoLance || 0,
+          valorConcorrente: itemAntigo?.valorConcorrente || 0,
+        });
+      }
+
+      // Limpa todos os itens antigos desta oportunidade
+      await this.produtoModel.deleteMany({ oportunidadeId: id });
+
+      // Insere os itens sincronizados
+      if (novosProdutos.length > 0) {
+        await this.produtoModel.insertMany(novosProdutos);
+      }
 
       this.logger.info(
-        `Sincronizados (upsert) ${novosProdutos.length} itens para a oportunidade ${id}`,
+        `Sincronizados ${novosProdutos.length} itens para a oportunidade ${id}`,
       );
+
+      // Regra de Negócio: Auto-arquivamento removido para que o usuário
+      // possa visualizar o resultado no Kanban e mover manualmente.
+
       return {
         message: 'Itens sincronizados com sucesso',
         total: novosProdutos.length,
       };
-    } catch (e) {
+    } catch (e: any) {
       this.logger.error(
         `Erro ao sincronizar itens da oportunidade ${id}: ${e.message}`,
       );
       throw new BadRequestException(
-        'Não foi possível carregar os itens agora, tente novamente.',
+        e.response?.data?.message ||
+          e.message ||
+          'Não foi possível carregar os itens agora, tente novamente.',
       );
     }
   }
@@ -328,5 +428,98 @@ export class OportunidadeService {
       statusOperacao,
       projecaoMensal,
     };
+  }
+
+  @Cron(CronExpression.EVERY_4_HOURS)
+  async syncAllActiveOpportunities() {
+    this.logger.info(
+      'Iniciando sincronização periódica de itens das oportunidades ativas...',
+    );
+    try {
+      const activeOps = await this.model
+        .find({ kanbanStatus: { $nin: ['EXCLUIDA', 'ARQUIVADA'] } })
+        .exec();
+      this.logger.info(
+        `Encontradas ${activeOps.length} oportunidades ativas para sincronizar itens.`,
+      );
+
+      for (const op of activeOps) {
+        if (!op.numeroControlePNCP) continue;
+        try {
+          await this.sincronizarItens(op._id.toString());
+          // Pausa entre as oportunidades para não sofrer rate limit do PNCP
+          await new Promise((r) => setTimeout(r, 2000));
+        } catch (err: any) {
+          this.logger.warn(
+            `Erro na sincronização em background da oportunidade ${op._id.toString()}: ${err.message}`,
+          );
+        }
+      }
+      this.logger.info('Sincronização periódica concluída.');
+    } catch (err) {
+      this.logger.error(
+        `Erro ao executar rotina de sincronização de itens: ${err.message}`,
+      );
+    }
+  }
+
+  async importarManual(input: string): Promise<Oportunidade> {
+    try {
+      this.logger.info(`Iniciando importação manual para: ${input}`);
+      const raw =
+        await this.pncpClientService.buscarContratacaoPorUrlOuControle(input);
+
+      if (!raw) {
+        throw new BadRequestException(
+          'Não foi possível carregar os dados dessa oportunidade no PNCP.',
+        );
+      }
+
+      const opDto = mapPncpParaOportunidade(raw as PncpContratacaoRawDto);
+
+      // Importações manuais devem cair direto na coluna FAZENDO (em vez de A_FAZER)
+      opDto.kanbanStatus = 'FAZENDO';
+
+      // Deduplicar
+      const existe = await this.model.findOne({
+        numeroControlePNCP: opDto.numeroControlePNCP,
+      });
+
+      if (existe) {
+        this.logger.info(
+          `Oportunidade ${opDto.numeroControlePNCP} já existe. Atualizando status.`,
+        );
+        const updated = await this.model
+          .findOneAndUpdate(
+            { numeroControlePNCP: opDto.numeroControlePNCP },
+            {
+              $set: {
+                situacaoCompraNome: opDto.situacaoCompraNome,
+                dataEncerramentoProposta: opDto.dataEncerramentoProposta,
+                valorTotalEstimado: opDto.valorTotalEstimado,
+                kanbanStatus: 'FAZENDO', // Ressuscita o card caso estivesse excluído
+              },
+            },
+            { new: true },
+          )
+          .exec();
+        return updated as Oportunidade;
+      }
+
+      const created = await this.model.create(opDto);
+      this.logger.info(
+        `Oportunidade importada com sucesso: ${String(created._id)}`,
+      );
+
+      // Emitir evento WebSocket para atualizar a UI em tempo real
+      this.gateway.emitOportunidadeUpdate(created);
+
+      return created;
+    } catch (e) {
+      this.logger.error(`Erro na importação manual: ${e.message}`);
+      throw new BadRequestException(
+        `Erro ao importar oportunidade: ${e.message}`,
+      );
+    }
   }
 }

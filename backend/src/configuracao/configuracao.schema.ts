@@ -25,6 +25,9 @@ export class Configuracao {
     ],
   })
   colunasKanban: { id: string; nome: string }[];
+
+  @Prop({ type: [String], default: [] })
+  colunasRecolhidas: string[];
 }
 
 export const ConfiguracaoSchema = SchemaFactory.createForClass(Configuracao);

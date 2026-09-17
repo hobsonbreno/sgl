@@ -45,6 +45,12 @@ export class Proposta {
 
   @Prop()
   observacoes?: string;
+
+  @Prop({ type: Number })
+  posicaoAtual?: number;
+
+  @Prop({ type: [String], default: [] })
+  concorrentesDesclassificados?: string[];
 }
 
 export const PropostaSchema = SchemaFactory.createForClass(Proposta);

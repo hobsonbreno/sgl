@@ -12,6 +12,8 @@ import { PncpModule } from '../pncp/pncp.module';
 import { ProdutoModule } from '../produto/produto.module';
 import { FinanceiroModule } from '../financeiro/financeiro.module';
 import { Cotacao, CotacaoSchema } from '../cotacao/cotacao.schema';
+import { SefazCeModule } from '../sefaz-ce/sefaz-ce.module';
+import { CategoriaModule } from '../categoria/categoria.module';
 
 @Module({
   imports: [
@@ -23,6 +25,8 @@ import { Cotacao, CotacaoSchema } from '../cotacao/cotacao.schema';
     PncpModule,
     forwardRef(() => ProdutoModule),
     forwardRef(() => FinanceiroModule),
+    SefazCeModule,
+    CategoriaModule,
   ],
   controllers: [OportunidadeController],
   providers: [OportunidadeService, OportunidadeGateway],

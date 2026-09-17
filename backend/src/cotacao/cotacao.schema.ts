@@ -17,6 +17,8 @@ export class Cotacao {
       {
         _id: { type: mongoose.Schema.Types.ObjectId, auto: true },
         produtoId: { type: mongoose.Schema.Types.ObjectId, ref: 'Produto' },
+        numeroItem: Number,
+        numeroLote: Number,
         descricaoItem: String,
         quantidade: Number,
         unidadeMedida: String,
@@ -53,6 +55,8 @@ export class Cotacao {
   itens: {
     _id: mongoose.Types.ObjectId;
     produtoId?: mongoose.Types.ObjectId;
+    numeroItem?: number;
+    numeroLote?: number;
     descricaoItem: string;
     quantidade: number;
     unidadeMedida?: string;

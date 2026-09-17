@@ -58,7 +58,7 @@ export class BotService implements OnApplicationBootstrap {
         : ['08:00', '12:00', '18:00'];
 
     // Registrar Cron Job
-    await this.registrarCronDinamicoMultiplos(horarios);
+    this.registrarCronDinamicoMultiplos(horarios);
 
     // Lógica de recuperação ao iniciar o sistema
     setTimeout(() => {

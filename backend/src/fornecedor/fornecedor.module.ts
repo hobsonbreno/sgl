@@ -5,6 +5,7 @@ import { SupplierDiscoveryService } from './supplier-discovery.service';
 import { FornecedorController } from './fornecedor.controller';
 import { PerfilBuscaModule } from '../perfil-busca/perfil-busca.module';
 import { ReceitaFederalModule } from '../receita-federal/receita-federal.module';
+import { CategoriaModule } from '../categoria/categoria.module';
 import {
   Fornecedor,
   FornecedorSchema,
@@ -29,6 +30,7 @@ import { FornecedorGateway } from './fornecedor.gateway';
     ]),
     PerfilBuscaModule,
     ReceitaFederalModule,
+    CategoriaModule,
   ],
   controllers: [FornecedorController, CnpjEnrichmentController],
   providers: [

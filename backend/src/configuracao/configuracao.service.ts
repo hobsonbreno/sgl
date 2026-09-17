@@ -45,7 +45,7 @@ export class ConfiguracaoService implements OnModuleInit {
       )
       .exec();
     if (config) {
-      await this.botService.registrarCronDinamicoMultiplos(horarios);
+      this.botService.registrarCronDinamicoMultiplos(horarios);
     }
     return config;
   }
@@ -63,6 +63,12 @@ export class ConfiguracaoService implements OnModuleInit {
   async setColunas(colunas: { id: string; nome: string }[]) {
     return this.configModel
       .findOneAndUpdate({}, { colunasKanban: colunas }, { new: true })
+      .exec();
+  }
+
+  async setColunasRecolhidas(colunasRecolhidas: string[]) {
+    return this.configModel
+      .findOneAndUpdate({}, { colunasRecolhidas }, { new: true })
       .exec();
   }
 }

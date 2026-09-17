@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Wallet, TrendingUp, TrendingDown, DollarSign, Plus, Check, Trash2 } from 'lucide-react';
+import { io } from 'socket.io-client';
 
 export default function Financeiro() {
   const [transacoes, setTransacoes] = useState<any[]>([]);
@@ -18,6 +19,26 @@ export default function Financeiro() {
 
   useEffect(() => {
     carregarDados();
+  }, []);
+
+  useEffect(() => {
+    const socket = io(window.API_URL);
+
+    socket.on('financeiro_updated', () => {
+      carregarDados();
+    });
+
+    socket.on('oportunidade_updated', () => {
+      carregarDados();
+    });
+
+    socket.on('cotacao_updated', () => {
+      carregarDados();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   const carregarDados = async () => {

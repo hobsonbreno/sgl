@@ -1,3 +1,5 @@
+import traceback
+from fastapi.responses import PlainTextResponse
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient
@@ -125,3 +127,9 @@ def get_model_info():
         model_info["mensagem"] = "Modelo ativo e calibrado."
     
     return model_info
+
+@app.exception_handler(Exception)
+async def custom_exception_handler(request, exc):
+    print('EXCEPTION CAUGHT:')
+    traceback.print_exc()
+    return PlainTextResponse(str(exc), status_code=500)

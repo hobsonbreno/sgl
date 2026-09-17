@@ -13,6 +13,12 @@ export class CnpjEnrichmentService {
       this.logger.log(`Consultando BrasilAPI para CNPJ: ${cleanCnpj}`);
       const res = await axios.get(
         `https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`,
+        {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+            Accept: 'application/json',
+          },
+        },
       );
       return res.data;
     } catch (e) {

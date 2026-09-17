@@ -8,12 +8,7 @@ import {
   Delete,
   Patch,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiProperty,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiProperty } from '@nestjs/swagger';
 import { PerfilBuscaService } from './perfil-busca.service';
 
 export class CreatePerfilDto {

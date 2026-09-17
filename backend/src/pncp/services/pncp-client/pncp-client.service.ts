@@ -1,7 +1,7 @@
-import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { PncpContratacaoRawDto } from '../../dtos/pncp.dto';
-import { catchError, firstValueFrom, retry, timer, throwError, of } from 'rxjs';
+import { catchError, firstValueFrom, retry, timer, of } from 'rxjs';
 import { AxiosError } from 'axios';
 
 export interface FiltroBuscaDto {
@@ -43,7 +43,8 @@ export class PncpClientService {
       );
 
       if (response && response.data) {
-        const itens = response.data.data || [];
+        const itens: any[] = response.data.data || [];
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         resultados.push(...itens);
         totalPaginas = response.data.totalPaginas || 1;
       } else {
@@ -80,39 +81,16 @@ export class PncpClientService {
     const cnpj = splitDash[0];
     const sequencial = splitDash[2];
 
-    const baseUrl = `https://pncp.gov.br/api/pncp/v1/orgaos/${cnpj}/compras/${ano}/${sequencial}/itens`;
+    const baseUrlConsulta = `https://pncp.gov.br/api/consulta/v1/orgaos/${cnpj}/compras/${ano}/${sequencial}/itens`;
+    const baseUrlPncp = `https://pncp.gov.br/api/pncp/v1/orgaos/${cnpj}/compras/${ano}/${sequencial}/itens`;
 
     try {
-      let todosItens: any[] = [];
-      let pagina = 1;
-      const tamanhoPagina = 500;
-      let temMais = true;
-
-      while (temMais) {
-        const url = `${baseUrl}?pagina=${pagina}&tamanhoPagina=${tamanhoPagina}`;
-        const response = await firstValueFrom(
-          this.httpService.get(url, { timeout: 60000 }).pipe(
-            retry({
-              count: 2,
-              delay: (error: AxiosError, retryCount: number) => {
-                this.logger.warn(
-                  `Falha na requisição para ${url}. Tentativa ${retryCount}/2. Erro: ${error.message}`,
-                );
-                return timer(2000 * retryCount);
-              },
-            }),
-          ),
+      let todosItens = await this.executarBuscaPaginada(baseUrlConsulta);
+      if (todosItens.length === 0) {
+        this.logger.log(
+          `API de consulta retornou 0 itens para ${numeroControlePNCP}. Tentando API de integração PNCP.`,
         );
-
-        const itensDaPagina = response?.data || [];
-        todosItens = todosItens.concat(itensDaPagina);
-
-        if (itensDaPagina.length < tamanhoPagina) {
-          temMais = false;
-        } else {
-          pagina++;
-          await new Promise((r) => setTimeout(r, 800));
-        }
+        todosItens = await this.executarBuscaPaginada(baseUrlPncp);
       }
       return todosItens;
     } catch (e) {
@@ -120,6 +98,131 @@ export class PncpClientService {
         `Erro ao buscar itens de ${numeroControlePNCP}: ${e.message}`,
       );
       throw e; // Rethrow to let the caller handle it (e.g. OportunidadeController)
+    }
+  }
+
+  private async executarBuscaPaginada(baseUrl: string): Promise<any[]> {
+    let todosItens: any[] = [];
+    let pagina = 1;
+    const tamanhoPagina = 50;
+    let temMais = true;
+
+    while (temMais) {
+      const url = `${baseUrl}?pagina=${pagina}&tamanhoPagina=${tamanhoPagina}`;
+      const response = await firstValueFrom(
+        this.httpService.get(url, { timeout: 60000 }).pipe(
+          retry({
+            count: 4,
+            delay: (error: AxiosError, retryCount: number) => {
+              if (
+                error.response?.status === 404 ||
+                error.response?.status === 400
+              ) {
+                throw error;
+              }
+              this.logger.warn(
+                `Falha na requisição para ${url}. Tentativa ${retryCount}/4. Erro: ${error.message}`,
+              );
+              if (error.response?.status === 429) {
+                this.logger.warn(
+                  `Rate limit atingido (429) na paginação de itens. Aguardando ${5 * retryCount} segundos...`,
+                );
+                return timer(5000 * retryCount);
+              }
+              return timer(2000 * retryCount);
+            },
+          }),
+          catchError((error: AxiosError) => {
+            if (error.response && error.response.status === 404) {
+              return of({ data: [] });
+            }
+            throw error;
+          }),
+        ),
+      );
+
+      const itensDaPagina = response?.data || [];
+      todosItens = todosItens.concat(itensDaPagina);
+
+      if (itensDaPagina.length < tamanhoPagina) {
+        temMais = false;
+      } else {
+        pagina++;
+        await new Promise((r) => setTimeout(r, 800));
+      }
+    }
+    return todosItens;
+  }
+
+  async buscarResultadosDoItem(
+    numeroControlePNCP: string,
+    numeroItem: number,
+  ): Promise<any[]> {
+    this.logger.log(
+      `Buscando resultados para o item ${numeroItem} da contratação: ${numeroControlePNCP}`,
+    );
+    const parts = numeroControlePNCP.split('-');
+    if (parts.length < 3) return [];
+
+    const [cnpjESeq, ano] = numeroControlePNCP.split('/');
+    if (!ano) return [];
+
+    const splitDash = cnpjESeq.split('-');
+    if (splitDash.length < 3) return [];
+
+    const cnpj = splitDash[0];
+    const sequencial = splitDash[2];
+
+    const baseUrl = `https://pncp.gov.br/api/consulta/v1/orgaos/${cnpj}/compras/${ano}/${sequencial}/itens/${numeroItem}/resultados`;
+
+    try {
+      let todosResultados: any[] = [];
+      let pagina = 1;
+      const tamanhoPagina = 50;
+      let temMais = true;
+
+      while (temMais) {
+        const url = `${baseUrl}?pagina=${pagina}&tamanhoPagina=${tamanhoPagina}`;
+        const response = await firstValueFrom(
+          this.httpService.get(url, { timeout: 60000 }).pipe(
+            retry({
+              count: 4,
+              delay: (error: AxiosError, retryCount: number) => {
+                this.logger.warn(
+                  `Falha ao buscar resultados para ${url}. Tentativa ${retryCount}/4. Erro: ${error.message}`,
+                );
+                if (error.response?.status === 429) {
+                  this.logger.warn(
+                    `Rate limit atingido (429) nos resultados do item. Aguardando ${5 * retryCount} segundos...`,
+                  );
+                  return timer(5000 * retryCount);
+                }
+                return timer(2000 * retryCount);
+              },
+            }),
+          ),
+        );
+
+        const resultadosDaPagina = response?.data || [];
+        todosResultados = todosResultados.concat(resultadosDaPagina);
+
+        if (resultadosDaPagina.length < tamanhoPagina) {
+          temMais = false;
+        } else {
+          pagina++;
+          await new Promise((r) => setTimeout(r, 800));
+        }
+      }
+      return todosResultados;
+    } catch (e) {
+      if (e.response && e.response.status === 404) {
+        // Normal se não houver resultado ainda
+        return [];
+      }
+      this.logger.error(
+        `Erro ao buscar resultados do item ${numeroItem} de ${numeroControlePNCP}: ${e.message}`,
+      );
+      return [];
     }
   }
 
@@ -134,6 +237,12 @@ export class PncpClientService {
         retry({
           count: 5,
           delay: (error: AxiosError, retryCount: number) => {
+            if (
+              error.response?.status === 404 ||
+              error.response?.status === 400
+            ) {
+              throw error;
+            }
             this.logger.warn(
               `Falha na requisição para ${url}. Tentativa ${retryCount}/5. Erro: ${error.message}`,
             );
@@ -154,5 +263,75 @@ export class PncpClientService {
         }),
       ),
     );
+  }
+
+  async buscarContratacaoEspecifica(
+    cnpj: string,
+    ano: string,
+    sequencial: string,
+  ): Promise<any> {
+    this.logger.log(
+      `Buscando contratacao especifica: CNPJ ${cnpj}, Ano ${ano}, Seq ${sequencial}`,
+    );
+    const url = `https://pncp.gov.br/api/consulta/v1/orgaos/${cnpj}/compras/${ano}/${sequencial}`;
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get(url, { timeout: 30000 }).pipe(
+          retry({
+            count: 4,
+            delay: (error: AxiosError, retryCount: number) => {
+              this.logger.warn(
+                `Falha ao buscar contratacao ${cnpj}/${ano}/${sequencial}. Tentativa ${retryCount}/4. Erro: ${error.message}`,
+              );
+              if (error.response?.status === 429) {
+                return timer(5000 * retryCount);
+              }
+              return timer(2000 * retryCount);
+            },
+          }),
+        ),
+      );
+      return response.data;
+    } catch (e) {
+      this.logger.error(
+        `Erro ao buscar contratacao ${cnpj}/${ano}/${sequencial}: ${e.message}`,
+      );
+      throw e;
+    }
+  }
+
+  async buscarContratacaoPorUrlOuControle(input: string): Promise<any> {
+    let cnpj = '';
+    let ano = '';
+    let sequencial = '';
+
+    // Formato URL: https://pncp.gov.br/app/editais/00394494000136/2024/616
+    if (input.includes('pncp.gov.br/app/editais/')) {
+      const parts = input.split('editais/')[1].split('/');
+      if (parts.length >= 3) {
+        cnpj = parts[0];
+        ano = parts[1];
+        sequencial = parts[2].split('?')[0]; // remove query params if any
+      }
+    }
+    // Formato Numero Controle: 00394494000136-1-000616/2024
+    else if (input.includes('-') && input.includes('/')) {
+      const [cnpjESeq, a] = input.split('/');
+      ano = a;
+      const splitDash = cnpjESeq.split('-');
+      if (splitDash.length >= 3) {
+        cnpj = splitDash[0];
+        sequencial = splitDash[2];
+      }
+    }
+
+    if (!cnpj || !ano || !sequencial) {
+      throw new Error(
+        'Formato de Link ou Número de Controle do PNCP inválido.',
+      );
+    }
+
+    return this.buscarContratacaoEspecifica(cnpj, ano, sequencial);
   }
 }

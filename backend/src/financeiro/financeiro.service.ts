@@ -11,6 +11,7 @@ import {
 } from '../oportunidade/oportunidade.schema';
 import { Produto, ProdutoDocument } from '../produto/produto.schema';
 import { Cotacao, CotacaoDocument } from '../cotacao/cotacao.schema';
+import { FinanceiroGateway } from './financeiro.gateway';
 
 @Injectable()
 export class FinanceiroService {
@@ -21,11 +22,14 @@ export class FinanceiroService {
     private oportunidadeModel: Model<OportunidadeDocument>,
     @InjectModel(Produto.name) private produtoModel: Model<ProdutoDocument>,
     @InjectModel(Cotacao.name) private cotacaoModel: Model<CotacaoDocument>,
+    private readonly gateway: FinanceiroGateway,
   ) {}
 
   async create(createDto: any) {
     const created = new this.transacaoModel(createDto);
-    return created.save();
+    const result = await created.save();
+    this.gateway.emitFinanceiroUpdate();
+    return result;
   }
 
   async findAll() {
@@ -219,6 +223,7 @@ export class FinanceiroService {
     op.kanbanStatus = 'ARQUIVADOS';
     await op.save();
 
+    this.gateway.emitFinanceiroUpdate();
     return op;
   }
 
@@ -270,6 +275,7 @@ export class FinanceiroService {
     op.kanbanStatus = 'NEGOCIO_FECHADO';
     await op.save();
 
+    this.gateway.emitFinanceiroUpdate();
     return op;
   }
 
@@ -277,13 +283,17 @@ export class FinanceiroService {
     if (updateDto.status === 'PAGO' && !updateDto.dataPagamento) {
       updateDto.dataPagamento = new Date();
     }
-    return this.transacaoModel
+    const result = await this.transacaoModel
       .findByIdAndUpdate(id, updateDto, { new: true })
       .exec();
+    this.gateway.emitFinanceiroUpdate();
+    return result;
   }
 
   async remove(id: string) {
-    return this.transacaoModel.findByIdAndDelete(id).exec();
+    const result = await this.transacaoModel.findByIdAndDelete(id).exec();
+    this.gateway.emitFinanceiroUpdate();
+    return result;
   }
 
   async obterRBT12Atual(): Promise<number> {

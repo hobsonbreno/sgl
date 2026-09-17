@@ -19,6 +19,9 @@ import { EventsModule } from './events/events.module';
 import { FinanceiroModule } from './financeiro/financeiro.module';
 import { ReceitaFederalModule } from './receita-federal/receita-federal.module';
 import { ObservabilityModule } from './observability/observability.module';
+import { SefazCeModule } from './sefaz-ce/sefaz-ce.module';
+import { ComprasGovMonitorModule } from './compras-gov-monitor/compras-gov-monitor.module';
+import { CategoriaModule } from './categoria/categoria.module';
 
 @Module({
   imports: [
@@ -29,7 +32,7 @@ import { ObservabilityModule } from './observability/observability.module';
             ? { target: 'pino-pretty', options: { colorize: true } }
             : undefined,
         level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
-        customProps: (req, res) => ({
+        customProps: () => ({
           context: 'HTTP',
         }),
         serializers: {
@@ -40,6 +43,7 @@ import { ObservabilityModule } from './observability/observability.module';
     }),
     MongooseModule.forRoot(
       process.env.MONGO_URI || 'mongodb://mongo:27017/licitacoes',
+      { family: 4 },
     ),
     ScheduleModule.forRoot(),
     PncpModule,
@@ -57,6 +61,9 @@ import { ObservabilityModule } from './observability/observability.module';
     FinanceiroModule,
     ReceitaFederalModule,
     ObservabilityModule,
+    SefazCeModule,
+    ComprasGovMonitorModule,
+    CategoriaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

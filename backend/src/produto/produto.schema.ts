@@ -8,8 +8,14 @@ export class Produto {
   @Prop()
   numeroItem: number;
 
+  @Prop({ default: 0 })
+  numeroLote: number;
+
   @Prop({ required: true })
   descricao: string;
+
+  @Prop()
+  categoria: string;
 
   @Prop()
   quantidade: number;
@@ -31,6 +37,18 @@ export class Produto {
 
   @Prop()
   valorConcorrente: number; // o menor lance do concorrente atual
+
+  @Prop()
+  situacaoJulgamento: string; // ex: 'Homologado', 'Aguardando julgamento', 'Finalizada'
+
+  @Prop()
+  vencedorCnpj: string;
+
+  @Prop()
+  vencedorNome: string;
+
+  @Prop()
+  valorVencedor: number;
 
   @Prop({ required: true })
   oportunidadeId: string; // PNCP id ou Oportunidade reference
