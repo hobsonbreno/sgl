@@ -12,6 +12,7 @@ export default function Dashboard() {
 
   const [colunasKanban, setColunasKanban] = useState<{id: string, nome: string}[]>([]);
   const [expandedPregoes, setExpandedPregoes] = useState<string[]>([]);
+  const [showErrosModal, setShowErrosModal] = useState(false);
   
   const togglePregao = (id: string) => {
     setExpandedPregoes(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
@@ -568,9 +569,15 @@ export default function Dashboard() {
                     <span style={{ fontSize: '0.95rem', color: '#15803d', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.5px', marginTop: '0.75rem', display: 'block' }}>Novas Descobertas</span>
                   </div>
                   
-                  <div style={{ background: resumo.ultimaExecucaoBot.erros.length > 0 ? '#fef2f2' : '#f8fafc', padding: '2rem 1rem', borderRadius: '20px', border: `1px solid ${resumo.ultimaExecucaoBot.erros.length > 0 ? '#fecaca' : '#e2e8f0'}`, textAlign: 'center' }}>
+                  <div 
+                    onClick={() => { if (resumo.ultimaExecucaoBot.erros.length > 0) setShowErrosModal(true); }}
+                    style={{ background: resumo.ultimaExecucaoBot.erros.length > 0 ? '#fef2f2' : '#f8fafc', padding: '2rem 1rem', borderRadius: '20px', border: `1px solid ${resumo.ultimaExecucaoBot.erros.length > 0 ? '#fecaca' : '#e2e8f0'}`, textAlign: 'center', cursor: resumo.ultimaExecucaoBot.erros.length > 0 ? 'pointer' : 'default', transition: 'all 0.2s' }}
+                    onMouseEnter={e => { if (resumo.ultimaExecucaoBot.erros.length > 0) e.currentTarget.style.transform = 'scale(1.02)'; }}
+                    onMouseLeave={e => { if (resumo.ultimaExecucaoBot.erros.length > 0) e.currentTarget.style.transform = 'scale(1)'; }}
+                  >
                     <span style={{ display: 'block', fontSize: '3.5rem', fontWeight: 900, color: resumo.ultimaExecucaoBot.erros.length > 0 ? '#dc2626' : '#64748b', lineHeight: 1, letterSpacing: '-1px' }}>{resumo.ultimaExecucaoBot.erros.length}</span>
                     <span style={{ fontSize: '0.95rem', color: resumo.ultimaExecucaoBot.erros.length > 0 ? '#b91c1c' : '#475569', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.5px', marginTop: '0.75rem', display: 'block' }}>Falhas</span>
+                    {resumo.ultimaExecucaoBot.erros.length > 0 && <span style={{ fontSize: '0.75rem', color: '#dc2626', marginTop: '0.5rem', display: 'block' }}>Ver detalhes</span>}
                   </div>
                 </div>
               </div>
@@ -649,6 +656,45 @@ export default function Dashboard() {
           ))}
         </div>
       )}
+      {showErrosModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
+          <div style={{ background: '#fff', borderRadius: '24px', width: '90%', maxWidth: '800px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
+            <div style={{ padding: '2rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ background: '#fef2f2', padding: '1rem', borderRadius: '16px' }}>
+                  <AlertTriangle size={24} color="#dc2626" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: '#0f172a' }}>Relatório de Falhas do Robô</h3>
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '0.95rem', marginTop: '0.25rem' }}>Erros capturados na última varredura do PNCP</p>
+                </div>
+              </div>
+              <button onClick={() => setShowErrosModal(false)} style={{ background: 'none', border: 'none', fontSize: '2rem', color: '#94a3b8', cursor: 'pointer' }}>&times;</button>
+            </div>
+            
+            <div style={{ padding: '2rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {resumo.ultimaExecucaoBot.erros.map((erro: any, i: number) => (
+                <div key={i} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '1.25rem', borderRadius: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                    <span style={{ fontWeight: 700, color: '#334155' }}>Palavra-chave: {erro.palavraChave}</span>
+                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{new Date(erro.dataHora).toLocaleString('pt-BR')}</span>
+                  </div>
+                  <div style={{ background: '#fef2f2', color: '#b91c1c', padding: '0.75rem', borderRadius: '8px', fontSize: '0.9rem', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                    {erro.mensagem}
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div style={{ padding: '1.5rem 2rem', background: '#f8fafc', borderTop: '1px solid #e2e8f0', borderRadius: '0 0 24px 24px', textAlign: 'right' }}>
+              <button onClick={() => setShowErrosModal(false)} className="btn-primary" style={{ background: '#0f172a', color: '#fff', padding: '0.75rem 2rem' }}>
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

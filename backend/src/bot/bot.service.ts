@@ -25,6 +25,7 @@ import { mapPncpParaOportunidade } from '../pncp/dtos/pncp.dto';
 import { ConfiguracaoService } from '../configuracao/configuracao.service';
 import { EventsService } from '../events/events.service';
 import { SyncFailureLoggerService } from '../observability/sync-failure-logger.service';
+import { SystemLogService } from '../observability/system-log/system-log.service';
 import { OportunidadeGateway } from '../oportunidade/oportunidade.gateway';
 
 @Injectable()
@@ -47,6 +48,7 @@ export class BotService implements OnApplicationBootstrap {
     private configService: ConfiguracaoService,
     private eventsService: EventsService,
     private readonly syncFailureLogger: SyncFailureLoggerService,
+    private readonly systemLogService: SystemLogService,
     private readonly oportunidadeGateway: OportunidadeGateway,
   ) {}
 
@@ -84,6 +86,7 @@ export class BotService implements OnApplicationBootstrap {
         } catch (err) {
           const errMsg = err instanceof Error ? err.message : String(err);
           this.logger.error('Erro na recuperação de boot: ' + errMsg);
+          await this.systemLogService.logError('Bot', `Erro na recuperação de boot: ${errMsg}`, err instanceof Error ? err.stack : undefined);
         }
       })();
     }, 15000); // 15s de delay
@@ -251,6 +254,7 @@ export class BotService implements OnApplicationBootstrap {
                       this.logger.warn(
                         `Erro na Deep Search de Itens para ${opDto.numeroControlePNCP}: ${errMsg}`,
                       );
+                      await this.systemLogService.logWarn('Bot', `Erro na Deep Search de Itens para ${opDto.numeroControlePNCP}: ${errMsg}`);
                       // Continua a execução normal sem dar throw
                     }
                   }
@@ -316,6 +320,7 @@ export class BotService implements OnApplicationBootstrap {
             this.logger.error(
               `Erro ao buscar modalidade ${modalidade} do perfil ${perfil.nome}: ${errMsg}`,
             );
+            await this.systemLogService.logError('Bot', `Erro ao buscar modalidade ${modalidade} do perfil ${perfil.nome}: ${errMsg}`, err instanceof Error ? err.stack : undefined);
             erros.push(errMsg);
           }
         }

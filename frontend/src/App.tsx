@@ -11,7 +11,8 @@ import Financeiro from './pages/Financeiro';
 import Configuracoes from './pages/Configuracoes';
 import OportunidadeDetalhe from './pages/OportunidadeDetalhe';
 import LixeiraArquivo from './pages/LixeiraArquivo';
-import { LayoutDashboard, KanbanSquare, Settings, Users, Building, PieChart, BrainCircuit, Wrench, Wallet, Database, Archive } from 'lucide-react';
+import SystemLogs from './pages/SystemLogs';
+import { LayoutDashboard, KanbanSquare, Settings, Users, Building, PieChart, BrainCircuit, Wrench, Wallet, Database, Archive, Activity } from 'lucide-react';
 import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
 
@@ -48,6 +49,7 @@ function App() {
               <NavItem to="/financeiro" icon={Wallet}>Financeiro (Caixa)</NavItem>
               <NavItem to="/perfis-busca" icon={Settings}>Filtros (Perfis)</NavItem>
               <NavItem to="/configuracoes" icon={Wrench}>Config. do Robô</NavItem>
+              <NavItem to="/logs-sistema" icon={Activity}>Logs do Sistema</NavItem>
             </nav>
           </aside>
           <main className="main-content">
@@ -65,6 +67,7 @@ function App() {
               <Route path="/financeiro" element={<Financeiro />} />
               <Route path="/configuracoes" element={<Configuracoes />} />
               <Route path="/oportunidades/:id" element={<OportunidadeDetalhe />} />
+              <Route path="/logs-sistema" element={<SystemLogs />} />
             </Routes>
           </main>
         </div>

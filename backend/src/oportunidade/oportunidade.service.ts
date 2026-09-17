@@ -139,38 +139,43 @@ export class OportunidadeService {
       throw new BadRequestException('Oportunidade sem número de controle PNCP');
     }
 
-    // Sempre busca e faz upsert, pois o órgão pode ter adicionado mais itens ao edital depois da primeira sincronização.
+    // Inicia TODO o processo em background
+    this.executarSincronizacaoCompletaBackground(id, doc).catch((err) => {
+      this.logger.error(`Erro no background sync de itens/resultados: ${err.message}`);
+    });
 
+    return {
+      message: 'Sincronização de itens iniciada em background. Você será notificado quando concluída.',
+      total: null,
+    };
+  }
+
+  private async executarSincronizacaoCompletaBackground(id: string, doc: any) {
     try {
+      this.logger.info(`Background: Iniciando sincronização completa da oportunidade ${id}`);
+      
       const itensRaw = await this.pncpClientService.buscarItensDaContratacao(
         doc.numeroControlePNCP,
       );
 
       if (!itensRaw || itensRaw.length === 0) {
-        return { message: 'Nenhum item retornado pela API da PNCP', total: 0 };
+        this.logger.warn(`Background: Nenhum item retornado pela API da PNCP para ${id}`);
+        return;
       }
 
       // INTEGRAÇÃO SEFAZ CE - SCRAPER EM TEMPO REAL
       let statusSefazOverride = null;
       if (doc.orgaoNome && doc.orgaoNome.toLowerCase().includes('ceara')) {
-        // O usuário informou que o padrão de CoEP (ex: 202627134/2026) pode vir do objeto, número de compra ou tipo.
-        // Vamos tentar extrair formatado a partir da string raw.
         const stringRaw = `${doc.numeroCompraOrigem || ''}/${doc.anoCompraOrigem || ''} ${doc.objetoCompra || ''}`;
         const coepFormatada =
           this.sefazScraperService.formatarCoepParaPesquisa(stringRaw);
 
         if (coepFormatada) {
-          this.logger.info(
-            `Oportunidade do Ceará identificada. Iniciando scraper S2GPR para CoEP: ${coepFormatada}`,
-          );
-          statusSefazOverride =
-            await this.sefazScraperService.buscarStatusCotacaoSefaz(
-              coepFormatada,
-            );
+          this.logger.info(`Oportunidade do Ceará. Buscando scraper para CoEP: ${coepFormatada}`);
+          statusSefazOverride = await this.sefazScraperService.buscarStatusCotacaoSefaz(coepFormatada);
         }
       }
 
-      // Busca itens antigos para preservar dados do usuário
       const itensAntigos = await this.produtoModel.find({ oportunidadeId: id });
       const mapaAntigos = new Map();
       for (const antigo of itensAntigos) {
@@ -178,60 +183,24 @@ export class OportunidadeService {
         mapaAntigos.set(chave, antigo);
       }
 
-      const novosProdutos = [];
-      for (const item of itensRaw) {
+      const novosProdutos = itensRaw.map((item) => {
         let vencedorCnpj = '';
         let vencedorNome = '';
         let valorVencedor = 0;
 
         const situacaoFinal =
           statusSefazOverride || item.situacaoCompraItemNome || 'Desconhecido';
-        const st = situacaoFinal.toLowerCase();
-
-        // Só busca o resultado no PNCP se já tiver um status que indica conclusão
-        if (
-          st.includes('homologado') ||
-          st.includes('adjudicado') ||
-          st.includes('finalizada') ||
-          st.includes('encerrado')
-        ) {
-          try {
-            const resultados =
-              await this.pncpClientService.buscarResultadosDoItem(
-                doc.numeroControlePNCP,
-                Number(item.numeroItem),
-              );
-            if (resultados && resultados.length > 0) {
-              // A API de resultados do PNCP costuma retornar o campeão
-              const vencedor = resultados[0];
-              vencedorCnpj = vencedor.niFornecedor || '';
-              vencedorNome = vencedor.nomeRazaoSocialFornecedor || '';
-              valorVencedor =
-                vencedor.valorTotalHomologado ||
-                vencedor.valorTotalAdjudicado ||
-                vencedor.valorProposta ||
-                0;
-            }
-            // Delay removido pois a fila global do PncpClientService agora trata isso
-          } catch {
-            this.logger.warn(
-              `Não foi possível buscar o resultado do item ${item.numeroItem}`,
-            );
-          }
-        }
-
+        
         const lote = item.numeroLote || item.lote || 0;
         const chave = `${lote}-${item.numeroItem}`;
         const itemAntigo = mapaAntigos.get(chave);
 
-        novosProdutos.push({
+        return {
           oportunidadeId: id,
           numeroItem: item.numeroItem || 0,
           numeroLote: lote,
           descricao: item.descricao || 'Item sem descrição',
-          categoria: this.categoriaService.categorizeProduto(
-            String(item.descricao || ''),
-          ),
+          categoria: this.categoriaService.categorizeProduto(String(item.descricao || '')),
           quantidade: item.quantidade || 1,
           unidadeMedida: item.unidadeMedida || 'UN',
           valorUnitarioEstimado: item.valorUnitarioEstimado || 0,
@@ -243,39 +212,73 @@ export class OportunidadeService {
           valorVencedor,
           valorNossoLance: itemAntigo?.valorNossoLance || 0,
           valorConcorrente: itemAntigo?.valorConcorrente || 0,
-        });
-      }
+        };
+      });
 
-      // Limpa todos os itens antigos desta oportunidade
+      // Limpa e reinsere
       await this.produtoModel.deleteMany({ oportunidadeId: id });
-
-      // Insere os itens sincronizados
       if (novosProdutos.length > 0) {
         await this.produtoModel.insertMany(novosProdutos);
       }
 
-      this.logger.info(
-        `Sincronizados ${novosProdutos.length} itens para a oportunidade ${id}`,
-      );
+      this.logger.info(`Background: Salvos ${novosProdutos.length} itens base para ${id}. Agora buscando vencedores...`);
 
-      // Regra de Negócio: Auto-arquivamento removido para que o usuário
-      // possa visualizar o resultado no Kanban e mover manualmente.
+      let atualizouVencedores = false;
 
-      return {
-        message: 'Itens sincronizados com sucesso',
-        total: novosProdutos.length,
-      };
+      const promises = novosProdutos.map(async (prod) => {
+        const st = (prod.situacaoJulgamento || '').toLowerCase();
+        if (
+          st.includes('homologado') ||
+          st.includes('adjudicado') ||
+          st.includes('finalizada') ||
+          st.includes('encerrado')
+        ) {
+          try {
+            const resultados = await this.pncpClientService.buscarResultadosDoItem(
+              doc.numeroControlePNCP,
+              Number(prod.numeroItem),
+            );
+            if (resultados && resultados.length > 0) {
+              const vencedor = resultados[0];
+              const vencedorCnpj = vencedor.niFornecedor || '';
+              const vencedorNome = vencedor.nomeRazaoSocialFornecedor || '';
+              const valorVencedor =
+                vencedor.valorTotalHomologado ||
+                vencedor.valorTotalAdjudicado ||
+                vencedor.valorProposta ||
+                0;
+
+              await this.produtoModel.updateOne(
+                { oportunidadeId: prod.oportunidadeId, numeroItem: prod.numeroItem, numeroLote: prod.numeroLote },
+                { $set: { vencedorCnpj, vencedorNome, valorVencedor } }
+              );
+              atualizouVencedores = true;
+            }
+          } catch (err) {
+            this.logger.warn(`Background: Não foi possível buscar o resultado do item ${prod.numeroItem}`);
+          }
+        }
+      });
+
+      await Promise.all(promises);
+
+      this.logger.info(`Background: Sincronização COMPLETA finalizada para ${id}`);
+      if (this.gateway.server) {
+        this.gateway.server.emit('alerta_monitoramento', { 
+          mensagem: `✅ Sincronização concluída (PNCP: ${doc.numeroControlePNCP}). Todos os ${novosProdutos.length} itens e vencedores foram baixados!` 
+        });
+      }
+
     } catch (e: any) {
-      this.logger.error(
-        `Erro ao sincronizar itens da oportunidade ${id}: ${e.message}`,
-      );
-      throw new BadRequestException(
-        e.response?.data?.message ||
-          e.message ||
-          'Não foi possível carregar os itens agora, tente novamente.',
-      );
+      this.logger.error(`Erro fatal no background sync completo para ${id}: ${e.message}`);
+      if (this.gateway.server) {
+        this.gateway.server.emit('alerta_monitoramento', { 
+          mensagem: `❌ Falha ao sincronizar PNCP ${doc.numeroControlePNCP}: A API do governo está instável. Tente novamente mais tarde.` 
+        });
+      }
     }
   }
+
   async remove(id: string) {
     const doc = await this.model.findById(id).exec();
     if (!doc) throw new NotFoundException('Oportunidade não encontrada');

@@ -5,6 +5,7 @@ import { Model } from 'mongoose';
 import { Proposta, PropostaDocument } from '../proposta/proposta.schema';
 import { ComprasGovScraperService } from './compras-gov-scraper.service';
 import { EventsService } from '../events/events.service';
+import { SystemLogService } from '../observability/system-log/system-log.service';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -28,6 +29,7 @@ export class ComprasGovMonitorService {
     private propostaModel: Model<PropostaDocument>,
     private readonly scraperService: ComprasGovScraperService,
     private readonly eventsService: EventsService,
+    private readonly systemLogService: SystemLogService,
   ) {
     this.carregarCache();
   }
@@ -47,6 +49,7 @@ export class ComprasGovMonitorService {
       }
     } catch (e) {
       this.logger.error('Erro ao carregar cache do monitoramento', e);
+      void this.systemLogService.logError('ComprasGovMonitor', 'Erro ao carregar cache do monitoramento', e instanceof Error ? e.stack : undefined);
     }
   }
 
@@ -62,6 +65,7 @@ export class ComprasGovMonitorService {
       fs.writeFileSync(this.cachePath, JSON.stringify(data, null, 2), 'utf8');
     } catch (e) {
       this.logger.error('Erro ao salvar cache do monitoramento', e);
+      void this.systemLogService.logError('ComprasGovMonitor', 'Erro ao salvar cache do monitoramento', e instanceof Error ? e.stack : undefined);
     }
   }
 
@@ -145,6 +149,7 @@ export class ComprasGovMonitorService {
       this.eventsService.emitirMonitoramentoConcluido(this.getLatestResults());
     } catch (error) {
       this.logger.error('Erro no monitoramento do Compras.gov.br', error);
+      void this.systemLogService.logError('ComprasGovMonitor', 'Erro no monitoramento do Compras.gov.br', error instanceof Error ? error.stack : undefined);
       this.eventsService.emitirAlertaMonitoramento(
         `ALERTA: Erro ao acessar o portal Compras.gov.br: ${(error as Error).message}`,
       );
@@ -221,6 +226,52 @@ export class ComprasGovMonitorService {
               item.inteligencia.mensagemEstrategica =
                 'Sua proposta não foi encontrada na zona de classificação.';
             }
+
+            // --- LÓGICA DE ALERTAS DO RADAR (Evitando spam ao comparar com o estado anterior) ---
+            const pregaoAntigo = this.ultimaVarreduraResultados.find(p => p.id === pregao.id);
+            const itemAntigo = pregaoAntigo?.itens?.find((i: any) => i.itemId === item.itemId);
+
+            // 1. Alerta de Posição
+            if (item.inteligencia.nossaPosicao === 1 && itemAntigo?.inteligencia?.nossaPosicao !== 1) {
+              this.eventsService.emitirAlertaRadar({
+                tipo: 'RANKING_1',
+                pregao: pregao.id,
+                itemId: item.itemId,
+                mensagem: `🏆 Você assumiu o 1º LUGAR no ${item.itemId}!`,
+              });
+            } else if (item.inteligencia.nossaPosicao === 2 && itemAntigo?.inteligencia?.nossaPosicao !== 2) {
+              this.eventsService.emitirAlertaRadar({
+                tipo: 'RANKING_2',
+                pregao: pregao.id,
+                itemId: item.itemId,
+                mensagem: `⚠️ Você subiu para o 2º LUGAR no ${item.itemId}! Prepare a documentação.`,
+              });
+            }
+
+            // 2. Alerta de Chat
+            if (item.chat && item.chat !== itemAntigo?.chat) {
+              const chatNovo = itemAntigo?.chat 
+                ? item.chat.replace(itemAntigo.chat, '') 
+                : item.chat;
+                
+              const chatUpper = chatNovo.toUpperCase();
+              if (
+                chatUpper.includes('IRMAOS NASCIMENTO') ||
+                chatUpper.includes('IRMÃOS NASCIMENTO') ||
+                chatUpper.includes('48.262.939/0001-50') ||
+                chatUpper.includes('48262939000150') ||
+                chatUpper.includes('CONVOCADO')
+              ) {
+                this.eventsService.emitirAlertaRadar({
+                  tipo: 'CHAT',
+                  pregao: pregao.id,
+                  itemId: item.itemId,
+                  mensagem: `🚨 O Pregoeiro enviou mensagem direcionada no ${item.itemId}!`,
+                });
+              }
+            }
+            // ---------------------------------------------------------------------------------
+
           }
         }
       }

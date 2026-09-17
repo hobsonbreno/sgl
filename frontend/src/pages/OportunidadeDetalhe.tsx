@@ -1457,14 +1457,9 @@ export default function OportunidadeDetalhe() {
                   const syncRes = await fetch(`${window.API_URL}/oportunidades/${id}/sincronizar-itens`, { method: 'POST' });
                   if (!syncRes.ok) throw new Error();
                   const data = await syncRes.json();
-                  setTimeout(() => alert(data.message || `Sincronização concluída!`), 100);
-                  // Recarrega cotação
-                  const resCotFull = await fetch(`${window.API_URL}/cotacoes/${cotacao?._id || ''}`);
-                  if (resCotFull.ok) setCotacao(await resCotFull.json());
-                  // Recarrega janela para garantir que a UI inteira pegue
-                  window.location.reload();
+                  setTimeout(() => alert(data.message || `Sincronização iniciada em background!`), 100);
                 } catch {
-                  setTimeout(() => alert('Erro ao sincronizar novos itens com o PNCP.'), 100);
+                  setTimeout(() => alert('Erro ao iniciar sincronização com o PNCP.'), 100);
                 } finally {
                   setIsSyncing(false);
                 }

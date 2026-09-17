@@ -22,8 +22,16 @@ export class OportunidadeGateway
 
   onModuleInit() {
     this.eventsService.getAlertasMonitoramento().subscribe((mensagem) => {
+      try {
+        const parsed = JSON.parse(mensagem);
+        if (parsed.tipo === 'radar') {
+           this.server.emit('alerta_radar', parsed.dados);
+           return;
+        }
+      } catch (e) {}
       this.server.emit('alerta_monitoramento', { mensagem });
     });
+
 
     this.eventsService.getMonitoramentoConcluido().subscribe((dados) => {
       this.server.emit('monitoramento_concluido', dados);

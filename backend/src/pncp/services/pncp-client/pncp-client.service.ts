@@ -20,51 +20,54 @@ export class PncpClientService {
   private readonly baseUrl =
     process.env.PNCP_BASE_URL || 'https://pncp.gov.br/api/consulta';
   
-  private requestQueue: Promise<any> = Promise.resolve();
-  private readonly RATE_LIMIT_DELAY = 1500; // 1.5s delay garantido entre requisições
+  private activeRequests = 0;
+  private readonly MAX_CONCURRENT = 5;
+  private readonly MIN_DELAY = 150;
+
+  private async waitForCapacity(): Promise<void> {
+    while (this.activeRequests >= this.MAX_CONCURRENT) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    this.activeRequests++;
+    await new Promise((resolve) => setTimeout(resolve, this.MIN_DELAY));
+  }
 
   constructor(private readonly httpService: HttpService) {}
 
   private async enfileirarRequisicao<T>(url: string, params?: any): Promise<T> {
-    const execute = async () => {
-      try {
-        const response = await firstValueFrom(
-          this.httpService.get(url, { params, timeout: 60000 }).pipe(
-            retry({
-              count: 4,
-              delay: (error: AxiosError, retryCount: number) => {
-                if (error.response?.status === 404 || error.response?.status === 400) {
-                  throw error;
-                }
-                this.logger.warn(
-                  `Falha na requisição para ${url}. Tentativa ${retryCount}/4. Erro: ${error.message}`,
-                );
-                if (error.response?.status === 429) {
-                  this.logger.warn(
-                    `Rate limit atingido (429). Aguardando ${5 * retryCount} segundos...`,
-                  );
-                  return timer(5000 * retryCount);
-                }
-                return timer(2000 * retryCount);
-              },
-            }),
-            catchError((error: AxiosError) => {
-              if (error.response && error.response.status === 404) {
-                return of({ data: null });
+    this.logger.log(`[PNCP_QUEUE] Enfileirando req para: ${url} (Ativos: ${this.activeRequests}/${this.MAX_CONCURRENT})`);
+    const start = Date.now();
+    await this.waitForCapacity();
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get(url, { params, timeout: 60000 }).pipe(
+          retry({
+            count: 2, // Reduzido para não travar muito
+            delay: (error: AxiosError, retryCount: number) => {
+              if (error.response?.status === 404 || error.response?.status === 400) {
+                throw error;
               }
-              throw error;
-            }),
-          ),
-        );
-        return response?.data || null;
-      } finally {
-        await new Promise((resolve) => setTimeout(resolve, this.RATE_LIMIT_DELAY));
-      }
-    };
-
-    const result = this.requestQueue.then(() => execute());
-    this.requestQueue = result.catch(() => {}); 
-    return result;
+              if (error.response?.status === 429) {
+                this.logger.warn(`[PNCP_QUEUE] 429 Rate limit em ${url}! Aguardando ${3 * retryCount}s...`);
+                return timer(3000 * retryCount);
+              }
+              this.logger.warn(`[PNCP_QUEUE] Falha ${retryCount}/2 em ${url}: ${error.message}`);
+              return timer(1000 * retryCount);
+            },
+          }),
+          catchError((error: AxiosError) => {
+            if (error.response && error.response.status === 404) {
+              return of({ data: null });
+            }
+            throw error;
+          }),
+        ),
+      );
+      this.logger.log(`[PNCP_QUEUE] Sucesso ${url} em ${Date.now() - start}ms`);
+      return response?.data || null;
+    } finally {
+      this.activeRequests--;
+    }
   }
 
   async buscarContratacoesComPropostaAberta(
