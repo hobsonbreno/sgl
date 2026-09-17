@@ -114,6 +114,9 @@ export class PncpClientService {
           retry({
             count: 4,
             delay: (error: AxiosError, retryCount: number) => {
+              if (error.response?.status === 404 || error.response?.status === 400) {
+                throw error;
+              }
               this.logger.warn(
                 `Falha na requisição para ${url}. Tentativa ${retryCount}/4. Erro: ${error.message}`,
               );
@@ -231,6 +234,9 @@ export class PncpClientService {
         retry({
           count: 5,
           delay: (error: AxiosError, retryCount: number) => {
+            if (error.response?.status === 404 || error.response?.status === 400) {
+              throw error;
+            }
             this.logger.warn(
               `Falha na requisição para ${url}. Tentativa ${retryCount}/5. Erro: ${error.message}`,
             );
