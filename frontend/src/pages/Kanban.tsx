@@ -227,7 +227,7 @@ export default function Kanban() {
         setCollapsedCols(initMap);
       }
 
-      const ops = dataOp.data || [];
+      const ops = Array.isArray(dataOp) ? dataOp : (dataOp.data || []);
       
       const now = new Date().getTime();
       const validOps: any[] = [];
@@ -241,7 +241,8 @@ export default function Kanban() {
         }
 
         let st = op.kanbanStatus?.toUpperCase() || '';
-        const opProdutos = dataProd.data ? dataProd.data.filter((p: any) => p.oportunidadeId === op._id) : [];
+        const prodList = Array.isArray(dataProd) ? dataProd : (dataProd.data || []);
+        const opProdutos = prodList.filter((p: any) => p.oportunidadeId === op._id);
         const hasProdutos = opProdutos.length > 0;
         
         // Auto-Excluir: Expirou e não fez cotações/puxou -> move pra EXCLUIDA
