@@ -1338,9 +1338,32 @@ export default function OportunidadeDetalhe() {
   const handleDelete = async () => {
     if (window.confirm("Tem certeza? Isso vai remover permanentemente esta oportunidade, seus itens, cotações e qualquer proposta associada. Essa ação não pode ser desfeita.")) {
       try {
+        let nextId = null;
+        if (oportunidade?.kanbanStatus) {
+          try {
+            const listRes = await fetch(`${window.API_URL}/oportunidades?limit=500`);
+            if (listRes.ok) {
+              const allOps = await listRes.json();
+              const colOps = allOps.filter((op: any) => op.kanbanStatus === oportunidade.kanbanStatus);
+              const currentIndex = colOps.findIndex((op: any) => op._id === id);
+              if (currentIndex >= 0 && currentIndex + 1 < colOps.length) {
+                nextId = colOps[currentIndex + 1]._id;
+              } else if (currentIndex > 0) {
+                nextId = colOps[currentIndex - 1]._id;
+              }
+            }
+          } catch(e) { console.error('Erro ao buscar proximo card', e); }
+        }
+
         const res = await fetch(`${window.API_URL}/oportunidades/${id}`, { method: 'DELETE' });
         if (res.ok) {
-          navigate('/kanban');
+          if (nextId) {
+            navigate(`/oportunidades/${nextId}`);
+            // Force a reload of the component data by navigating
+            window.location.href = `/oportunidades/${nextId}`;
+          } else {
+            navigate('/kanban');
+          }
         } else {
           alert('Erro ao excluir oportunidade');
         }

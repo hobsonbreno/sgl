@@ -136,16 +136,18 @@ export default function SystemLogs() {
                       {log.module}
                     </td>
                     <td style={{ padding: '1rem 1.5rem', maxWidth: '600px' }}>
-                      <div style={{ color: '#1e293b', fontWeight: 500, marginBottom: '0.25rem' }}>{log.message}</div>
+                      <div style={{ color: '#1e293b', fontWeight: 500, marginBottom: '0.25rem' }}>
+                        {typeof log.message === 'object' ? JSON.stringify(log.message) : log.message}
+                      </div>
                       {log.stacktrace && (
                         <details>
                           <summary style={{ fontSize: '0.8rem', color: '#64748b', cursor: 'pointer' }}>Ver rastreio técnico (Stacktrace)</summary>
                           <pre style={{ background: '#0f172a', color: '#e2e8f0', padding: '1rem', borderRadius: '8px', fontSize: '0.75rem', overflowX: 'auto', marginTop: '0.5rem' }}>
-                            {log.stacktrace}
+                            {typeof log.stacktrace === 'object' ? JSON.stringify(log.stacktrace, null, 2) : log.stacktrace}
                           </pre>
                         </details>
                       )}
-                      {log.metadata && Object.keys(log.metadata).length > 0 && (
+                      {log.metadata && typeof log.metadata === 'object' && Object.keys(log.metadata).length > 0 && (
                         <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', background: '#f1f5f9', padding: '0.5rem', borderRadius: '6px' }}>
                           <strong style={{ color: '#475569' }}>Contexto:</strong> {JSON.stringify(log.metadata)}
                         </div>
