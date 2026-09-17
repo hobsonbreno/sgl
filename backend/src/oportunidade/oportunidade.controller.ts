@@ -48,6 +48,12 @@ export class OportunidadeController {
     return this.service.updateStatus(id, body.kanbanStatus);
   }
 
+  @Patch(':id/visualizado')
+  @ApiOperation({ summary: 'Marcar oportunidade como visualizada' })
+  marcarVisualizado(@Param('id') id: string) {
+    return this.service.marcarVisualizado(id);
+  }
+
   @Post(':id/sincronizar-itens')
   @ApiOperation({
     summary: 'Sincronizar itens reais do PNCP para a oportunidade',

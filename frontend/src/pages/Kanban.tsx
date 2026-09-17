@@ -3,7 +3,7 @@ import type { MouseEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import type { DropResult } from '@hello-pangea/dnd';
-import { Trash2, Trophy, Settings, Plus, ArrowUp, ArrowDown, ChevronUp, ChevronDown, Archive, Copy, ExternalLink, CheckCircle2 } from 'lucide-react';
+import { Trash2, Trophy, Settings, Plus, ArrowUp, ArrowDown, ChevronUp, ChevronDown, Archive, Copy, ExternalLink, CheckCircle2, Eye } from 'lucide-react';
 import { io } from 'socket.io-client';
 import Countdown from '../components/Countdown';
 
@@ -754,11 +754,14 @@ export default function Kanban() {
                           {(provided) => {
                             const isCardCollapsed = collapsedCards[item._id] !== undefined ? collapsedCards[item._id] : true;
                             return (
-                            <div className="kanban-card" ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} style={provided.draggableProps.style}>
+                            <div className="kanban-card" ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} style={{ ...provided.draggableProps.style, opacity: item.visualizado ? 0.75 : 1 }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: isCardCollapsed ? 0 : '1rem' }}>
                                 <div style={{ flex: 1, overflow: 'hidden' }}>
-                                  <Link to={`/oportunidades/${item._id}`} style={{ textDecoration: 'none' }} aria-label={`Ver detalhes da oportunidade: ${item.orgaoNome}`}>
-                                    <h4 style={{ color: '#0ea5e9', margin: '0 0 0.25rem 0' }}>{item.orgaoNome}</h4>
+                                  <Link to={`/oportunidades/${item._id}`} state={{ colIds: itensDaColuna.map(i => i._id) }} style={{ textDecoration: 'none' }} aria-label={`Ver detalhes da oportunidade: ${item.orgaoNome}`}>
+                                    <h4 style={{ color: '#0ea5e9', margin: '0 0 0.25rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                      {item.orgaoNome}
+                                      {item.visualizado && <span title="Visualizado"><Eye size={14} color="#94a3b8" /></span>}
+                                    </h4>
                                   </Link>
                                   <div style={{ marginBottom: '0.5rem' }}>
                                     <Countdown 

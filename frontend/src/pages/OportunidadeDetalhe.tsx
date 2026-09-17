@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Check, AlertCircle, Trash2, ChevronDown, ChevronUp, X, ExternalLink, Copy, XCircle, RotateCw, Search } from 'lucide-react';
 import { io } from 'socket.io-client';
 
@@ -1169,6 +1169,12 @@ export default function OportunidadeDetalhe() {
   const [loading, setLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const colIds = location.state?.colIds || [];
+  const currentIndex = colIds.indexOf(id);
+  const prevId = currentIndex > 0 ? colIds[currentIndex - 1] : null;
+  const nextId = currentIndex >= 0 && currentIndex < colIds.length - 1 ? colIds[currentIndex + 1] : null;
 
   // Form state para adicionar fornecedor na cotacao (placeholder simples)
   const [novoFornecedorId, setNovoFornecedorId] = useState('');
@@ -1260,6 +1266,12 @@ export default function OportunidadeDetalhe() {
 
   useEffect(() => {
     loadData();
+
+    // Marcar como visualizado silenciosamente
+    fetch(`${window.API_URL}/oportunidades/${id}/visualizado`, {
+      method: 'PATCH',
+    }).catch(console.error);
+    
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -1448,6 +1460,28 @@ export default function OportunidadeDetalhe() {
           <Link to="/kanban" className="btn-primary" style={{ background: '#e2e8f0', color: '#475569', padding: '0.5rem 1rem' }}>
             <ArrowLeft size={16} /> Voltar
           </Link>
+          
+          {(prevId || nextId) && (
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button
+                className="btn-primary"
+                style={{ background: prevId ? '#f1f5f9' : '#f8fafc', color: prevId ? '#334155' : '#cbd5e1', padding: '0.5rem 1rem', cursor: prevId ? 'pointer' : 'not-allowed', border: '1px solid #cbd5e1' }}
+                disabled={!prevId}
+                onClick={() => navigate(`/oportunidades/${prevId}`, { state: { colIds } })}
+              >
+                Anterior
+              </button>
+              <button
+                className="btn-primary"
+                style={{ background: nextId ? '#f8fafc' : '#f8fafc', color: nextId ? '#3b82f6' : '#cbd5e1', padding: '0.5rem 1rem', cursor: nextId ? 'pointer' : 'not-allowed', border: `1px solid ${nextId ? '#bfdbfe' : '#cbd5e1'}` }}
+                disabled={!nextId}
+                onClick={() => navigate(`/oportunidades/${nextId}`, { state: { colIds } })}
+              >
+                Próximo
+              </button>
+            </div>
+          )}
+
           <button
             disabled={isSyncing}
             onClick={async () => {

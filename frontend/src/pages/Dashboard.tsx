@@ -673,17 +673,24 @@ export default function Dashboard() {
             </div>
             
             <div style={{ padding: '2rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {resumo.ultimaExecucaoBot.erros.map((erro: any, i: number) => (
-                <div key={i} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '1.25rem', borderRadius: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                    <span style={{ fontWeight: 700, color: '#334155' }}>Palavra-chave: {erro.palavraChave}</span>
-                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{new Date(erro.dataHora).toLocaleString('pt-BR')}</span>
+              {resumo.ultimaExecucaoBot.erros.map((erro: any, i: number) => {
+                const isObj = typeof erro === 'object' && erro !== null;
+                const contextoInfo = isObj ? erro.palavraChave || erro.contexto || 'N/A' : 'Erro Geral';
+                const dataHora = isObj && erro.dataHora ? new Date(erro.dataHora).toLocaleString('pt-BR') : '';
+                const mensagem = isObj ? erro.mensagem : erro;
+                
+                return (
+                  <div key={i} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '1.25rem', borderRadius: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                      <span style={{ fontWeight: 700, color: '#334155' }}>{isObj ? `Origem: ${contextoInfo}` : contextoInfo}</span>
+                      {dataHora && <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{dataHora}</span>}
+                    </div>
+                    <div style={{ background: '#fef2f2', color: '#b91c1c', padding: '0.75rem', borderRadius: '8px', fontSize: '0.9rem', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                      {mensagem}
+                    </div>
                   </div>
-                  <div style={{ background: '#fef2f2', color: '#b91c1c', padding: '0.75rem', borderRadius: '8px', fontSize: '0.9rem', fontFamily: 'monospace', wordBreak: 'break-all' }}>
-                    {erro.mensagem}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             
             <div style={{ padding: '1.5rem 2rem', background: '#f8fafc', borderTop: '1px solid #e2e8f0', borderRadius: '0 0 24px 24px', textAlign: 'right' }}>

@@ -133,6 +133,23 @@ export class OportunidadeService {
     return doc;
   }
 
+  async marcarVisualizado(id: string): Promise<Oportunidade> {
+    const doc = await this.model
+      .findByIdAndUpdate(
+        id,
+        { visualizado: true },
+        { new: true },
+      )
+      .exec();
+
+    if (!doc) throw new NotFoundException('Oportunidade não encontrada');
+    
+    // Dispara a atualização para o front-end refletir a mudança no card do Kanban
+    this.gateway.emitOportunidadeUpdate(doc);
+
+    return doc;
+  }
+
   async sincronizarItens(id: string) {
     const doc = await this.model.findById(id).exec();
     if (!doc) throw new NotFoundException('Oportunidade não encontrada');

@@ -4,9 +4,11 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
 import { json, urlencoded } from 'express';
 
+import { DatabaseLoggerService } from './observability/database-logger.service';
+
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  app.useLogger(app.get(Logger));
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.useLogger(app.get(DatabaseLoggerService));
   app.enableCors();
 
   app.use(json({ limit: '50mb' }));
