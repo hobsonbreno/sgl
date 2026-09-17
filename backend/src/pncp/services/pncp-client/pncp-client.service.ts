@@ -43,7 +43,8 @@ export class PncpClientService {
       );
 
       if (response && response.data) {
-        const itens = response.data.data || [];
+        const itens: any[] = response.data.data || [];
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         resultados.push(...itens);
         totalPaginas = response.data.totalPaginas || 1;
       } else {
