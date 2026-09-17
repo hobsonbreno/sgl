@@ -1343,7 +1343,8 @@ export default function OportunidadeDetalhe() {
           try {
             const listRes = await fetch(`${window.API_URL}/oportunidades?limit=500`);
             if (listRes.ok) {
-              const allOps = await listRes.json();
+              const json = await listRes.json();
+              const allOps = Array.isArray(json) ? json : (json.data || []);
               const colOps = allOps.filter((op: any) => op.kanbanStatus === oportunidade.kanbanStatus);
               const currentIndex = colOps.findIndex((op: any) => op._id === id);
               if (currentIndex >= 0 && currentIndex + 1 < colOps.length) {

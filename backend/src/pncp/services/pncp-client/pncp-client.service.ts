@@ -40,19 +40,20 @@ export class PncpClientService {
     await this.waitForCapacity();
     try {
       const response = await firstValueFrom(
-        this.httpService.get(url, { params, timeout: 60000 }).pipe(
+        this.httpService.get(url, { params, timeout: 90000 }).pipe(
           retry({
-            count: 2, // Reduzido para não travar muito
+            count: 5,
             delay: (error: AxiosError, retryCount: number) => {
               if (error.response?.status === 404 || error.response?.status === 400) {
                 throw error;
               }
-              if (error.response?.status === 429) {
-                this.logger.warn(`[PNCP_QUEUE] 429 Rate limit em ${url}! Aguardando ${3 * retryCount}s...`);
-                return timer(3000 * retryCount);
+              if (error.response?.status === 429 || error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+                const backoff = Math.min(10000 * Math.pow(2, retryCount - 1), 60000); // 10s, 20s, 40s, 60s
+                this.logger.warn(`[PNCP_QUEUE] Rate limit/Timeout em ${url}! Aguardando ${backoff/1000}s (Tentativa ${retryCount}/5)...`);
+                return timer(backoff);
               }
-              this.logger.warn(`[PNCP_QUEUE] Falha ${retryCount}/2 em ${url}: ${error.message}`);
-              return timer(1000 * retryCount);
+              this.logger.warn(`[PNCP_QUEUE] Falha ${retryCount}/5 em ${url}: ${error.message}`);
+              return timer(2000 * retryCount);
             },
           }),
           catchError((error: AxiosError) => {
