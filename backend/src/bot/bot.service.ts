@@ -243,7 +243,8 @@ export class BotService implements OnApplicationBootstrap {
                         });
                       });
                       // Aguarda um pouco para não estourar o limite de requisições do PNCP na busca de itens
-                      await new Promise((r) => setTimeout(r, 600));
+                      // Delay removido pois a fila global do PncpClientService agora trata isso
+
                     } catch (err) {
                       const errMsg =
                         err instanceof Error ? err.message : String(err);

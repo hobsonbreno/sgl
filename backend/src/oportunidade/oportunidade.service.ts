@@ -212,8 +212,7 @@ export class OportunidadeService {
                 vencedor.valorProposta ||
                 0;
             }
-            // Delay maior para não explodir o rate limit do PNCP
-            await new Promise((r) => setTimeout(r, 800));
+            // Delay removido pois a fila global do PncpClientService agora trata isso
           } catch {
             this.logger.warn(
               `Não foi possível buscar o resultado do item ${item.numeroItem}`,
@@ -447,8 +446,7 @@ export class OportunidadeService {
         if (!op.numeroControlePNCP) continue;
         try {
           await this.sincronizarItens(op._id.toString());
-          // Pausa entre as oportunidades para não sofrer rate limit do PNCP
-          await new Promise((r) => setTimeout(r, 2000));
+          // Delay removido pois a fila global do PncpClientService agora trata isso
         } catch (err: any) {
           this.logger.warn(
             `Erro na sincronização em background da oportunidade ${op._id.toString()}: ${err.message}`,
