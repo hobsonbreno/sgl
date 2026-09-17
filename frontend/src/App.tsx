@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Kanban from './pages/Kanban';
 import PerfisBusca from './pages/PerfisBusca';
@@ -68,6 +68,7 @@ function App() {
               <Route path="/configuracoes" element={<Configuracoes />} />
               <Route path="/oportunidades/:id" element={<OportunidadeDetalhe />} />
               <Route path="/logs-sistema" element={<SystemLogs />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>
         </div>

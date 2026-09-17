@@ -8,6 +8,7 @@ import { SystemLogService } from './system-log/system-log.service';
 import { SystemLogController } from './system-log/system-log.controller';
 import { GlobalExceptionFilter } from './filters/global-exception.filter';
 import { APP_FILTER } from '@nestjs/core';
+import { DatabaseLoggerService } from './database-logger.service';
 
 @Module({
   imports: [
@@ -20,11 +21,12 @@ import { APP_FILTER } from '@nestjs/core';
   providers: [
     SyncFailureLoggerService, 
     SystemLogService,
+    DatabaseLoggerService,
     {
       provide: APP_FILTER,
       useClass: GlobalExceptionFilter,
     }
   ],
-  exports: [SyncFailureLoggerService, SystemLogService],
+  exports: [SyncFailureLoggerService, SystemLogService, DatabaseLoggerService],
 })
 export class ObservabilityModule {}

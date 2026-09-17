@@ -321,7 +321,11 @@ export class BotService implements OnApplicationBootstrap {
               `Erro ao buscar modalidade ${modalidade} do perfil ${perfil.nome}: ${errMsg}`,
             );
             await this.systemLogService.logError('Bot', `Erro ao buscar modalidade ${modalidade} do perfil ${perfil.nome}: ${errMsg}`, err instanceof Error ? err.stack : undefined);
-            erros.push(errMsg);
+            erros.push({
+              contexto: `Modalidade ${modalidade} - Perfil ${perfil.nome}`,
+              mensagem: errMsg,
+              dataHora: new Date()
+            });
           }
         }
 

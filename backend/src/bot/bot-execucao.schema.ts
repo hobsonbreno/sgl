@@ -17,8 +17,8 @@ export class BotExecucao {
   @Prop({ required: true })
   totalNovos: number;
 
-  @Prop([String])
-  erros: string[];
+  @Prop({ type: [mongoose.Schema.Types.Mixed] })
+  erros: any[];
 }
 
 export const BotExecucaoSchema = SchemaFactory.createForClass(BotExecucao);

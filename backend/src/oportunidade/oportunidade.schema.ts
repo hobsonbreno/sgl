@@ -59,6 +59,9 @@ export class Oportunidade {
   @Prop({ required: true, default: 'A_FAZER' })
   kanbanStatus: string;
 
+  @Prop({ default: false })
+  visualizado: boolean;
+
   @Prop()
   dataMudancaStatus: Date;
 
