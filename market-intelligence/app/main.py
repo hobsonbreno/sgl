@@ -41,6 +41,11 @@ class ScoreRequest(BaseModel):
     valorEstimado: float = 0
     orgaoCnpj: str = ""
 
+from typing import List
+
+class ScoreBatchRequest(BaseModel):
+    requests: List[ScoreRequest]
+
 @app.get("/market/stats")
 def get_stats():
     """
@@ -112,6 +117,31 @@ def get_score(req: ScoreRequest):
         "probabilidadeVitoria": prob / 100.0,
         "mensagem": f"Análise concluída ({len(propostas)} exemplos)"
     }
+
+@app.post("/market/score/batch")
+def get_score_batch(batch_req: ScoreBatchRequest):
+    """
+    Predicts the win probability for a batch of opportunities.
+    """
+    propostas = list(db.propostas.find({"status": {"$in": ["VENCEDOR", "PERDEU"]}}))
+    if len(propostas) < 10:
+        base_res = {
+            "score": None,
+            "probabilidadeVitoria": None,
+            "mensagem": "Dados insuficientes para prever"
+        }
+        return {req.oportunidadeId: base_res for req in batch_req.requests}
+
+    df = pd.DataFrame(propostas)
+    win_rate = len(df[df['status'] == 'VENCEDOR']) / len(df)
+    prob = win_rate * 100
+    
+    base_res = {
+        "score": prob,
+        "probabilidadeVitoria": prob / 100.0,
+        "mensagem": f"Análise concluída ({len(propostas)} exemplos)"
+    }
+    return {req.oportunidadeId: base_res for req in batch_req.requests}
 
 @app.get("/market/model-info")
 def get_model_info():

@@ -88,6 +88,19 @@ export class CotacaoService {
     return doc;
   }
 
+  async findByOportunidades(oportunidadeIds: string[]): Promise<Record<string, Cotacao>> {
+    const docs = await this.model
+      .find({ oportunidadeId: { $in: oportunidadeIds } })
+      .populate('itens.precosFornecedores.fornecedorId')
+      .populate('itens.produtoId')
+      .exec();
+    const result: Record<string, Cotacao> = {};
+    for (const doc of docs) {
+      result[doc.oportunidadeId.toString()] = doc;
+    }
+    return result;
+  }
+
   async updatePreco(
     cotacaoId: string,
     itemId: string,

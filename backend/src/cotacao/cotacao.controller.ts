@@ -27,6 +27,10 @@ export class CreateCotacaoDto {
   itens?: any[];
 }
 
+export class FindBatchDto {
+  oportunidadeIds: string[];
+}
+
 @ApiTags('Cotações')
 @Controller()
 export class CotacaoController {
@@ -50,6 +54,12 @@ export class CotacaoController {
       if (e.status === 404) return null;
       throw e;
     }
+  }
+
+  @Post('oportunidades/cotacoes/batch')
+  @ApiOperation({ summary: 'Obter cotações em lote por Oportunidade IDs' })
+  async findByOportunidadesBatch(@Body() body: FindBatchDto) {
+    return this.cotacaoService.findByOportunidades(body.oportunidadeIds);
   }
 
   @Get('cotacoes/:id')

@@ -34,6 +34,8 @@ export default function Kanban() {
   const [importLink, setImportLink] = useState('');
   const [importing, setImporting] = useState(false);
   
+  const [alertaRadar, setAlertaRadar] = useState<{ tipo: string, pregao: string, itemId: string, mensagem: string } | null>(null);
+
   const toggleObjectExpand = (cardId: string) => {
     setExpandedObjects(prev => ({
       ...prev,
@@ -228,7 +230,7 @@ export default function Kanban() {
       const ops = dataOp.data || [];
       
       const now = new Date().getTime();
-      const validOps = [];
+      const validOps: any[] = [];
       for (const op of ops) {
         let expirou = false;
         if (!op.dataEncerramentoProposta) {
@@ -310,32 +312,51 @@ export default function Kanban() {
       setOportunidades(validOps);
       setProdutos(dataProd.data || []);
 
-      // Load cotações for each oportunidade (best proposal data)
-      validOps.forEach(async (op: any) => {
-        try {
-          const cotRes = await fetch(`${window.API_URL}/oportunidades/${op._id}/cotacao`);
-          if (cotRes.ok) {
-            const cotData = await cotRes.json();
-            setCotacoes(prev => ({ ...prev, [op._id]: cotData }));
-          }
-        } catch {
-          // cotacao may not exist yet
-        }
-      });
+      // Load cotações and scores for each oportunidade (batched to prevent network overload)
+      const loadExtras = async () => {
+        const batchSize = 50;
+        for (let i = 0; i < validOps.length; i += batchSize) {
+          const batch = validOps.slice(i, i + batchSize);
+          const opIds = batch.map((op: any) => op._id);
 
-      validOps.forEach(async (op: any) => {
-        try {
-          const scoreRes = await fetch(`${window.MARKET_URL}/market/score`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ oportunidadeId: op._id, modalidade: op.modalidadeNome || '', uf: op.uf || '', valorEstimado: op.valorTotalEstimado || 0, orgaoCnpj: op.orgaoCnpj || '' })
-          });
-          const scoreData = await scoreRes.json();
-          setScores(prev => ({ ...prev, [op._id]: scoreData }));
-        } catch {
-          // ML API might not be reachable
+          try {
+            const cotRes = await fetch(`${window.API_URL}/oportunidades/cotacoes/batch`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ oportunidadeIds: opIds })
+            });
+            if (cotRes.ok) {
+              const cotData = await cotRes.json();
+              setCotacoes(prev => ({ ...prev, ...cotData }));
+            }
+          } catch {}
+
+          try {
+            const scoreRequests = batch.map((op: any) => ({
+              oportunidadeId: op._id,
+              modalidade: op.modalidadeNome || '',
+              uf: op.uf || '',
+              valorEstimado: op.valorTotalEstimado || 0,
+              orgaoCnpj: op.orgaoCnpj || ''
+            }));
+            const scoreRes = await fetch(`${window.MARKET_URL}/market/score/batch`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ requests: scoreRequests })
+            });
+            if (scoreRes.ok) {
+              const scoreData = await scoreRes.json();
+              setScores(prev => ({ ...prev, ...scoreData }));
+            }
+          } catch {}
+
+          // Pequeno delay para evitar rate limits
+          await new Promise(r => setTimeout(r, 100));
         }
-      });
+      };
+      
+      // Execute in background
+      loadExtras();
     } catch {
     }
   };
@@ -369,6 +390,14 @@ export default function Kanban() {
         localStorage.setItem('sgl_collapsed_cards', JSON.stringify(newState));
         return newState;
       });
+    });
+
+    socket.on('alerta_radar', (dados: any) => {
+      setAlertaRadar(dados);
+      try {
+        const audio = new Audio('https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg');
+        audio.play().catch(e => console.log('Audio autoplay blocked', e));
+      } catch(e) {}
     });
 
     socket.on('kanban_column_collapsed', (data: { colId: string, collapsed: boolean }) => {
@@ -548,6 +577,21 @@ export default function Kanban() {
 
   return (
     <div>
+      {alertaRadar && (
+        <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 99999, background: '#ef4444', color: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', maxWidth: '400px', border: '2px solid #b91c1c' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+            <strong style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Trophy size={24} /> ALERTA DE RADAR
+            </strong>
+            <button onClick={() => setAlertaRadar(null)} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', fontSize: '20px' }}>&times;</button>
+          </div>
+          <p style={{ margin: '0 0 10px 0', fontSize: '16px', fontWeight: 'bold' }}>{alertaRadar.mensagem}</p>
+          <div style={{ fontSize: '12px', opacity: 0.9 }}>
+            Pregão: {alertaRadar.pregao}<br/>Item: {alertaRadar.itemId}
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
         <h1 style={{ margin: 0 }}>Kanban de Oportunidades</h1>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
