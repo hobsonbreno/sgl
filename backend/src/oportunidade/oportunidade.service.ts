@@ -28,6 +28,7 @@ import { Cotacao, CotacaoDocument } from '../cotacao/cotacao.schema';
 import { OportunidadeGateway } from './oportunidade.gateway';
 import { SefazCeScraperService } from '../sefaz-ce/sefaz-ce-scraper.service';
 import { CategoriaService } from '../categoria/categoria.service';
+import { SystemLogService } from '../observability/system-log/system-log.service';
 
 @Injectable()
 export class OportunidadeService {
@@ -44,6 +45,7 @@ export class OportunidadeService {
     private readonly gateway: OportunidadeGateway,
     private readonly sefazScraperService: SefazCeScraperService,
     private readonly categoriaService: CategoriaService,
+    private readonly systemLogService: SystemLogService,
   ) {}
 
   async findAll(query: any): Promise<{
@@ -142,6 +144,7 @@ export class OportunidadeService {
     // Inicia TODO o processo em background
     this.executarSincronizacaoCompletaBackground(id, doc).catch((err) => {
       this.logger.error(`Erro no background sync de itens/resultados: ${err.message}`);
+      void this.systemLogService.logError('Oportunidade', `Erro no background sync de itens/resultados: ${err.message}`, err instanceof Error ? err.stack : undefined);
     });
 
     return {
@@ -160,6 +163,7 @@ export class OportunidadeService {
 
       if (!itensRaw || itensRaw.length === 0) {
         this.logger.warn(`Background: Nenhum item retornado pela API da PNCP para ${id}`);
+        await this.systemLogService.logWarn('Oportunidade', `Background: Nenhum item retornado pela API da PNCP para ${id}`);
         return;
       }
 

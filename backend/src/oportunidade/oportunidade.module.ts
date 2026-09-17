@@ -14,6 +14,7 @@ import { FinanceiroModule } from '../financeiro/financeiro.module';
 import { Cotacao, CotacaoSchema } from '../cotacao/cotacao.schema';
 import { SefazCeModule } from '../sefaz-ce/sefaz-ce.module';
 import { CategoriaModule } from '../categoria/categoria.module';
+import { ObservabilityModule } from '../observability/observability.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { CategoriaModule } from '../categoria/categoria.module';
     forwardRef(() => FinanceiroModule),
     SefazCeModule,
     CategoriaModule,
+    ObservabilityModule,
   ],
   controllers: [OportunidadeController],
   providers: [OportunidadeService, OportunidadeGateway],
