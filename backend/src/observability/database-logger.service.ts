@@ -19,7 +19,11 @@ export class DatabaseLoggerService implements LoggerService {
   error(message: any, trace?: string, context?: string) {
     this.pino.error(message, trace, context);
     if (this.shouldLogToDb(context)) {
-      this.systemLog.logError(context || 'App', this.formatMessage(message), trace);
+      this.systemLog.logError(
+        context || 'App',
+        this.formatMessage(message),
+        trace,
+      );
     }
   }
 

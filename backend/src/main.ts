@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { Logger } from 'nestjs-pino';
+
 import { json, urlencoded } from 'express';
 
 import { DatabaseLoggerService } from './observability/database-logger.service';
@@ -24,4 +24,4 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT ?? 3000, '0.0.0.0');
 }
-bootstrap();
+bootstrap().catch(console.error);

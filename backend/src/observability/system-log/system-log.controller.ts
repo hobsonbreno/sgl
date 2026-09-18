@@ -14,7 +14,11 @@ export class SystemLogController {
     @Query('level') level?: string,
     @Query('module') module?: string,
   ) {
-    const data = await this.systemLogService.getRecentLogs(limit ? Number(limit) : 100, level, module);
+    const data = await this.systemLogService.getRecentLogs(
+      limit ? Number(limit) : 100,
+      level,
+      module,
+    );
     return { data };
   }
 }

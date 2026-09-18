@@ -19,13 +19,13 @@ import { DatabaseLoggerService } from './database-logger.service';
   ],
   controllers: [SyncFailureController, SystemLogController],
   providers: [
-    SyncFailureLoggerService, 
+    SyncFailureLoggerService,
     SystemLogService,
     DatabaseLoggerService,
     {
       provide: APP_FILTER,
       useClass: GlobalExceptionFilter,
-    }
+    },
   ],
   exports: [SyncFailureLoggerService, SystemLogService, DatabaseLoggerService],
 })

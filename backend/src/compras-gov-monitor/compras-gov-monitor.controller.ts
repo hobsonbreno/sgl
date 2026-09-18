@@ -9,8 +9,8 @@ export class ComprasGovMonitorController {
   private readonly logger = new Logger(ComprasGovMonitorController.name);
 
   constructor(
-      private readonly monitorService: ComprasGovMonitorService,
-      private readonly radarService: RadarService
+    private readonly monitorService: ComprasGovMonitorService,
+    private readonly radarService: RadarService,
   ) {}
 
   @Post('sniff')
@@ -21,10 +21,14 @@ export class ComprasGovMonitorController {
   async receiveSniffedData(@Body() data: any) {
     this.logger.debug('🚀 [SNIFFER] Requisicao interceptada: ' + data?.url);
     if (data?.url?.includes('comprasnet')) {
-      console.log('\n\n====================== INICIO PAYLOAD ======================');
+      console.log(
+        '\n\n====================== INICIO PAYLOAD ======================',
+      );
       console.log('URL: ', data.url);
       console.log(JSON.stringify(data.body, null, 2).substring(0, 5000));
-      console.log('====================== FIM PAYLOAD ======================\n\n');
+      console.log(
+        '====================== FIM PAYLOAD ======================\n\n',
+      );
     }
     return { success: true };
   }

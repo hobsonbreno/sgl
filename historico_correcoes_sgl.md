@@ -35,3 +35,9 @@ Antes de aprovar e subir essas modificações para a **Produção**, é indispen
 5. Em seguida, exclua este último card restante. Como não há um "próximo", o sistema deve apenas retroceder para a visão geral do Kanban.
 
 > **Status:** Todas as correções estão comitadas localmente na branch `fix/ui-and-delete-bugs` e os serviços já estão de pé rodando em background com a versão mais nova. Você já pode conduzir os testes.
+
+### 4. Otimização do Limite de Consulta PNCP (Bot)
+- **Problema:** O bot do PNCP parou de trazer novas oportunidades e o serviço estava recebendo falhas constantes (`Erro 500: Internal Server Error` / JDBC Timeout) do banco de dados do governo.
+- **Causa:** O `BotService` estava requisitando uma janela excessivamente longa e em parte inválida (`dataInicial = Hoje - 30` e `dataFinal = Hoje + 30`). Buscar "publicações no futuro" sobrecarregava a API, e o grande volume de 60 dias combinados travava o banco.
+- **Solução:** O intervalo de busca foi ajustado milimetricamente para o máximo seguro de **20 dias retroativos** (`Hoje - 20` até `Hoje`). Nossos testes comprovaram que a API processa essa janela rapidamente (4s), mas sofre *Timeout (Erro 503/500)* quando forçamos 25 ou 30 dias. Como o bot roda múltiplas vezes ao dia, os 20 dias funcionam como uma "rede de segurança" perfeita para capturar as licitações com propostas abertas recém-publicadas. A correção foi salva na branch `fix/bot-pncp-timeout`.
+- **Ação Pendente (Infraestrutura):** Após reiniciar a máquina (para limpar o bloqueio de processo zumbi `permission denied` no Docker), execute `docker-compose up -d --build backend` para rodar o bot com a versão estabilizada.

@@ -116,9 +116,13 @@ export class SefazCeScraperService {
       return status as string;
     } catch (error) {
       if (error.message && error.message.includes('Waiting failed:')) {
-        this.logger.warn(`Sefaz CE demorou para responder ou não encontrou a CoEP: ${numeroCoep}`);
+        this.logger.warn(
+          `Sefaz CE demorou para responder ou não encontrou a CoEP: ${numeroCoep}`,
+        );
       } else {
-        this.logger.error(`Erro ao consultar Sefaz CE via Puppeteer: ${error.message}`);
+        this.logger.error(
+          `Erro ao consultar Sefaz CE via Puppeteer: ${error.message}`,
+        );
       }
       return null;
     } finally {
