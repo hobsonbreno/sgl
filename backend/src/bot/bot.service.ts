@@ -144,15 +144,15 @@ export class BotService implements OnApplicationBootstrap {
         const erros = [];
 
         const dataFinalDate = new Date();
-        dataFinalDate.setDate(dataFinalDate.getDate() + 30); // 30 dias pra frente como limite final
+        // dataFinalDate.setDate(dataFinalDate.getDate() + 30); // Removido: buscar no futuro sobrecarrega sem necessidade
         const yyyyF = dataFinalDate.getFullYear();
         const mmF = String(dataFinalDate.getMonth() + 1).padStart(2, '0');
         const ddF = String(dataFinalDate.getDate()).padStart(2, '0');
         const dataFinal = `${yyyyF}${mmF}${ddF}`;
 
-        // PNCP API exige dataInicial. Vamos buscar editais publicados nos últimos 30 dias
+        // PNCP API exige dataInicial. Vamos buscar editais publicados nos últimos 20 dias
         const dataInicialDate = new Date();
-        dataInicialDate.setDate(dataInicialDate.getDate() - 30);
+        dataInicialDate.setDate(dataInicialDate.getDate() - 20);
         const yyyyI = dataInicialDate.getFullYear();
         const mmI = String(dataInicialDate.getMonth() + 1).padStart(2, '0');
         const ddI = String(dataInicialDate.getDate()).padStart(2, '0');
