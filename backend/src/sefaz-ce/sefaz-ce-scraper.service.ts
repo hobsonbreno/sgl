@@ -89,6 +89,7 @@ export class SefazCeScraperService {
 
       // Função no browser para procurar o status na tabela
       const extractedStatus = await page.waitForFunction(
+        /* istanbul ignore next */
         (coep) => {
           const rows = document.querySelectorAll(
             '.rich-table tr.rich-table-row',

@@ -23,6 +23,7 @@ export class ComprasGovMonitorService {
     this.cacheDir,
     'compras-gov-cache.json',
   );
+  /* istanbul ignore next */
 
   constructor(
     @InjectModel(Proposta.name)

@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">7.23% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>11/152</span>
+                <span class='fraction'>0/152</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">15.3% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>15/98</span>
+                <span class='fraction'>0/98</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">6.29% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>9/143</span>
+                <span class='fraction'>0/143</span>
             </div>
         
             
@@ -422,23 +422,23 @@
 <a name='L357'></a><a href='#L357'>357</a>
 <a name='L358'></a><a href='#L358'>358</a>
 <a name='L359'></a><a href='#L359'>359</a>
-<a name='L360'></a><a href='#L360'>360</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
+<a name='L360'></a><a href='#L360'>360</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -781,31 +781,31 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import {
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" >import { Injectable } from '@nestjs/common';</span>
+<span class="cstat-no" title="statement not covered" >import { InjectModel } from '@nestjs/mongoose';</span>
+<span class="cstat-no" title="statement not covered" >import { Model } from 'mongoose';</span>
+<span class="cstat-no" title="statement not covered" >import {</span>
   TransacaoFinanceira,
   TransacaoFinanceiraDocument,
 } from './financeiro.schema';
-import {
+<span class="cstat-no" title="statement not covered" >import {</span>
   Oportunidade,
   OportunidadeDocument,
 } from '../oportunidade/oportunidade.schema';
-import { Produto, ProdutoDocument } from '../produto/produto.schema';
-import { Cotacao, CotacaoDocument } from '../cotacao/cotacao.schema';
-import { FinanceiroGateway } from './financeiro.gateway';
+<span class="cstat-no" title="statement not covered" >import { Produto, ProdutoDocument } from '../produto/produto.schema';</span>
+<span class="cstat-no" title="statement not covered" >import { Cotacao, CotacaoDocument } from '../cotacao/cotacao.schema';</span>
+<span class="cstat-no" title="statement not covered" >import { FinanceiroGateway } from './financeiro.gateway';</span>
 &nbsp;
 @Injectable()
-export class FinanceiroService {
+export <span class="cstat-no" title="statement not covered" >class <span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" >FinanceiroService </span>{</span></span>
 <span class="fstat-no" title="function not covered" >  constructor(</span>
     @InjectModel(TransacaoFinanceira.name)
-    private <span class="cstat-no" title="statement not covered" >transacaoModel: M</span>odel<span class="branch-1 cbranch-no" title="branch not covered" >&lt;TransacaoFinanceiraDocument&gt;,</span>
+    private <span class="cstat-no" title="statement not covered" >transacaoModel: M</span>odel&lt;TransacaoFinanceiraDocument&gt;,
     @InjectModel(Oportunidade.name)
-    private <span class="cstat-no" title="statement not covered" >oportunidadeModel: M</span>odel<span class="branch-1 cbranch-no" title="branch not covered" >&lt;OportunidadeDocument&gt;,</span>
-    @InjectModel(Produto.name) private <span class="cstat-no" title="statement not covered" >produtoModel: M</span>odel<span class="branch-1 cbranch-no" title="branch not covered" >&lt;ProdutoDocument&gt;,</span>
-    @InjectModel(Cotacao.name) private <span class="cstat-no" title="statement not covered" >cotacaoModel: M</span>odel<span class="branch-1 cbranch-no" title="branch not covered" >&lt;CotacaoDocument&gt;,</span>
-    private readonly <span class="cstat-no" title="statement not covered" >gateway: F</span>inanceiroGateway<span class="branch-1 cbranch-no" title="branch not covered" >,</span>
+    private <span class="cstat-no" title="statement not covered" >oportunidadeModel: M</span>odel&lt;OportunidadeDocument&gt;,
+    @InjectModel(Produto.name) private <span class="cstat-no" title="statement not covered" >produtoModel: M</span>odel&lt;ProdutoDocument&gt;,
+    @InjectModel(Cotacao.name) private <span class="cstat-no" title="statement not covered" >cotacaoModel: M</span>odel&lt;CotacaoDocument&gt;,
+    private readonly <span class="cstat-no" title="statement not covered" >gateway: F</span>inanceiroGateway,
   ) {}
 &nbsp;
 <span class="fstat-no" title="function not covered" >  async </span>create(createDto: any) {
@@ -1147,7 +1147,7 @@ export class FinanceiroService {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-09-18T14:02:16.315Z
+                at 2026-09-18T18:34:09.808Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

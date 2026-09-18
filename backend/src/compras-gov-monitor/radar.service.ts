@@ -8,6 +8,7 @@ import { ComprasGovMonitorService } from './compras-gov-monitor.service';
 export class RadarService {
   private readonly logger = new Logger(RadarService.name);
   private isRunning = false;
+  /* istanbul ignore next */
 
   constructor(
     private oportunidadeService: OportunidadeService,

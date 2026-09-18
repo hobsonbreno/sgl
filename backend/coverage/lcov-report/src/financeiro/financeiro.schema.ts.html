@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>13/13</span>
+                <span class='fraction'>0/13</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">76.92% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>10/13</span>
+                <span class='fraction'>0/13</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>11/11</span>
+                <span class='fraction'>0/11</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line low'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -95,69 +95,69 @@
 <a name='L30'></a><a href='#L30'>30</a>
 <a name='L31'></a><a href='#L31'>31</a>
 <a name='L32'></a><a href='#L32'>32</a>
-<a name='L33'></a><a href='#L33'>33</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">2x</span>
+<a name='L33'></a><a href='#L33'>33</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" >import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';</span>
 import { HydratedDocument } from 'mongoose';
-import * as mongoose from 'mongoose';
+<span class="cstat-no" title="statement not covered" >import * as mongoose from 'mongoose';</span>
 &nbsp;
 export type TransacaoFinanceiraDocument = HydratedDocument&lt;TransacaoFinanceira&gt;;
 &nbsp;
 @Schema({ timestamps: true })
-export class TransacaoFinanceira {
+export <span class="cstat-no" title="statement not covered" >class <span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" >TransacaoFinanceira </span>{</span></span>
   @Prop({ required: true, enum: ['RECEITA', 'DESPESA'] })
-  tipo: string;
+<span class="cstat-no" title="statement not covered" >  tipo: string;</span>
 &nbsp;
   @Prop({ required: true })
-  descricao: string;
+<span class="cstat-no" title="statement not covered" >  descricao: string;</span>
 &nbsp;
   @Prop({ required: true })
-  valor: number;
+<span class="cstat-no" title="statement not covered" >  valor: number;</span>
 &nbsp;
   @Prop({ required: true })
-  dataVencimento: Date<span class="branch-1 cbranch-no" title="branch not covered" >;</span>
+<span class="cstat-no" title="statement not covered" >  dataVencimento: Date;</span>
 &nbsp;
   @Prop()
-  dataPagamento: Date<span class="branch-1 cbranch-no" title="branch not covered" >;</span>
+<span class="cstat-no" title="statement not covered" >  dataPagamento: Date;</span>
 &nbsp;
   @Prop({ required: true, enum: ['PENDENTE', 'PAGO'], default: 'PENDENTE' })
-  status: string;
+<span class="cstat-no" title="statement not covered" >  status: string;</span>
 &nbsp;
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Oportunidade' })
-  oportunidadeId: mongoose.Types.ObjectId<span class="branch-1 cbranch-no" title="branch not covered" >;</span>
+<span class="cstat-no" title="statement not covered" >  oportunidadeId: mongoose.Types.ObjectId;</span>
 }
 &nbsp;
-export const TransacaoFinanceiraSchema =
+export const <span class="cstat-no" title="statement not covered" >TransacaoFinanceiraSchema =</span>
   SchemaFactory.createForClass(TransacaoFinanceira);
 &nbsp;</pre></td></tr></table></pre>
 
@@ -166,7 +166,7 @@ export const TransacaoFinanceiraSchema =
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-09-18T14:02:16.315Z
+                at 2026-09-18T18:34:09.808Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

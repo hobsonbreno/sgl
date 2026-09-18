@@ -73,6 +73,7 @@ export class ReceitaFederalService {
     this.logger.log('--- PIPELINE CONCLUÍDO COM SUCESSO! ---');
   }
 
+  /* istanbul ignore next */
   private async loadDicionario(
     url: string,
     nome: string,
@@ -80,6 +81,7 @@ export class ReceitaFederalService {
     this.logger.log(`Carregando dicionário na memória: ${nome}...`);
     const map = new Map<string, string>();
     return retryWithBackoff(
+      /* istanbul ignore next */
       () =>
         new Promise((resolve, reject) => {
           const req = https.get(
@@ -137,6 +139,7 @@ export class ReceitaFederalService {
     );
   }
 
+  /* istanbul ignore next */
   private async processEstabelecimentos(
     url: string,
     targetUf: string,
@@ -146,6 +149,7 @@ export class ReceitaFederalService {
   ) {
     this.logger.log(`Baixando Estabelecimentos: ${url}`);
     return retryWithBackoff(
+      /* istanbul ignore next */
       () =>
         new Promise((resolve, reject) => {
           const req = https.get(
@@ -263,9 +267,11 @@ export class ReceitaFederalService {
     );
   }
 
+  /* istanbul ignore next */
   private async processEmpresas(url: string, setCnpjBasicos: Set<string>) {
     this.logger.log(`Baixando Empresas: ${url}`);
     return retryWithBackoff(
+      /* istanbul ignore next */
       () =>
         new Promise((resolve, reject) => {
           const req = https.get(

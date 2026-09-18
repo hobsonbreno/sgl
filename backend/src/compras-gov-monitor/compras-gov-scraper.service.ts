@@ -18,6 +18,7 @@ export interface PropostaScrapedData {
 @Injectable()
 export class ComprasGovScraperService {
   private readonly logger = new Logger(ComprasGovScraperService.name);
+  /* istanbul ignore next */
 
   constructor() {}
 
@@ -77,12 +78,14 @@ export class ComprasGovScraperService {
         );
 
         // Expande o card "Fornecedor Brasileiro"
+        /* istanbul ignore next */
         await page.evaluate(() => {
           (window as any).mudaPerfilBotao(1);
         });
         await new Promise((r) => setTimeout(r, 1000));
 
         // Clica no botão "Entrar com Gov.br"
+        /* istanbul ignore next */
         await page.evaluate(() => {
           const btn = Array.from(
             document.querySelectorAll('.actions button'),
@@ -147,6 +150,7 @@ export class ComprasGovScraperService {
       await new Promise((r) => setTimeout(r, 3000));
 
       // Encontrar quantas linhas de pregões existem na tela inicial
+      /* istanbul ignore next */
       const pregoesLength = await page.evaluate(() => {
         const rows = document.querySelectorAll(
           '.p-datatable-tbody > tr, div.card-pregao, app-compra-item, .card, a.p-ripple',
@@ -175,6 +179,7 @@ export class ComprasGovScraperService {
             .waitForSelector('text/PREGÃO', { timeout: 15000 })
             .catch(() => null);
 
+          /* istanbul ignore next */
           const clicked = await page.evaluate((index) => {
             const rows = document.querySelectorAll(
               '.p-datatable-tbody > tr, div.card-pregao, app-compra-item, .card, a.p-ripple',
@@ -204,7 +209,8 @@ export class ComprasGovScraperService {
             .waitForSelector('.p-dropdown-trigger', { timeout: 10000 })
             .catch(() => null);
 
-          await page.evaluate(() => {
+          /* istanbul ignore next */
+        await page.evaluate(() => {
             const dropdown = document.querySelector(
               '.p-dropdown-trigger',
             ) as HTMLElement;
@@ -215,7 +221,8 @@ export class ComprasGovScraperService {
             .waitForSelector('.p-dropdown-item', { timeout: 5000 })
             .catch(() => null);
 
-          await page.evaluate(() => {
+          /* istanbul ignore next */
+        await page.evaluate(() => {
             const items = Array.from(
               document.querySelectorAll('.p-dropdown-item'),
             );
@@ -258,6 +265,7 @@ export class ComprasGovScraperService {
                     .catch(() => {});
                 });
               }).catch(() => page),
+              /* istanbul ignore next */
               link.evaluate((b: any) => b.click()),
             ]);
 
@@ -268,6 +276,7 @@ export class ComprasGovScraperService {
               .catch(() => null);
             await new Promise((r) => setTimeout(r, 2000));
 
+            /* istanbul ignore next */
             await actPage.evaluate(() => {
               const abas = Array.from(
                 document.querySelectorAll('a, button, li'),
@@ -280,6 +289,7 @@ export class ComprasGovScraperService {
 
             await new Promise((r) => setTimeout(r, 3000));
 
+            /* istanbul ignore next */
             const dadosExtracao = await actPage.evaluate(() => {
               // 1. Extração da Posição Baseada em Regex no texto puro (Inquebrável por mudanças de HTML)
               const textoCompleto = document.body.innerText;

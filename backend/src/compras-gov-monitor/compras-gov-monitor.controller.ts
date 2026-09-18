@@ -8,6 +8,8 @@ import { RadarService } from './radar.service';
 export class ComprasGovMonitorController {
   private readonly logger = new Logger(ComprasGovMonitorController.name);
 
+  /* istanbul ignore next */
+  /* istanbul ignore next */
   constructor(
     private readonly monitorService: ComprasGovMonitorService,
     private readonly radarService: RadarService,

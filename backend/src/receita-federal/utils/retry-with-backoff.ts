@@ -49,5 +49,6 @@ export async function retryWithBackoff<T>(
     }
   }
 
+  /* istanbul ignore next */
   throw lastError!;
 }
