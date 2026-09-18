@@ -49,7 +49,9 @@ export class ProdutoService {
   }
 
   async update(id: string, data: any): Promise<Produto | null> {
-    const updated = await this.model.findByIdAndUpdate(id, data, { new: true }).exec();
+    const updated = await this.model
+      .findByIdAndUpdate(id, data, { new: true })
+      .exec();
     if (updated) {
       this.gateway.emitProdutoUpdate(updated);
     }

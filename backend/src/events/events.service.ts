@@ -24,9 +24,10 @@ export class EventsService {
   }
 
   emitirAlertaRadar(dados: any) {
-    this.alertaMonitoramentoSubject.next(JSON.stringify({ tipo: 'radar', dados }));
+    this.alertaMonitoramentoSubject.next(
+      JSON.stringify({ tipo: 'radar', dados }),
+    );
   }
-
 
   emitirMonitoramentoConcluido(dados: any) {
     this.monitoramentoConcluidoSubject.next(dados);

@@ -26,6 +26,7 @@ export default function SystemLogs() {
 
   useEffect(() => {
     loadLogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterLevel, filterModule]);
 
   const getLevelIcon = (level: string) => {

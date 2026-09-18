@@ -25,13 +25,14 @@ export class OportunidadeGateway
       try {
         const parsed = JSON.parse(mensagem);
         if (parsed.tipo === 'radar') {
-           this.server.emit('alerta_radar', parsed.dados);
-           return;
+          this.server.emit('alerta_radar', parsed.dados);
+          return;
         }
-      } catch (e) {}
+      } catch {
+        // Ignore JSON parse errors
+      }
       this.server.emit('alerta_monitoramento', { mensagem });
     });
-
 
     this.eventsService.getMonitoramentoConcluido().subscribe((dados) => {
       this.server.emit('monitoramento_concluido', dados);
@@ -52,6 +53,10 @@ export class OportunidadeGateway
 
   emitOportunidadeDelete(id: string) {
     this.server.emit('oportunidade_deleted', { id });
+  }
+
+  emitBotExecutionUpdated(data?: any) {
+    this.server.emit('bot_execution_updated', data || {});
   }
 
   @SubscribeMessage('toggle_card_collapse')

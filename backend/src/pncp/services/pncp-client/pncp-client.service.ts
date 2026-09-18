@@ -19,7 +19,7 @@ export class PncpClientService {
   private readonly logger = new Logger(PncpClientService.name);
   private readonly baseUrl =
     process.env.PNCP_BASE_URL || 'https://pncp.gov.br/api/consulta';
-  
+
   private activeRequests = 0;
   private readonly MAX_CONCURRENT = 5;
   private readonly MIN_DELAY = 150;
@@ -35,7 +35,9 @@ export class PncpClientService {
   constructor(private readonly httpService: HttpService) {}
 
   private async enfileirarRequisicao<T>(url: string, params?: any): Promise<T> {
-    this.logger.log(`[PNCP_QUEUE] Enfileirando req para: ${url} (Ativos: ${this.activeRequests}/${this.MAX_CONCURRENT})`);
+    this.logger.log(
+      `[PNCP_QUEUE] Enfileirando req para: ${url} (Ativos: ${this.activeRequests}/${this.MAX_CONCURRENT})`,
+    );
     const start = Date.now();
     await this.waitForCapacity();
     try {
@@ -44,15 +46,29 @@ export class PncpClientService {
           retry({
             count: 5,
             delay: (error: AxiosError, retryCount: number) => {
-              if (error.response?.status === 404 || error.response?.status === 400) {
+              if (
+                error.response?.status === 404 ||
+                error.response?.status === 400
+              ) {
                 throw error;
               }
-              if (error.response?.status === 429 || error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-                const backoff = Math.min(10000 * Math.pow(2, retryCount - 1), 60000); // 10s, 20s, 40s, 60s
-                this.logger.warn(`[PNCP_QUEUE] Rate limit/Timeout em ${url}! Aguardando ${backoff/1000}s (Tentativa ${retryCount}/5)...`);
+              if (
+                error.response?.status === 429 ||
+                error.code === 'ECONNABORTED' ||
+                error.message.includes('timeout')
+              ) {
+                const backoff = Math.min(
+                  10000 * Math.pow(2, retryCount - 1),
+                  60000,
+                ); // 10s, 20s, 40s, 60s
+                this.logger.warn(
+                  `[PNCP_QUEUE] Rate limit/Timeout em ${url}! Aguardando ${backoff / 1000}s (Tentativa ${retryCount}/5)...`,
+                );
                 return timer(backoff);
               }
-              this.logger.warn(`[PNCP_QUEUE] Falha ${retryCount}/5 em ${url}: ${error.message}`);
+              this.logger.warn(
+                `[PNCP_QUEUE] Falha ${retryCount}/5 em ${url}: ${error.message}`,
+              );
               return timer(2000 * retryCount);
             },
           }),
@@ -222,8 +238,6 @@ export class PncpClientService {
       return [];
     }
   }
-
-
 
   async buscarContratacaoEspecifica(
     cnpj: string,

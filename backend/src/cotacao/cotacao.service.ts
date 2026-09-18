@@ -88,7 +88,9 @@ export class CotacaoService {
     return doc;
   }
 
-  async findByOportunidades(oportunidadeIds: string[]): Promise<Record<string, Cotacao>> {
+  async findByOportunidades(
+    oportunidadeIds: string[],
+  ): Promise<Record<string, Cotacao>> {
     const docs = await this.model
       .find({ oportunidadeId: { $in: oportunidadeIds } })
       .populate('itens.precosFornecedores.fornecedorId')
@@ -317,7 +319,7 @@ export class CotacaoService {
     }, 0);
 
     await doc.save();
-    
+
     const updatedCotacao = await this.findOne(cotacaoId);
     this.gateway.emitCotacaoUpdate(updatedCotacao);
     return updatedCotacao;

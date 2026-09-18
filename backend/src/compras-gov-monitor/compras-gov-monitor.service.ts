@@ -49,7 +49,11 @@ export class ComprasGovMonitorService {
       }
     } catch (e) {
       this.logger.error('Erro ao carregar cache do monitoramento', e);
-      void this.systemLogService.logError('ComprasGovMonitor', 'Erro ao carregar cache do monitoramento', e instanceof Error ? e.stack : undefined);
+      void this.systemLogService.logError(
+        'ComprasGovMonitor',
+        'Erro ao carregar cache do monitoramento',
+        e instanceof Error ? e.stack : undefined,
+      );
     }
   }
 
@@ -65,7 +69,11 @@ export class ComprasGovMonitorService {
       fs.writeFileSync(this.cachePath, JSON.stringify(data, null, 2), 'utf8');
     } catch (e) {
       this.logger.error('Erro ao salvar cache do monitoramento', e);
-      void this.systemLogService.logError('ComprasGovMonitor', 'Erro ao salvar cache do monitoramento', e instanceof Error ? e.stack : undefined);
+      void this.systemLogService.logError(
+        'ComprasGovMonitor',
+        'Erro ao salvar cache do monitoramento',
+        e instanceof Error ? e.stack : undefined,
+      );
     }
   }
 
@@ -149,7 +157,11 @@ export class ComprasGovMonitorService {
       this.eventsService.emitirMonitoramentoConcluido(this.getLatestResults());
     } catch (error) {
       this.logger.error('Erro no monitoramento do Compras.gov.br', error);
-      void this.systemLogService.logError('ComprasGovMonitor', 'Erro no monitoramento do Compras.gov.br', error instanceof Error ? error.stack : undefined);
+      void this.systemLogService.logError(
+        'ComprasGovMonitor',
+        'Erro no monitoramento do Compras.gov.br',
+        error instanceof Error ? error.stack : undefined,
+      );
       this.eventsService.emitirAlertaMonitoramento(
         `ALERTA: Erro ao acessar o portal Compras.gov.br: ${(error as Error).message}`,
       );
@@ -228,18 +240,28 @@ export class ComprasGovMonitorService {
             }
 
             // --- LÓGICA DE ALERTAS DO RADAR (Evitando spam ao comparar com o estado anterior) ---
-            const pregaoAntigo = this.ultimaVarreduraResultados.find(p => p.id === pregao.id);
-            const itemAntigo = pregaoAntigo?.itens?.find((i: any) => i.itemId === item.itemId);
+            const pregaoAntigo = this.ultimaVarreduraResultados.find(
+              (p) => p.id === pregao.id,
+            );
+            const itemAntigo = pregaoAntigo?.itens?.find(
+              (i: any) => i.itemId === item.itemId,
+            );
 
             // 1. Alerta de Posição
-            if (item.inteligencia.nossaPosicao === 1 && itemAntigo?.inteligencia?.nossaPosicao !== 1) {
+            if (
+              item.inteligencia.nossaPosicao === 1 &&
+              itemAntigo?.inteligencia?.nossaPosicao !== 1
+            ) {
               this.eventsService.emitirAlertaRadar({
                 tipo: 'RANKING_1',
                 pregao: pregao.id,
                 itemId: item.itemId,
                 mensagem: `🏆 Você assumiu o 1º LUGAR no ${item.itemId}!`,
               });
-            } else if (item.inteligencia.nossaPosicao === 2 && itemAntigo?.inteligencia?.nossaPosicao !== 2) {
+            } else if (
+              item.inteligencia.nossaPosicao === 2 &&
+              itemAntigo?.inteligencia?.nossaPosicao !== 2
+            ) {
               this.eventsService.emitirAlertaRadar({
                 tipo: 'RANKING_2',
                 pregao: pregao.id,
@@ -250,10 +272,10 @@ export class ComprasGovMonitorService {
 
             // 2. Alerta de Chat
             if (item.chat && item.chat !== itemAntigo?.chat) {
-              const chatNovo = itemAntigo?.chat 
-                ? item.chat.replace(itemAntigo.chat, '') 
+              const chatNovo = itemAntigo?.chat
+                ? item.chat.replace(itemAntigo.chat, '')
                 : item.chat;
-                
+
               const chatUpper = chatNovo.toUpperCase();
               if (
                 chatUpper.includes('IRMAOS NASCIMENTO') ||
@@ -271,7 +293,6 @@ export class ComprasGovMonitorService {
               }
             }
             // ---------------------------------------------------------------------------------
-
           }
         }
       }

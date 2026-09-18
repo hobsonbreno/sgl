@@ -135,15 +135,11 @@ export class OportunidadeService {
 
   async marcarVisualizado(id: string): Promise<Oportunidade> {
     const doc = await this.model
-      .findByIdAndUpdate(
-        id,
-        { visualizado: true },
-        { new: true },
-      )
+      .findByIdAndUpdate(id, { visualizado: true }, { new: true })
       .exec();
 
     if (!doc) throw new NotFoundException('Oportunidade não encontrada');
-    
+
     // Dispara a atualização para o front-end refletir a mudança no card do Kanban
     this.gateway.emitOportunidadeUpdate(doc);
 
@@ -160,27 +156,41 @@ export class OportunidadeService {
 
     // Inicia TODO o processo em background
     this.executarSincronizacaoCompletaBackground(id, doc).catch((err) => {
-      this.logger.error(`Erro no background sync de itens/resultados: ${err.message}`);
-      void this.systemLogService.logError('Oportunidade', `Erro no background sync de itens/resultados: ${err.message}`, err instanceof Error ? err.stack : undefined);
+      this.logger.error(
+        `Erro no background sync de itens/resultados: ${err.message}`,
+      );
+      void this.systemLogService.logError(
+        'Oportunidade',
+        `Erro no background sync de itens/resultados: ${err.message}`,
+        err instanceof Error ? err.stack : undefined,
+      );
     });
 
     return {
-      message: 'Sincronização de itens iniciada em background. Você será notificado quando concluída.',
+      message:
+        'Sincronização de itens iniciada em background. Você será notificado quando concluída.',
       total: null,
     };
   }
 
   private async executarSincronizacaoCompletaBackground(id: string, doc: any) {
     try {
-      this.logger.info(`Background: Iniciando sincronização completa da oportunidade ${id}`);
-      
+      this.logger.info(
+        `Background: Iniciando sincronização completa da oportunidade ${id}`,
+      );
+
       const itensRaw = await this.pncpClientService.buscarItensDaContratacao(
-        doc.numeroControlePNCP,
+        String(doc.numeroControlePNCP),
       );
 
       if (!itensRaw || itensRaw.length === 0) {
-        this.logger.warn(`Background: Nenhum item retornado pela API da PNCP para ${id}`);
-        await this.systemLogService.logWarn('Oportunidade', `Background: Nenhum item retornado pela API da PNCP para ${id}`);
+        this.logger.warn(
+          `Background: Nenhum item retornado pela API da PNCP para ${id}`,
+        );
+        await this.systemLogService.logWarn(
+          'Oportunidade',
+          `Background: Nenhum item retornado pela API da PNCP para ${id}`,
+        );
         return;
       }
 
@@ -192,8 +202,13 @@ export class OportunidadeService {
           this.sefazScraperService.formatarCoepParaPesquisa(stringRaw);
 
         if (coepFormatada) {
-          this.logger.info(`Oportunidade do Ceará. Buscando scraper para CoEP: ${coepFormatada}`);
-          statusSefazOverride = await this.sefazScraperService.buscarStatusCotacaoSefaz(coepFormatada);
+          this.logger.info(
+            `Oportunidade do Ceará. Buscando scraper para CoEP: ${coepFormatada}`,
+          );
+          statusSefazOverride =
+            await this.sefazScraperService.buscarStatusCotacaoSefaz(
+              coepFormatada,
+            );
         }
       }
 
@@ -205,13 +220,13 @@ export class OportunidadeService {
       }
 
       const novosProdutos = itensRaw.map((item) => {
-        let vencedorCnpj = '';
-        let vencedorNome = '';
-        let valorVencedor = 0;
+        const vencedorCnpj = '';
+        const vencedorNome = '';
+        const valorVencedor = 0;
 
         const situacaoFinal =
           statusSefazOverride || item.situacaoCompraItemNome || 'Desconhecido';
-        
+
         const lote = item.numeroLote || item.lote || 0;
         const chave = `${lote}-${item.numeroItem}`;
         const itemAntigo = mapaAntigos.get(chave);
@@ -221,7 +236,9 @@ export class OportunidadeService {
           numeroItem: item.numeroItem || 0,
           numeroLote: lote,
           descricao: item.descricao || 'Item sem descrição',
-          categoria: this.categoriaService.categorizeProduto(String(item.descricao || '')),
+          categoria: this.categoriaService.categorizeProduto(
+            String(item.descricao || ''),
+          ),
           quantidade: item.quantidade || 1,
           unidadeMedida: item.unidadeMedida || 'UN',
           valorUnitarioEstimado: item.valorUnitarioEstimado || 0,
@@ -242,9 +259,9 @@ export class OportunidadeService {
         await this.produtoModel.insertMany(novosProdutos);
       }
 
-      this.logger.info(`Background: Salvos ${novosProdutos.length} itens base para ${id}. Agora buscando vencedores...`);
-
-      let atualizouVencedores = false;
+      this.logger.info(
+        `Background: Salvos ${novosProdutos.length} itens base para ${id}. Agora buscando vencedores...`,
+      );
 
       const promises = novosProdutos.map(async (prod) => {
         const st = (prod.situacaoJulgamento || '').toLowerCase();
@@ -255,10 +272,11 @@ export class OportunidadeService {
           st.includes('encerrado')
         ) {
           try {
-            const resultados = await this.pncpClientService.buscarResultadosDoItem(
-              doc.numeroControlePNCP,
-              Number(prod.numeroItem),
-            );
+            const resultados =
+              await this.pncpClientService.buscarResultadosDoItem(
+                String(doc.numeroControlePNCP),
+                Number(prod.numeroItem),
+              );
             if (resultados && resultados.length > 0) {
               const vencedor = resultados[0];
               const vencedorCnpj = vencedor.niFornecedor || '';
@@ -270,31 +288,39 @@ export class OportunidadeService {
                 0;
 
               await this.produtoModel.updateOne(
-                { oportunidadeId: prod.oportunidadeId, numeroItem: prod.numeroItem, numeroLote: prod.numeroLote },
-                { $set: { vencedorCnpj, vencedorNome, valorVencedor } }
+                {
+                  oportunidadeId: prod.oportunidadeId,
+                  numeroItem: prod.numeroItem,
+                  numeroLote: prod.numeroLote,
+                },
+                { $set: { vencedorCnpj, vencedorNome, valorVencedor } },
               );
-              atualizouVencedores = true;
             }
-          } catch (err) {
-            this.logger.warn(`Background: Não foi possível buscar o resultado do item ${prod.numeroItem}`);
+          } catch {
+            this.logger.warn(
+              `Background: Não foi possível buscar o resultado do item ${prod.numeroItem}`,
+            );
           }
         }
       });
 
       await Promise.all(promises);
 
-      this.logger.info(`Background: Sincronização COMPLETA finalizada para ${id}`);
+      this.logger.info(
+        `Background: Sincronização COMPLETA finalizada para ${id}`,
+      );
       if (this.gateway.server) {
-        this.gateway.server.emit('alerta_monitoramento', { 
-          mensagem: `✅ Sincronização concluída (PNCP: ${doc.numeroControlePNCP}). Todos os ${novosProdutos.length} itens e vencedores foram baixados!` 
+        this.gateway.server.emit('alerta_monitoramento', {
+          mensagem: `✅ Sincronização concluída (PNCP: ${doc.numeroControlePNCP}). Todos os ${novosProdutos.length} itens e vencedores foram baixados!`,
         });
       }
-
     } catch (e: any) {
-      this.logger.error(`Erro fatal no background sync completo para ${id}: ${e.message}`);
+      this.logger.error(
+        `Erro fatal no background sync completo para ${id}: ${e.message}`,
+      );
       if (this.gateway.server) {
-        this.gateway.server.emit('alerta_monitoramento', { 
-          mensagem: `❌ Falha ao sincronizar PNCP ${doc.numeroControlePNCP}: A API do governo está instável. Tente novamente mais tarde.` 
+        this.gateway.server.emit('alerta_monitoramento', {
+          mensagem: `❌ Falha ao sincronizar PNCP ${doc.numeroControlePNCP}: A API do governo está instável. Tente novamente mais tarde.`,
         });
       }
     }

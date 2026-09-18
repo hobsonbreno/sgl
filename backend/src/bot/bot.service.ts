@@ -86,7 +86,11 @@ export class BotService implements OnApplicationBootstrap {
         } catch (err) {
           const errMsg = err instanceof Error ? err.message : String(err);
           this.logger.error('Erro na recuperação de boot: ' + errMsg);
-          await this.systemLogService.logError('Bot', `Erro na recuperação de boot: ${errMsg}`, err instanceof Error ? err.stack : undefined);
+          await this.systemLogService.logError(
+            'Bot',
+            `Erro na recuperação de boot: ${errMsg}`,
+            err instanceof Error ? err.stack : undefined,
+          );
         }
       })();
     }, 15000); // 15s de delay
@@ -237,7 +241,9 @@ export class BotService implements OnApplicationBootstrap {
                           opDto.numeroControlePNCP,
                         );
                       match = itensDaCompra.some((item) => {
-                        const descItem = normalizar(item.descricao);
+                        const descItem = normalizar(
+                          String(item.descricao || ''),
+                        );
                         return perfil.palavrasChave.some((p) => {
                           const keyword = normalizar(p);
                           return (
@@ -247,14 +253,16 @@ export class BotService implements OnApplicationBootstrap {
                       });
                       // Aguarda um pouco para não estourar o limite de requisições do PNCP na busca de itens
                       // Delay removido pois a fila global do PncpClientService agora trata isso
-
                     } catch (err) {
                       const errMsg =
                         err instanceof Error ? err.message : String(err);
                       this.logger.warn(
                         `Erro na Deep Search de Itens para ${opDto.numeroControlePNCP}: ${errMsg}`,
                       );
-                      await this.systemLogService.logWarn('Bot', `Erro na Deep Search de Itens para ${opDto.numeroControlePNCP}: ${errMsg}`);
+                      await this.systemLogService.logWarn(
+                        'Bot',
+                        `Erro na Deep Search de Itens para ${opDto.numeroControlePNCP}: ${errMsg}`,
+                      );
                       // Continua a execução normal sem dar throw
                     }
                   }
@@ -320,11 +328,15 @@ export class BotService implements OnApplicationBootstrap {
             this.logger.error(
               `Erro ao buscar modalidade ${modalidade} do perfil ${perfil.nome}: ${errMsg}`,
             );
-            await this.systemLogService.logError('Bot', `Erro ao buscar modalidade ${modalidade} do perfil ${perfil.nome}: ${errMsg}`, err instanceof Error ? err.stack : undefined);
+            await this.systemLogService.logError(
+              'Bot',
+              `Erro ao buscar modalidade ${modalidade} do perfil ${perfil.nome}: ${errMsg}`,
+              err instanceof Error ? err.stack : undefined,
+            );
             erros.push({
               contexto: `Modalidade ${modalidade} - Perfil ${perfil.nome}`,
               mensagem: errMsg,
-              dataHora: new Date()
+              dataHora: new Date(),
             });
           }
         }
@@ -350,6 +362,7 @@ export class BotService implements OnApplicationBootstrap {
     } finally {
       this.emExecucao = false;
       this.eventsService.emitDashboardUpdate();
+      this.oportunidadeGateway.emitBotExecutionUpdated();
     }
   }
 

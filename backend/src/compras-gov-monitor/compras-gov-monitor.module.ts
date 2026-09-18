@@ -20,6 +20,11 @@ import { ObservabilityModule } from '../observability/observability.module';
     ObservabilityModule,
   ],
   controllers: [ComprasGovMonitorController],
-  providers: [ComprasGovScraperService, ComprasGovMonitorService, RadarService, ComprasnetPublicService],
+  providers: [
+    ComprasGovScraperService,
+    ComprasGovMonitorService,
+    RadarService,
+    ComprasnetPublicService,
+  ],
 })
 export class ComprasGovMonitorModule {}

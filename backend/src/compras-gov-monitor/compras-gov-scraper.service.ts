@@ -119,9 +119,14 @@ export class ComprasGovScraperService {
             'Falha ao encontrar campo de senha. A tela atual pode estar exibindo um erro ou CAPTCHA.',
           );
           try {
-            await page.screenshot({ path: '/tmp/govbr_login_error.png', fullPage: true });
-            this.logger.error('Screenshot de erro salvo em /tmp/govbr_login_error.png');
-          } catch(e) {}
+            await page.screenshot({
+              path: '/tmp/govbr_login_error.png',
+              fullPage: true,
+            });
+            this.logger.error(
+              'Screenshot de erro salvo em /tmp/govbr_login_error.png',
+            );
+          } catch (e) {}
           const html = await page.content();
           this.logger.error('HTML dump parcial: ' + html.substring(0, 1000));
         }

@@ -12,7 +12,12 @@ export class SystemLogService {
     private readonly systemLogModel: Model<SystemLog>,
   ) {}
 
-  async logError(module: string, message: string, stacktrace?: any, metadata?: any) {
+  async logError(
+    module: string,
+    message: string,
+    stacktrace?: any,
+    metadata?: any,
+  ) {
     try {
       await this.systemLogModel.create({
         level: 'error',
