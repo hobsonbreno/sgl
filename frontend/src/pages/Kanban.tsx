@@ -716,9 +716,6 @@ export default function Kanban() {
                 return dateA - dateB;
               });
 
-            if (itensDaColuna.length === 0) {
-              return null;
-            }
 
             const isCollapsed = collapsedCols[colId] !== undefined ? collapsedCols[colId] : (itensDaColuna.length === 0);
 
