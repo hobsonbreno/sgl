@@ -26,6 +26,9 @@ export default function Dashboard() {
         fetch(`${window.API_URL}/compras-gov-monitor/latest`).catch(() => null)
       ]);
       
+      if (!resResumo.ok) throw new Error(`Erro resResumo: ${resResumo.status}`);
+      if (!resConfig.ok) throw new Error(`Erro resConfig: ${resConfig.status}`);
+      
       const dataResumo = await resResumo.json();
       const dataConfig = await resConfig.json();
       
@@ -34,7 +37,9 @@ export default function Dashboard() {
         setMonitoramentoData(dataMonitoramento);
       }
       
-      setResumo(dataResumo);
+      if (dataResumo && typeof dataResumo.botEmExecucao !== 'undefined') {
+        setResumo(dataResumo);
+      }
       if (dataConfig && dataConfig.colunasKanban) {
         setColunasKanban(dataConfig.colunasKanban);
       }
@@ -66,8 +71,8 @@ export default function Dashboard() {
           data.pregoes.forEach((newP: any) => {
             const oldP = prev.pregoes.find((p: any) => p.id === newP.id);
             if (oldP) {
-              newP.itens.forEach((newI: any) => {
-                const oldI = oldP.itens.find((i: any) => i.itemId === newI.itemId);
+              (newP.itens || []).forEach((newI: any) => {
+                const oldI = (oldP.itens || []).find((i: any) => i.itemId === newI.itemId);
                 if (oldI) {
                   const oldPos = oldI.nossaPosicao || 999;
                   const newPos = newI.nossaPosicao || 999;
@@ -151,7 +156,7 @@ export default function Dashboard() {
         <div style={{ position: 'absolute', right: '25%', bottom: '0%', width: '400px', height: '400px', background: 'radial-gradient(circle, rgba(16,185,129,0.1) 0%, rgba(15,23,42,0) 70%)', borderRadius: '50%', transform: 'translate(0%, 40%)' }}></div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', zIndex: 1, alignItems: 'flex-end' }}>
-          {resumo.botEmExecucao && (
+          {(resumo.botEmExecucao || loadingBot) && (
             <div style={{ background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(16px)', border: '1px solid rgba(96, 165, 250, 0.4)', color: '#ffffff', padding: '0.75rem 1.5rem', borderRadius: '9999px', display: 'flex', alignItems: 'center', gap: '1rem', fontWeight: 700, boxShadow: '0 10px 25px rgba(0,0,0,0.3), inset 0 0 15px rgba(59, 130, 246, 0.2)' }}>
               <div className="radar-sync-wrapper" style={{ background: 'rgba(59, 130, 246, 0.2)', padding: '0.5rem' }}>
                 <RefreshCw size={22} className="spin-animation" color="#60a5fa" /> 
@@ -278,10 +283,10 @@ export default function Dashboard() {
                 </div>
               ) : (
                 (() => {
-                  const pregoesOrdenados = [...monitoramentoData.pregoes].map((p: any) => {
-                    const validPositions = p.itens.map((i: any) => i.nossaPosicao || 999);
-                    const bestPos = Math.min(...validPositions);
-                    const bestItem = p.itens.find((i: any) => (i.nossaPosicao || 999) === bestPos);
+                  const pregoesOrdenados = [...(monitoramentoData.pregoes || [])].map((p: any) => {
+                    const validPositions = (p.itens || []).map((i: any) => i.nossaPosicao || 999);
+                    const bestPos = validPositions.length > 0 ? Math.min(...validPositions) : 999;
+                    const bestItem = (p.itens || []).find((i: any) => (i.nossaPosicao || 999) === bestPos);
                     return { ...p, bestPos, bestItem };
                   }).sort((a: any, b: any) => a.bestPos - b.bestPos);
                   
@@ -324,7 +329,7 @@ export default function Dashboard() {
                         {/* Lista de Itens do Pregão */}
                         {isExpanded && (
                           <div style={{ padding: '1rem' }}>
-                            {[...pregao.itens].sort((a: any, b: any) => (a.nossaPosicao || 999) - (b.nossaPosicao || 999)).map((item: any, idx: number) => {
+                            {[...(pregao.itens || [])].sort((a: any, b: any) => (a.nossaPosicao || 999) - (b.nossaPosicao || 999)).map((item: any, idx: number) => {
                               const pos = item.nossaPosicao || 999;
                         let corFundo, corBorda, corTexto, corNumero;
                         const isDesclassificada = item.inteligencia?.nossaEmpresaStatus && item.inteligencia.nossaEmpresaStatus !== 'Ativa';
@@ -389,7 +394,7 @@ export default function Dashboard() {
                                     <div style={{ marginTop: '5px' }}>
                                       <strong style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: '#94a3b8' }}>Ranking Visível (Ativos):</strong>
                                       <ul style={{ listStyle: 'none', padding: 0, margin: '5px 0 0 0', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        {item.inteligencia.ranking.slice(0, 5).map((c: any, i: number) => {
+                                        {(item.inteligencia.ranking || []).slice(0, 5).map((c: any, i: number) => {
                                           let nome = 'Empresa Desconhecida';
                                           const matchNome = c.textoBruto.match(/[A-ZÀ-Ÿ0-9\s.\-&]{10,}/);
                                           if (matchNome) nome = matchNome[0].trim();
@@ -616,9 +621,9 @@ export default function Dashboard() {
             onMouseLeave={e => { if(!loadingBot && !resumo.botEmExecucao) e.currentTarget.style.transform = 'none' }}
           >
             {(loadingBot || resumo.botEmExecucao) ? (
-              <><RefreshCw size={28} className="spin-animation" /> Sistema Trabalhando...</>
+              <><RefreshCw size={28} className="spin-animation" /> <span>Sistema Trabalhando...</span></>
             ) : (
-              <><Play size={28} fill="currentColor" /> Disparar Varredura Automática</>
+              <><Play size={28} fill="currentColor" /> <span>Disparar Varredura (Nova Versão)</span></>
             )}
           </button>
           

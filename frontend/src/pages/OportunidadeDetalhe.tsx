@@ -1681,7 +1681,31 @@ export default function OportunidadeDetalhe() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {cotacao.itens.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b', background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                Nenhum item inserido no sistema PNCP para este edital, ou o parse de itens ainda não ocorreu.
+                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📋</div>
+                <p style={{ fontWeight: 600, color: '#374151', marginBottom: '0.25rem' }}>Nenhum item carregado para este edital</p>
+                <p style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '1rem' }}>
+                  A API do PNCP pode estar temporariamente indisponível (503/502), ou o parse de itens ainda não ocorreu.<br/>
+                  Clique no botão <strong>"Sincronizar Itens"</strong> quando o portal estiver acessível para carregar os itens.
+                </p>
+                <button
+                  id="btn-sync-itens-vazio"
+                  onClick={async () => {
+                    try {
+                      const r = await fetch(`${window.API_URL}/oportunidades/${id}/sincronizar-itens`, { method: 'POST' });
+                      const data = await r.json();
+                      if (r.ok) {
+                        alert('Sincronização iniciada! Aguarde alguns segundos e recarregue a página.');
+                      } else {
+                        alert(`Erro: ${data.message || 'Falha ao sincronizar'}`);
+                      }
+                    } catch {
+                      alert('Não foi possível conectar com o backend. Verifique se o sistema está rodando.');
+                    }
+                  }}
+                  style={{ padding: '0.5rem 1.25rem', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                >
+                  🔄 Tentar Sincronizar Agora
+                </button>
               </div>
             ) : (
               cotacao.itens.map((item: any, index: number) => (

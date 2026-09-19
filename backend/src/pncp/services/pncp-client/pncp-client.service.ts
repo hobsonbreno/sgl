@@ -42,7 +42,7 @@ export class PncpClientService {
     await this.waitForCapacity();
     try {
       const response = await firstValueFrom(
-        this.httpService.get(url, { params, timeout: 90000 }).pipe(
+        this.httpService.get(url, { params, timeout: 240000 }).pipe(
           retry({
             count: 5,
             delay: (error: AxiosError, retryCount: number) => {
@@ -172,9 +172,9 @@ export class PncpClientService {
 
     while (temMais) {
       const url = `${baseUrl}?pagina=${pagina}&tamanhoPagina=${tamanhoPagina}`;
-      const data = await this.enfileirarRequisicao<any>(url);
+      const dataPayload = await this.enfileirarRequisicao<any>(url);
 
-      const itensDaPagina = data || [];
+      const itensDaPagina = (dataPayload && dataPayload.data) ? dataPayload.data : (dataPayload || []);
       todosItens = todosItens.concat(itensDaPagina);
 
       if (itensDaPagina.length < tamanhoPagina) {

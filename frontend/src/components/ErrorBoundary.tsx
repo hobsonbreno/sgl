@@ -84,7 +84,7 @@ class ErrorBoundary extends Component<Props, State> {
               Nossa equipe técnica já pode ter sido notificada.
             </p>
 
-            {import.meta.env?.DEV && this.state.error && (
+            {this.state.error && (
               <pre style={{
                 textAlign: 'left',
                 background: '#f1f5f9',

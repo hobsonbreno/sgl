@@ -103,16 +103,28 @@ export class ComprasGovScraperService {
           .catch(() => null);
         await page.focus('#accountId');
         await page.type('#accountId', cpf.replace(/\D/g, ''), { delay: 50 });
-        await page.keyboard.press('Enter');
+        await page.waitForSelector('#enter-account-id', { timeout: 10000 }).catch(() => null);
+        const nextBtn = await page.$('#enter-account-id');
+        if (nextBtn) {
+          await nextBtn.evaluate((b: any) => b.click());
+        } else {
+          await page.keyboard.press('Enter');
+        }
 
         try {
           await page.waitForSelector('#password', { timeout: 20000 });
           await page.focus('#password');
           await page.type('#password', senha, { delay: 50 });
-          await page.keyboard.press('Enter');
+          await page.waitForSelector('#submit-button', { timeout: 10000 }).catch(() => null);
+          const submitBtn = await page.$('#submit-button');
+          if (submitBtn) {
+            await submitBtn.evaluate((b: any) => b.click());
+          } else {
+            await page.keyboard.press('Enter');
+          }
 
           await page
-            .waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 })
+            .waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 })
             .catch(() => null);
         } catch {
           this.logger.error(
@@ -231,23 +243,15 @@ export class ComprasGovScraperService {
           await new Promise((r) => setTimeout(r, 3000));
 
           // Clicar em acompanhar item (o botão "+")
-          const acompanhamentoLinks = await page.$$(
-            'i.fa-plus-square.fas, button[aria-label="Acompanhar item"], a[title="Acompanhar item"], button.p-button-rounded',
-          );
+          const selAcompanhar = 'i.fa-plus-square.fas, button[aria-label="Acompanhar item"], a[title="Acompanhar item"], button.p-button-rounded';
+          const totalAcompanhar = await page.evaluate((sel) => document.querySelectorAll(sel).length, selAcompanhar);
 
-          if (acompanhamentoLinks.length > 0) {
-            this.logger.log(
-              `Encontrados ${acompanhamentoLinks.length} itens no pregão ${p + 1}.`,
-            );
+          if (totalAcompanhar > 0) {
+            this.logger.log(`Encontrados ${totalAcompanhar} itens no pregão ${p + 1}.`);
           }
 
-          for (let i = 0; i < acompanhamentoLinks.length; i++) {
-            const links = await page.$$(
-              'i.fa-plus-square.fas, button[aria-label="Acompanhar item"], a[title="Acompanhar item"], button.p-button-rounded',
-            );
-            const link = links[i];
-
-            if (!link) continue;
+          for (let i = 0; i < totalAcompanhar; i++) {
+            await new Promise((r) => setTimeout(r, 1000)); // Pequena pausa para a DOM assentar entre cliques
 
             const [targetPage] = await Promise.all([
               new Promise<Page>((x) => {
@@ -258,7 +262,10 @@ export class ComprasGovScraperService {
                     .catch(() => {});
                 });
               }).catch(() => page),
-              link.evaluate((b: any) => b.click()),
+              page.evaluate((sel, idx) => {
+                const els = document.querySelectorAll(sel);
+                if (els[idx]) (els[idx] as HTMLElement).click();
+              }, selAcompanhar, i),
             ]);
 
             const actPage = targetPage || page;
