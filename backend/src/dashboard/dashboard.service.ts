@@ -69,13 +69,26 @@ export class DashboardService {
 
     let ultimaExecucaoBot = null;
     if (execucoesHoje.length > 0) {
+      const syncFailuresHoje = await this.connection
+        .collection('SyncFailureLog')
+        .find({ createdAt: { $gte: hojeStart }, jobName: 'automacao-pncp' })
+        .toArray();
+
       ultimaExecucaoBot = {
         dataExecucao: execucoesHoje[0].dataExecucao, // data da mais recente
         totalNovos: execucoesHoje.reduce(
           (acc, curr) => acc + (curr.totalNovos || 0),
           0,
         ),
-        erros: execucoesHoje.flatMap((curr) => curr.erros || []),
+        erros: [
+          ...execucoesHoje.flatMap((curr) => curr.erros || []),
+          ...syncFailuresHoje.map((f) => ({
+            mensagem: f.errorMessage,
+            dataHora: f.createdAt,
+            contexto: f.stage,
+            palavraChave: f.itemId,
+          }))
+        ],
       };
     }
 

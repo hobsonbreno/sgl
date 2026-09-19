@@ -570,7 +570,7 @@ export default function Dashboard() {
                 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
                   <div style={{ background: '#f0fdf4', padding: '2rem 1rem', borderRadius: '20px', border: '1px solid #bbf7d0', textAlign: 'center' }}>
-                    <span style={{ display: 'block', fontSize: '3.5rem', fontWeight: 900, color: '#16a34a', lineHeight: 1, letterSpacing: '-1px' }}>{resumo.ultimaExecucaoBot.totalNovos}</span>
+                    <span style={{ display: 'block', fontSize: '3.5rem', fontWeight: 900, color: '#16a34a', lineHeight: 1, letterSpacing: '-1px' }}>{resumo.novasHoje}</span>
                     <span style={{ fontSize: '0.95rem', color: '#15803d', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.5px', marginTop: '0.75rem', display: 'block' }}>Novas Descobertas</span>
                   </div>
                   
