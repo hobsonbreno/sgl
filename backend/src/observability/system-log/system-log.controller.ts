@@ -12,13 +12,28 @@ export class SystemLogController {
   async getLogs(
     @Query('limit') limit?: number,
     @Query('level') level?: string,
-    @Query('module') module?: string,
+    @Query('modulo') modulo?: string,
+    @Query('correlationId') correlationId?: string,
   ) {
     const data = await this.systemLogService.getRecentLogs(
       limit ? Number(limit) : 100,
       level,
-      module,
+      modulo,
+      correlationId,
     );
     return { data };
+  }
+
+  @Get('stats')
+  @ApiOperation({ summary: 'Estatísticas de logs agrupadas por módulo e nível' })
+  async getStats(
+    @Query('dataInicio') dataInicioStr?: string,
+    @Query('dataFim') dataFimStr?: string,
+  ) {
+    const dataInicio = dataInicioStr ? new Date(dataInicioStr) : undefined;
+    const dataFim = dataFimStr ? new Date(dataFimStr) : undefined;
+
+    const stats = await this.systemLogService.getLogStats(dataInicio, dataFim);
+    return { data: stats };
   }
 }

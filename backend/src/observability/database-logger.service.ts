@@ -11,14 +11,14 @@ export class DatabaseLoggerService implements LoggerService {
 
   log(message: any, context?: string) {
     this.pino.log(message, context);
-    if (this.shouldLogToDb(context)) {
-      this.systemLog.logInfo(context || 'App', this.formatMessage(message));
-    }
+    // REMOVIDO: O nível 'log/info' não deve persistir no banco por padrão
+    // pois inunda o SystemLog com milhares de registros de rotina.
+    // Se precisarmos persistir infos, usaremos this.systemLog.logInfo() diretamente onde for relevante.
   }
 
   error(message: any, trace?: string, context?: string) {
     this.pino.error(message, trace, context);
-    if (this.shouldLogToDb(context)) {
+    if (this.shouldLogToDb(context, message)) {
       this.systemLog.logError(
         context || 'App',
         this.formatMessage(message),
@@ -29,7 +29,7 @@ export class DatabaseLoggerService implements LoggerService {
 
   warn(message: any, context?: string) {
     this.pino.warn(message, context);
-    if (this.shouldLogToDb(context)) {
+    if (this.shouldLogToDb(context, message)) {
       this.systemLog.logWarn(context || 'App', this.formatMessage(message));
     }
   }
@@ -46,9 +46,8 @@ export class DatabaseLoggerService implements LoggerService {
     return typeof message === 'string' ? message : JSON.stringify(message);
   }
 
-  private shouldLogToDb(context?: string): boolean {
-    if (!context) return true;
-    const ignored = [
+  private shouldLogToDb(context?: string, message?: any): boolean {
+    const ignoredContexts = [
       'RouterExplorer',
       'RoutesResolver',
       'InstanceLoader',
@@ -60,7 +59,19 @@ export class DatabaseLoggerService implements LoggerService {
       'HTTP',
       'SwaggerModule',
       'DatabaseLoggerService',
+      'PncpClientService', // Cliente PNCP é muito ruidoso
     ];
-    return !ignored.includes(context);
+
+    if (context && ignoredContexts.includes(context)) {
+      return false;
+    }
+
+    // Ignora mensagens de fila do PNCP que são ruído operacional normal
+    const msgStr = this.formatMessage(message);
+    if (msgStr.includes('[PNCP_QUEUE]')) {
+      return false;
+    }
+
+    return true;
   }
 }
