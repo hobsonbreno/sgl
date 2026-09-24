@@ -90,33 +90,59 @@ export class PncpClientService {
   async buscarContratacoesComPropostaAberta(
     filtros: FiltroBuscaDto,
   ): Promise<PncpContratacaoRawDto[]> {
-    let pagina = 1;
-    let totalPaginas = 1;
     const resultados: PncpContratacaoRawDto[] = [];
+    
+    // Converte datas AAAAMMDD para objetos Date
+    const parseDate = (d: string) => new Date(parseInt(d.substring(0,4)), parseInt(d.substring(4,6))-1, parseInt(d.substring(6,8)));
+    const formatDate = (d: Date) => `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
 
-    while (pagina <= totalPaginas) {
-      this.logger.log(
-        `Buscando página ${pagina} para modalidade ${filtros.codigoModalidadeContratacao}...`,
-      );
+    let currentDate = parseDate(filtros.dataInicial);
+    const endDate = parseDate(filtros.dataFinal);
 
-      const dataPayload = await this.enfileirarRequisicao<any>(
-        `${this.baseUrl}/v1/contratacoes/proposta`,
-        {
-          ...filtros,
-          pagina,
-        },
-      );
+    while (currentDate <= endDate) {
+      const chunkEnd = new Date(currentDate);
+      chunkEnd.setDate(chunkEnd.getDate() + 15);
+      
+      const chunkEndStr = chunkEnd > endDate ? formatDate(endDate) : formatDate(chunkEnd);
+      const chunkStartStr = formatDate(currentDate);
 
-      if (dataPayload) {
-        const itens: any[] = dataPayload.data || [];
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        resultados.push(...itens);
-        totalPaginas = dataPayload.totalPaginas || 1;
-      } else {
-        break; // Sai do loop se não houver dados
+      this.logger.log(`[PNCP] Buscando janela de ${chunkStartStr} a ${chunkEndStr} para modalidade ${filtros.codigoModalidadeContratacao}...`);
+
+      let pagina = 1;
+      let totalPaginas = 1;
+
+      while (pagina <= totalPaginas) {
+        this.logger.log(`[PNCP] Buscando página ${pagina}/${totalPaginas} para janela ${chunkStartStr}-${chunkEndStr}...`);
+        
+        try {
+          const dataPayload = await this.enfileirarRequisicao<any>(
+            `${this.baseUrl}/v1/contratacoes/proposta`,
+            {
+              ...filtros,
+              dataInicial: chunkStartStr,
+              dataFinal: chunkEndStr,
+              pagina,
+            },
+          );
+
+          if (dataPayload) {
+            const itens: any[] = dataPayload.data || [];
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+            resultados.push(...itens);
+            totalPaginas = dataPayload.totalPaginas || 1;
+          } else {
+            break; // Sai do loop se não houver dados
+          }
+        } catch (error) {
+          this.logger.error(`[PNCP] Erro ao buscar página ${pagina} (janela ${chunkStartStr}-${chunkEndStr}): ${error.message}`);
+          // Continua para a próxima página ou aborta o chunk atual?
+          // O usuário pediu: "a falha de uma página não deve abortar o ciclo inteiro."
+        }
+        pagina++;
       }
 
-      pagina++;
+      currentDate = new Date(chunkEnd);
+      currentDate.setDate(currentDate.getDate() + 1);
     }
 
     this.logger.log(
