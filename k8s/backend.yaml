@@ -23,11 +23,28 @@ spec:
           value: "https://pncp.gov.br/api/consulta"
         - name: TZ
           value: "America/Sao_Paulo"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "1024Mi"
+            cpu: "1000m"
         - name: SERPAPI_KEYS
           valueFrom:
             secretKeyRef:
               name: sgl-secrets
               key: SERPAPI_KEYS
+        - name: GOV_BR_USER
+          valueFrom:
+            secretKeyRef:
+              name: sgl-secrets
+              key: GOV_BR_USER
+        - name: GOV_BR_PASS
+          valueFrom:
+            secretKeyRef:
+              name: sgl-secrets
+              key: GOV_BR_PASS
 ---
 apiVersion: v1
 kind: Service
