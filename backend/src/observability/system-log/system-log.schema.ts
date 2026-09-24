@@ -38,4 +38,7 @@ SystemLogSchema.index({ level: 1, modulo: 1 });
 SystemLogSchema.index({ createdAt: -1 });
 
 // TTL automático: logs expiram após 30 dias para evitar crescimento ilimitado da collection
-SystemLogSchema.index({ createdAt: 1 }, { expireAfterSeconds: 30 * 24 * 60 * 60 });
+SystemLogSchema.index(
+  { createdAt: 1 },
+  { expireAfterSeconds: 30 * 24 * 60 * 60 },
+);
