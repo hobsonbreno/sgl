@@ -54,6 +54,7 @@ const FONTES_PERMITIDAS = [
 export class BotService implements OnApplicationBootstrap {
   private readonly logger = new Logger(BotService.name);
   private emExecucao = false;
+  private zeroYieldCycles = 0;
 
   constructor(
     @InjectModel(BotExecucao.name)
@@ -188,25 +189,7 @@ export class BotService implements OnApplicationBootstrap {
           atualizados: 0,
         };
 
-        // dataFinal: encerramento da proposta até 20 dias no futuro.
-        // A API do PNCP filtra por dataEncerramentoProposta, não por publicação.
-        // Editais recém-publicados encerram no futuro (mínimo 8-20 dias por lei),
-        // então limitar ao dia de hoje os tornaria invisíveis para o bot.
-        const dataFinalDate = new Date();
-        dataFinalDate.setDate(dataFinalDate.getDate() + 20);
-        const yyyyF = dataFinalDate.getFullYear();
-        const mmF = String(dataFinalDate.getMonth() + 1).padStart(2, '0');
-        const ddF = String(dataFinalDate.getDate()).padStart(2, '0');
-        const dataFinal = `${yyyyF}${mmF}${ddF}`;
-
-        // dataInicial: encerramento da proposta a partir de 20 dias atrás.
-        // Captura editais recentes que ainda podem estar em vigor.
-        const dataInicialDate = new Date();
-        dataInicialDate.setDate(dataInicialDate.getDate() - 20);
-        const yyyyI = dataInicialDate.getFullYear();
-        const mmI = String(dataInicialDate.getMonth() + 1).padStart(2, '0');
-        const ddI = String(dataInicialDate.getDate()).padStart(2, '0');
-        const dataInicial = `${yyyyI}${mmI}${ddI}`;
+        const { dataInicial, dataFinal } = this.calcularJanelaDeBusca();
 
         this.logger.log(`[BOT:DATAS] Janela de busca: ${dataInicial} → ${dataFinal} (encerramento da proposta)`);
 
@@ -407,13 +390,21 @@ export class BotService implements OnApplicationBootstrap {
 
         const duracaoMs = Date.now() - inicioPerfil;
 
+        const totalBruto = totalEncontrados + filtros.descartadosFonte + filtros.descartadosMunicipio + filtros.descartadosPalavraChave + filtros.descartadosCnpjOrgao + filtros.descartadosUasg;
+
         this.logger.log(
           `[BOT:PERFIL] ── Perfil "${perfil.nome}" concluído em ${duracaoMs}ms | ` +
-          `Novos: ${totalNovos} | Atualizados: ${filtros.atualizados} | ` +
-          `Descartados → Fonte: ${filtros.descartadosFonte} | Município: ${filtros.descartadosMunicipio} | ` +
-          `Palavra-chave: ${filtros.descartadosPalavraChave} | CNPJ: ${filtros.descartadosCnpjOrgao} | ` +
-          `UASG: ${filtros.descartadosUasg} | Erros: ${erros.length} ──`,
+          `Bruto: ${totalBruto} | UF/IBGE: ${filtros.descartadosMunicipio} | CNAE/Palavra: ${filtros.descartadosPalavraChave} | Duplicados(Atz): ${filtros.atualizados} | Criados: ${totalNovos} ──`,
         );
+
+        if (totalBruto === 0 || totalNovos === 0) {
+          this.zeroYieldCycles++;
+          if (this.zeroYieldCycles >= 3) {
+            await this.systemLogService.logWarn('Bot', `Bot teve 0 retorno bruto ou 0 criados por ${this.zeroYieldCycles} ciclos consecutivos no perfil ${perfil.nome}.`);
+          }
+        } else {
+          this.zeroYieldCycles = 0;
+        }
 
         const execucao = await this.botExecucaoModel.create({
           correlationId,
@@ -453,5 +444,25 @@ export class BotService implements OnApplicationBootstrap {
 
   isExecucao(): boolean {
     return this.emExecucao;
+  }
+
+  public calcularJanelaDeBusca(): { dataInicial: string, dataFinal: string, dataInicialDate: Date, dataFinalDate: Date } {
+    const windowDaysForward = parseInt(process.env.BOT_WINDOW_DAYS_FORWARD || '45', 10);
+    const dataFinalDate = new Date();
+    dataFinalDate.setDate(dataFinalDate.getDate() + windowDaysForward);
+    const yyyyF = dataFinalDate.getFullYear();
+    const mmF = String(dataFinalDate.getMonth() + 1).padStart(2, '0');
+    const ddF = String(dataFinalDate.getDate()).padStart(2, '0');
+    const dataFinal = `${yyyyF}${mmF}${ddF}`;
+
+    const windowDaysBack = parseInt(process.env.BOT_WINDOW_DAYS_BACK || '20', 10);
+    const dataInicialDate = new Date();
+    dataInicialDate.setDate(dataInicialDate.getDate() - windowDaysBack);
+    const yyyyI = dataInicialDate.getFullYear();
+    const mmI = String(dataInicialDate.getMonth() + 1).padStart(2, '0');
+    const ddI = String(dataInicialDate.getDate()).padStart(2, '0');
+    const dataInicial = `${yyyyI}${mmI}${ddI}`;
+
+    return { dataInicial, dataFinal, dataInicialDate, dataFinalDate };
   }
 }
