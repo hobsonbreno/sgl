@@ -22,6 +22,7 @@ import { ObservabilityModule } from './observability/observability.module';
 import { SefazCeModule } from './sefaz-ce/sefaz-ce.module';
 import { ComprasGovMonitorModule } from './compras-gov-monitor/compras-gov-monitor.module';
 import { CategoriaModule } from './categoria/categoria.module';
+import { PuppeteerQueueModule } from './puppeteer-queue/puppeteer-queue.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { CategoriaModule } from './categoria/categoria.module';
     SefazCeModule,
     ComprasGovMonitorModule,
     CategoriaModule,
+    PuppeteerQueueModule,
   ],
   controllers: [AppController],
   providers: [AppService],
