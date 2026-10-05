@@ -366,7 +366,10 @@ export default function Kanban() {
     carregarOportunidadesEProdutos();
 
     // WebSocket Connection
-    const socket = io(window.API_URL);
+    const socket = io(window.API_URL, {
+      transports: ['websocket', 'polling'],
+      reconnectionDelay: 3000,
+    });
     setSocketRef(socket);
 
     socket.on('oportunidade_updated', (updatedOp: any) => {

@@ -58,7 +58,10 @@ export default function Fornecedores() {
   }, [busca, page]);
 
   useEffect(() => {
-    const socket = io(window.API_URL);
+    const socket = io(window.API_URL, {
+      transports: ['websocket', 'polling'],
+      reconnectionDelay: 3000,
+    });
 
     socket.on('fornecedor_updated', (updated: any) => {
       setFornecedores(prev => {

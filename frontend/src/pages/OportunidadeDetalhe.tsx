@@ -1265,7 +1265,10 @@ export default function OportunidadeDetalhe() {
   }, [id]);
 
   useEffect(() => {
-    const socket = io(window.API_URL);
+    const socket = io(window.API_URL, {
+      transports: ['websocket', 'polling'],
+      reconnectionDelay: 3000,
+    });
 
     socket.on('cotacao_updated', (updatedCotacao: any) => {
       setCotacao((prev: any) => {

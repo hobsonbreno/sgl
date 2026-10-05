@@ -23,7 +23,10 @@ export default function BaseProdutos() {
   }, [busca, page, refresh]);
 
   useEffect(() => {
-    const socket = io(window.API_URL);
+    const socket = io(window.API_URL, {
+      transports: ['websocket', 'polling'],
+      reconnectionDelay: 3000,
+    });
     socket.on('fornecedor_updated', () => setRefresh(r => r + 1));
     socket.on('fornecedor_deleted', () => setRefresh(r => r + 1));
     return () => {

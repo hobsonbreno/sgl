@@ -51,7 +51,10 @@ export default function Dashboard() {
   useEffect(() => {
     carregarResumo();
     
-    const socket = io(window.API_URL);
+    const socket = io(window.API_URL, {
+      transports: ['websocket', 'polling'],
+      reconnectionDelay: 3000,
+    });
 
     const refresh = () => carregarResumo();
 

@@ -22,7 +22,10 @@ export default function Financeiro() {
   }, []);
 
   useEffect(() => {
-    const socket = io(window.API_URL);
+    const socket = io(window.API_URL, {
+      transports: ['websocket', 'polling'],
+      reconnectionDelay: 3000,
+    });
 
     socket.on('financeiro_updated', () => {
       carregarDados();
