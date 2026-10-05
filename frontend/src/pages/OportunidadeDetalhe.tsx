@@ -1225,19 +1225,8 @@ export default function OportunidadeDetalhe() {
       
       // Sincronizar itens se a oportunidade não tiver nenhum
       if (!dataProds.data || dataProds.data.length === 0) {
-        try {
-          const syncRes = await fetch(`${window.API_URL}/oportunidades/${id}/sincronizar-itens`, { method: 'POST' });
-          if (!syncRes.ok) {
-            const err = await syncRes.json();
-            alert(err.message || 'Erro ao sincronizar itens.');
-          } else {
-            // Busca novamente após sincronizar
-            resProds = await fetch(`${window.API_URL}/produto?oportunidadeId=${id}&limit=1000`);
-            dataProds = await resProds.json();
-          }
-        } catch {
-          console.error('Falha ao sincronizar itens');
-        }
+        // A sincronização automática foi removida.
+        // O usuário deve clicar no botão para sincronizar se a lista estiver vazia.
       }
 
       const produtosDaOportunidade = dataProds.data || [];
@@ -1287,10 +1276,54 @@ export default function OportunidadeDetalhe() {
       });
     });
 
+    socket.on('oportunidade:sincronizacao-concluida', (payload: any) => {
+      if (payload.oportunidadeId === id) {
+        setIsSyncing(false);
+        if (payload.sucesso) {
+          loadData();
+        } else {
+          alert(`Erro na sincronização: ${payload.erro || 'Falha ao buscar itens do PNCP.'}`);
+        }
+      }
+    });
+
     return () => {
       socket.disconnect();
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  // Polling de fallback para garantir que saia do estado de sincronização
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    let timeout: NodeJS.Timeout;
+
+    if (isSyncing) {
+      interval = setInterval(async () => {
+        try {
+          const resProds = await fetch(`${window.API_URL}/produto?oportunidadeId=${id}&limit=1`);
+          const dataProds = await resProds.json();
+          if (dataProds.data && dataProds.data.length > 0) {
+            setIsSyncing(false);
+            loadData(); // recarrega completo
+          }
+        } catch {
+          // ignora
+        }
+      }, 5000);
+
+      // Max 60 seconds
+      timeout = setTimeout(() => {
+        setIsSyncing(false);
+      }, 60000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+      if (timeout) clearTimeout(timeout);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSyncing, id]);
 
   const handlePrecoBlur = async (
     itemId: string, 
@@ -1689,22 +1722,24 @@ export default function OportunidadeDetalhe() {
                 </p>
                 <button
                   id="btn-sync-itens-vazio"
+                  disabled={isSyncing}
                   onClick={async () => {
+                    setIsSyncing(true);
                     try {
                       const r = await fetch(`${window.API_URL}/oportunidades/${id}/sincronizar-itens`, { method: 'POST' });
                       const data = await r.json();
-                      if (r.ok) {
-                        alert('Sincronização iniciada! Aguarde alguns segundos e recarregue a página.');
-                      } else {
+                      if (!r.ok && r.status !== 202) {
                         alert(`Erro: ${data.message || 'Falha ao sincronizar'}`);
+                        setIsSyncing(false);
                       }
                     } catch {
                       alert('Não foi possível conectar com o backend. Verifique se o sistema está rodando.');
+                      setIsSyncing(false);
                     }
                   }}
-                  style={{ padding: '0.5rem 1.25rem', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                  style={{ padding: '0.5rem 1.25rem', background: isSyncing ? '#94a3b8' : '#2563eb', color: '#fff', border: 'none', borderRadius: '6px', cursor: isSyncing ? 'not-allowed' : 'pointer', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
                 >
-                  🔄 Tentar Sincronizar Agora
+                  {isSyncing ? <><RotateCw size={16} style={{ animation: 'spin 1.2s cubic-bezier(0.5, 0.1, 0.4, 0.9) infinite' }} /> Sincronizando...</> : <>🔄 Tentar Sincronizar Agora</>}
                 </button>
               </div>
             ) : (

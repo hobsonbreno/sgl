@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  HttpException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -146,12 +147,30 @@ export class OportunidadeService {
     return doc;
   }
 
-  async sincronizarItens(id: string) {
-    const doc = await this.model.findById(id).exec();
-    if (!doc) throw new NotFoundException('Oportunidade não encontrada');
+  private activeSyncs = new Map<string, NodeJS.Timeout>();
 
-    if (!doc.numeroControlePNCP) {
-      throw new BadRequestException('Oportunidade sem número de controle PNCP');
+  async sincronizarItens(id: string) {
+    if (this.activeSyncs.has(id)) {
+      throw new HttpException({ status: 'ja_em_andamento', message: 'Sincronização já em andamento para este edital.' }, 202);
+    }
+
+    const timeoutId = setTimeout(() => {
+      this.activeSyncs.delete(id);
+    }, 10 * 60 * 1000); // 10 minutes timeout
+    this.activeSyncs.set(id, timeoutId);
+
+    let doc;
+    try {
+      doc = await this.model.findById(id).exec();
+      if (!doc) throw new NotFoundException('Oportunidade não encontrada');
+
+      if (!doc.numeroControlePNCP) {
+        throw new BadRequestException('Oportunidade sem número de controle PNCP');
+      }
+    } catch (e) {
+      clearTimeout(timeoutId);
+      this.activeSyncs.delete(id);
+      throw e;
     }
 
     // Inicia TODO o processo em background
@@ -310,6 +329,11 @@ export class OportunidadeService {
         `Background: Sincronização COMPLETA finalizada para ${id}`,
       );
       if (this.gateway.server) {
+        this.gateway.server.emit('oportunidade:sincronizacao-concluida', {
+          oportunidadeId: id,
+          sucesso: true,
+          totalItens: novosProdutos.length,
+        });
         this.gateway.server.emit('alerta_monitoramento', {
           mensagem: `✅ Sincronização concluída (PNCP: ${doc.numeroControlePNCP}). Todos os ${novosProdutos.length} itens e vencedores foram baixados!`,
         });
@@ -319,9 +343,21 @@ export class OportunidadeService {
         `Erro fatal no background sync completo para ${id}: ${e.message}`,
       );
       if (this.gateway.server) {
+        this.gateway.server.emit('oportunidade:sincronizacao-concluida', {
+          oportunidadeId: id,
+          sucesso: false,
+          totalItens: 0,
+          erro: e.message,
+        });
         this.gateway.server.emit('alerta_monitoramento', {
           mensagem: `❌ Falha ao sincronizar PNCP ${doc.numeroControlePNCP}: A API do governo está instável. Tente novamente mais tarde.`,
         });
+      }
+    } finally {
+      const timeoutId = this.activeSyncs.get(id);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        this.activeSyncs.delete(id);
       }
     }
   }
