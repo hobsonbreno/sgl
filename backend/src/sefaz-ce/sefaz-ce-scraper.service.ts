@@ -48,11 +48,15 @@ export class SefazCeScraperService {
           executablePath: executablePath,
           headless: true,
           acceptInsecureCerts: true, // Substitui o antigo ignoreHTTPSErrors
+          timeout: 90000,
+          protocolTimeout: 120000,
           args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
             '--disable-gpu',
+            '--no-zygote',
+            '--disable-extensions',
             '--ignore-certificate-errors',
           ],
         });

@@ -42,10 +42,14 @@ export class ComprasnetPublicService {
           executablePath:
             process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser',
           headless: true,
+          timeout: 90000,
+          protocolTimeout: 120000,
           args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--no-zygote',
             '--disable-web-security',
             '--disable-features=IsolateOrigins,site-per-process',
             '--window-size=1920,1080',

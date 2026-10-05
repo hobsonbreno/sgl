@@ -23,25 +23,34 @@ export class ComprasGovScraperService {
 
   private async launchBrowser(): Promise<Browser> {
     const executablePath =
-      process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome';
+      process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser';
     return await puppeteer.launch({
       executablePath,
       headless: true,
+      timeout: 90000,
+      protocolTimeout: 120000,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--no-zygote',
+        '--disable-extensions',
         '--window-size=1280,800',
       ],
     });
   }
 
   async scrapeMinhasParticipacoes(): Promise<Map<string, PropostaScrapedData>> {
-    const cpf = process.env.GOVBR_CPF;
-    const senha = process.env.GOVBR_SENHA;
+    // No Kubernetes as variáveis vêm do Secret como GOV_BR_USER/GOV_BR_PASS;
+    // localmente (.env) usamos GOVBR_CPF/GOVBR_SENHA.
+    const cpf = process.env.GOV_BR_USER || process.env.GOVBR_CPF;
+    const senha = process.env.GOV_BR_PASS || process.env.GOVBR_SENHA;
 
     if (!cpf || !senha) {
-      this.logger.error('Credenciais do GOV.BR não configuradas no .env');
+      this.logger.error(
+        'Credenciais do GOV.BR não configuradas (GOV_BR_USER/GOV_BR_PASS ou GOVBR_CPF/GOVBR_SENHA)',
+      );
       return new Map();
     }
 
