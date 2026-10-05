@@ -46,6 +46,7 @@ jobs:
           context: ./backend
           file: ./backend/Dockerfile
           push: true
+          platforms: linux/amd64
           tags: hobson007breno/sgl-backend:${{ env.sha_short }},hobson007breno/sgl-backend:latest
 
       - name: Build and Push Frontend
@@ -54,6 +55,7 @@ jobs:
           context: ./frontend
           file: ./frontend/Dockerfile
           push: true
+          platforms: linux/amd64
           tags: hobson007breno/sgl-frontend:${{ env.sha_short }},hobson007breno/sgl-frontend:latest
 
       - name: Build and Push Market Intelligence
@@ -62,6 +64,7 @@ jobs:
           context: ./market-intelligence
           file: ./market-intelligence/Dockerfile
           push: true
+          platforms: linux/amd64
           tags: hobson007breno/sgl-market-intelligence:${{ env.sha_short }},hobson007breno/sgl-market-intelligence:latest
 
       - name: Update Kubernetes manifests
