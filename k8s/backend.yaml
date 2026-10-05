@@ -28,16 +28,19 @@ spec:
             secretKeyRef:
               name: sgl-secrets
               key: SERPAPI_KEYS
+              optional: true
         - name: GOV_BR_USER
           valueFrom:
             secretKeyRef:
               name: sgl-secrets
               key: GOV_BR_USER
+              optional: true
         - name: GOV_BR_PASS
           valueFrom:
             secretKeyRef:
               name: sgl-secrets
               key: GOV_BR_PASS
+              optional: true
         resources:
           requests:
             memory: "256Mi"
