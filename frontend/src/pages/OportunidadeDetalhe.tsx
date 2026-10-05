@@ -1295,8 +1295,8 @@ export default function OportunidadeDetalhe() {
 
   // Polling de fallback para garantir que saia do estado de sincronização
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    let timeout: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
+    let timeout: ReturnType<typeof setTimeout>;
 
     if (isSyncing) {
       interval = setInterval(async () => {
