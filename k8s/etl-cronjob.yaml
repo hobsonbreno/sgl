@@ -5,13 +5,16 @@ metadata:
 spec:
   # Roda às 02:00 da manhã do dia 10 de cada mês
   schedule: "0 2 10 * *"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
   jobTemplate:
     spec:
+      backoffLimit: 2
+      ttlSecondsAfterFinished: 86400
       template:
         spec:
           containers:
           - name: sgl-etl
-            # Substituir pela sua imagem real hospedada no Docker Hub / Registry (ex: breno/sgl-backend:latest)
             image: hobson007breno/sgl-backend:08e0099
             command:
             - npm
@@ -29,4 +32,13 @@ spec:
                 secretKeyRef:
                   name: sgl-secrets
                   key: SERPAPI_KEYS
+                  optional: true
+            resources:
+              requests:
+                memory: "512Mi"
+                cpu: "250m"
+              limits:
+                memory: "2048Mi"
+                cpu: "1000m"
           restartPolicy: OnFailure
+
