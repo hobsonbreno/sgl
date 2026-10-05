@@ -73,3 +73,5 @@ export class Oportunidade {
 }
 
 export const OportunidadeSchema = SchemaFactory.createForClass(Oportunidade);
+OportunidadeSchema.index({ kanbanStatus: 1 });
+OportunidadeSchema.index({ dataEncerramentoProposta: 1 });

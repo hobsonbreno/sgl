@@ -27,6 +27,14 @@ spec:
       containers:
       - name: mongo
         image: mongo:4.4
+        args: ["--wiredTigerCacheSizeGB", "1.0"]
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "250m"
+          limits:
+            memory: "1.5Gi"
+            cpu: "500m"
         ports:
         - containerPort: 27017
         volumeMounts:

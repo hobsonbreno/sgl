@@ -1546,12 +1546,13 @@ export default function OportunidadeDetalhe() {
                 setIsSyncing(true);
                 try {
                   const syncRes = await fetch(`${window.API_URL}/oportunidades/${id}/sincronizar-itens`, { method: 'POST' });
-                  if (!syncRes.ok) throw new Error();
+                  if (!syncRes.ok && syncRes.status !== 202) throw new Error();
                   const data = await syncRes.json();
-                  setTimeout(() => alert(data.message || `Sincronização iniciada em background!`), 100);
+                  if (syncRes.status !== 202) {
+                    setTimeout(() => alert(data.message || `Sincronização iniciada em background!`), 100);
+                  }
                 } catch {
                   setTimeout(() => alert('Erro ao iniciar sincronização com o PNCP.'), 100);
-                } finally {
                   setIsSyncing(false);
                 }
               }
