@@ -23,14 +23,14 @@ export class DatabaseLoggerService implements LoggerService {
         context || 'App',
         this.formatMessage(message),
         trace,
-      ).catch((err) => this.pino.error('Falha ao salvar log no BD: ' + err));
+      );
     }
   }
 
   warn(message: any, context?: string) {
     this.pino.warn(message, context);
     if (this.shouldLogToDb(context, message)) {
-      this.systemLog.logWarn(context || 'App', this.formatMessage(message)).catch((err) => this.pino.error('Falha ao salvar log no BD: ' + err));
+      this.systemLog.logWarn(context || 'App', this.formatMessage(message));
     }
   }
 

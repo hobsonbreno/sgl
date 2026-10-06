@@ -74,7 +74,7 @@ export class SystemLogService {
     modulo?: string,
     correlationId?: string,
   ) {
-    const query: Record<string, any> = {};
+    const query: any = {};
     if (level) query.level = level;
     if (modulo) query.modulo = modulo;
     if (correlationId) query.correlationId = correlationId;
@@ -87,7 +87,7 @@ export class SystemLogService {
   }
 
   async getLogStats(dataInicio?: Date, dataFim?: Date) {
-    const query: Record<string, any> = {};
+    const query: any = {};
     if (dataInicio || dataFim) {
       query.createdAt = {};
       if (dataInicio) query.createdAt.$gte = dataInicio;

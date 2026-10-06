@@ -401,7 +401,7 @@ export default function Kanban() {
       try {
         const audio = new Audio('https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg');
         audio.play().catch(e => console.log('Audio autoplay blocked', e));
-      } catch {
+      } catch (_e) {
         // Ignora
       }
     });

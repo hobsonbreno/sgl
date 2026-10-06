@@ -67,9 +67,9 @@ export class SefazCeScraperService {
         await page.setRequestInterception(true);
         page.on('request', (req) => {
           if (['image', 'stylesheet', 'font'].includes(req.resourceType())) {
-            req.abort().catch(() => {});
+            req.abort();
           } else {
-            req.continue().catch(() => {});
+            req.continue();
           }
         });
 
