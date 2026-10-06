@@ -82,7 +82,7 @@ export class ComprasGovScraperService {
         // Passa pelo portal oficial para gerar authorization_id válido
         await page.goto(
           'https://www.comprasnet.gov.br/seguro/loginPortal.asp',
-          { waitUntil: 'networkidle2' },
+          { waitUntil: 'domcontentloaded' },
         );
 
         // Expande o card "Fornecedor Brasileiro"
@@ -100,7 +100,7 @@ export class ComprasGovScraperService {
         });
 
         await page
-          .waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 })
+          .waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 })
           .catch(() => null);
         currentUrl = page.url();
       }
