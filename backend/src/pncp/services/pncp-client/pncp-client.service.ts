@@ -332,7 +332,7 @@ export class PncpClientService {
     const url = `https://pncp.gov.br/api/consulta/v1/orgaos/${cnpj}/compras/${ano}/${sequencial}`;
 
     try {
-      const data = await this.enfileirarRequisicao<any>(url, undefined, true);
+      const data = await this.enfileirarRequisicao<any>(url, undefined, false);
       return data;
     } catch (e) {
       this.logger.error(

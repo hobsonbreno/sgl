@@ -82,12 +82,14 @@ describe('PncpClientService', () => {
   });
 
   it('c) requisições background respeitam limite de 2 slots simultâneos', async () => {
+    jest.useRealTimers();
+    
     httpService.get.mockImplementation(() => {
       return new Observable((subscriber) => {
         setTimeout(() => {
-          subscriber.next({ data: { success: true } });
+          subscriber.next({ data: [] });
           subscriber.complete();
-        }, 1000);
+        }, 100); // 100ms real delay
       }) as any;
     });
 
@@ -96,7 +98,8 @@ describe('PncpClientService', () => {
     bgPromises.push(service.buscarResultadosDoItem('00-1-1/2024', 1));
     bgPromises.push(service.buscarResultadosDoItem('00-1-1/2024', 1));
 
-    await Promise.resolve();
+    // Atraso real para dar tempo do event loop rodar os await waitForCapacity
+    await new Promise((res) => setTimeout(res, 20));
 
     expect((service as any).activeRequests).toBe(2);
     expect((service as any).backgroundRequests).toBe(2);
@@ -111,18 +114,16 @@ describe('PncpClientService', () => {
     fgPromises.push(service.buscarContratacoesComPropostaAberta(mockFiltro));
     fgPromises.push(service.buscarContratacoesComPropostaAberta(mockFiltro));
 
-    // Deixa os event loops executarem até enfileirarRequisicao
-    await jest.advanceTimersByTimeAsync(1);
+    await new Promise((res) => setTimeout(res, 20));
 
     expect((service as any).activeRequests).toBe(5);
 
-    // O 3º bgPromise está na fila aguardando. Avançar para as primeiras concluírem
-    await jest.advanceTimersByTimeAsync(1500);
-    await Promise.resolve();
-
     await Promise.allSettled([...bgPromises, ...fgPromises]);
+
     expect((service as any).activeRequests).toBe(0);
     expect((service as any).backgroundRequests).toBe(0);
+    
+    jest.useFakeTimers();
   });
 
   it('d) 400 não é retentado (apenas 1 chamada)', async () => {
