@@ -48,6 +48,23 @@ const FONTES_PERMITIDAS = [
   'ESTADO',
   'GOVERNO',
   'CAMARA',
+  'COMPRAS',
+  'SERPRO',
+  'PNCP',
+  'SISTEMA',
+  'PORTAL',
+  'LICITACAO',
+  'LICITACOES',
+  'TRIBUNA',
+  'FUNDO',
+  'AUTARQUIA',
+  'CONSORCIO',
+  'HOSPITAL',
+  'INSTITUTO',
+  'UNIVERSIDADE',
+  'EMPRESA',
+  'CEARA',
+  'GOV',
 ];
 
 @Injectable()
@@ -201,16 +218,22 @@ export class BotService implements OnApplicationBootstrap {
                 dataInicial,
                 dataFinal,
                 codigoModalidadeContratacao: modalidade,
-                uf:
-                  perfil.ufs && perfil.ufs.length > 0
-                    ? perfil.ufs[0]
-                    : undefined,
+                uf: undefined,
               });
 
             this.logger.log(`[BOT:PNCP] Modalidade ${modalidade}: ${rawContratacoes.length} contrataçõe(s) recebidas da API.`);
 
             for (const raw of rawContratacoes) {
               try {
+                // ── FILTRO: UF / Estado ──
+                if (perfil.ufs && perfil.ufs.length > 0) {
+                  const ufSigla = raw.unidadeOrgao?.ufSigla;
+                  if (ufSigla && !perfil.ufs.includes(ufSigla)) {
+                    filtros.descartadosMunicipio++;
+                    continue;
+                  }
+                }
+
                 // ── FILTRO: Município/IBGE ──
                 if (perfil.municipiosIbge && perfil.municipiosIbge.length > 0) {
                   const ibge = raw.unidadeOrgao?.codigoIbge;

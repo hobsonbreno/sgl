@@ -122,6 +122,7 @@ export class PncpClientService {
               dataInicial: chunkStartStr,
               dataFinal: chunkEndStr,
               pagina,
+              tamanhoPagina: 50,
             },
           );
 
