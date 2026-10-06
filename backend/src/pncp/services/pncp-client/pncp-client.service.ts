@@ -131,8 +131,13 @@ export class PncpClientService {
           resultados.push(...itens);
           totalPaginas = dataPayload.totalPaginas || 1;
         } else {
-          this.logger.log(`[PNCP] FIM Busca página ${pagina}/${totalPaginas} (Vazia) - Duração: ${durationMs}ms`);
-          break;
+          if (pagina > 1) {
+            this.logger.warn(`[PNCP] Página ${pagina} retornou vazia (nula) no meio da consulta. Tratando como falha.`);
+            paginasComFalha++;
+          } else {
+            this.logger.log(`[PNCP] FIM Busca página ${pagina}/${totalPaginas} (Vazia) - Duração: ${durationMs}ms`);
+            break;
+          }
         }
       } catch (error: any) {
         paginasComFalha++;

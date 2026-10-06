@@ -167,6 +167,13 @@ export class BotService implements OnApplicationBootstrap {
     });
   }
 
+class CicloAbortadoError extends Error {
+  constructor(message = 'Ciclo abortado por timeout.') {
+    super(message);
+    this.name = 'CicloAbortadoError';
+  }
+}
+
   async executarBuscaDiaria(isAutomatic = false) {
     if (this.emExecucao) {
       this.logger.warn('[BOT:GUARD] Bot já está em execução. Ignorando nova requisição.');
@@ -176,27 +183,28 @@ export class BotService implements OnApplicationBootstrap {
     this.emExecucao = true;
     this.eventsService.emitDashboardUpdate();
 
+    let timeoutId: NodeJS.Timeout;
     try {
-      const timeoutMinutes = parseInt(process.env.BOT_CYCLE_TIMEOUT_MIN || '20', 10);
-      const timeoutPromise = new Promise<any>((_, reject) =>
-        setTimeout(() => reject(new Error(`Watchdog: o ciclo do bot excedeu o limite de ${timeoutMinutes} minutos e foi abortado.`)), timeoutMinutes * 60 * 1000)
-      );
+      const timeoutMinutes = parseInt(process.env.BOT_CYCLE_TIMEOUT_MIN || '60', 10);
+      const controller = new AbortController();
+      timeoutId = setTimeout(() => {
+        this.logger.warn(`Watchdog: o ciclo do bot excedeu o limite de ${timeoutMinutes} minutos e será abortado cooperativamente.`);
+        controller.abort();
+      }, timeoutMinutes * 60 * 1000);
 
-      return await Promise.race([
-        this.executarBuscaInterna(isAutomatic),
-        timeoutPromise
-      ]);
+      return await this.executarBuscaInterna(isAutomatic, controller.signal);
     } catch (error: any) {
-      this.logger.error(`[BOT:WATCHDOG] Erro ou timeout crítico no ciclo: ${error.message}`);
+      this.logger.error(`[BOT:WATCHDOG] Erro crítico no ciclo: ${error.message}`);
       throw error;
     } finally {
+      if (timeoutId) clearTimeout(timeoutId);
       this.emExecucao = false;
       this.eventsService.emitDashboardUpdate();
       this.oportunidadeGateway.emitBotExecutionUpdated();
     }
   }
 
-  private async executarBuscaInterna(isAutomatic = false) {
+  private async executarBuscaInterna(isAutomatic = false, signal?: AbortSignal) {
     const correlationId = randomUUID();
     const inicioExecucao = Date.now();
 
@@ -206,8 +214,15 @@ export class BotService implements OnApplicationBootstrap {
     this.logger.log(`[BOT:PERFIS] ${perfis.length} perfil(is) ativo(s) encontrado(s).`);
 
       const resultados = [];
+      let cicloAbortadoGlobal = false;
 
       for (const perfil of perfis) {
+        if (signal?.aborted) {
+          this.logger.warn(`[BOT:ABORT] Ciclo abortado antes do perfil ${perfil.nome}. Encerrando.`);
+          cicloAbortadoGlobal = true;
+          break;
+        }
+
         const inicioPerfil = Date.now();
         this.logger.log(`[BOT:PERFIL] ── Iniciando perfil: "${perfil.nome}" (${perfil.modalidades.length} modalidade(s)) ──`);
 
@@ -230,9 +245,19 @@ export class BotService implements OnApplicationBootstrap {
         this.logger.log(`[BOT:DATAS] Janela de busca: ${dataInicial} → ${dataFinal} (encerramento da proposta)`);
 
         for (const modalidade of perfil.modalidades) {
+          if (signal?.aborted) {
+            cicloAbortadoGlobal = true;
+            break;
+          }
+
           const ufsBusca = (perfil.ufs && perfil.ufs.length > 0) ? perfil.ufs : [undefined];
           
           for (let ufBusca of ufsBusca) {
+            if (signal?.aborted) {
+              cicloAbortadoGlobal = true;
+              break;
+            }
+
             ufBusca = ufBusca ? ufBusca.trim().toUpperCase() : undefined;
 
             try {
@@ -243,7 +268,7 @@ export class BotService implements OnApplicationBootstrap {
                   dataFinal,
                   codigoModalidadeContratacao: modalidade,
                   uf: ufBusca,
-                });
+                }, signal);
 
               const rawContratacoes = responseAPI.resultados;
               this.logger.log(`[BOT:PNCP] Modalidade ${modalidade} UF ${ufBusca || 'BR'} Retornado: ${rawContratacoes.length} contrataçõe(s).`);
@@ -425,7 +450,19 @@ export class BotService implements OnApplicationBootstrap {
                 continue; // Processa os próximos itens normalmente
               }
             }
-          } catch (err) {
+          } catch (err: any) {
+            if (err.name === 'CicloAbortadoError') {
+              this.logger.warn(`[BOT:ABORT] Modalidade ${modalidade} UF ${ufBusca || 'BR'} abortada no perfil "${perfil.nome}".`);
+              erros.push({
+                modalidade,
+                perfilNome: perfil.nome,
+                mensagem: 'Ciclo abortado por timeout.',
+                dataHora: new Date(),
+              });
+              cicloAbortadoGlobal = true;
+              break; // Sai do for ufs
+            }
+
             const errMsg = err instanceof Error ? err.message : String(err);
             this.logger.error(
               `[BOT:ERRO] Modalidade ${modalidade} do perfil "${perfil.nome}" falhou: ${errMsg}`,
@@ -445,6 +482,7 @@ export class BotService implements OnApplicationBootstrap {
             });
           }
           } // fecha for ufBusca
+          if (cicloAbortadoGlobal) break;
         } // fecha for modalidade
 
         const duracaoMs = Date.now() - inicioPerfil;
@@ -473,9 +511,10 @@ export class BotService implements OnApplicationBootstrap {
           totalNovos,
           duracaoMs,
           filtros,
-          erros,
+          erros: cicloAbortadoGlobal ? [...erros, { mensagem: 'Ciclo abortado.', dataHora: new Date() } as BotErroExecucao] : erros,
         });
         resultados.push(execucao);
+        if (cicloAbortadoGlobal) break;
       }
 
       const duracaoTotalMs = Date.now() - inicioExecucao;
