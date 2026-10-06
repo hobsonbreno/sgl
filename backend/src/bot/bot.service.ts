@@ -10,7 +10,12 @@ import { CronJob } from 'cron';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { randomUUID } from 'crypto';
-import { BotExecucao, BotExecucaoDocument, BotErroExecucao, BotFiltrosEstatisticas } from './bot-execucao.schema';
+import {
+  BotExecucao,
+  BotExecucaoDocument,
+  BotErroExecucao,
+  BotFiltrosEstatisticas,
+} from './bot-execucao.schema';
 import {
   PerfilBusca,
   PerfilBuscaDocument,
@@ -124,7 +129,9 @@ export class BotService implements OnApplicationBootstrap {
           }
         } catch (err) {
           const errMsg = err instanceof Error ? err.message : String(err);
-          this.logger.error(`[BOT:BOOT] Erro na recuperação de boot: ${errMsg}`);
+          this.logger.error(
+            `[BOT:BOOT] Erro na recuperação de boot: ${errMsg}`,
+          );
           await this.systemLogService.logError(
             'Bot',
             `Erro na recuperação de boot: ${errMsg}`,
@@ -155,7 +162,9 @@ export class BotService implements OnApplicationBootstrap {
       const cronExpression = `${minuto} ${hora} * * *`;
 
       const job = new CronJob(cronExpression, async () => {
-        this.logger.log(`[BOT:CRON] Cron disparado às ${horario}. Iniciando busca diária...`);
+        this.logger.log(
+          `[BOT:CRON] Cron disparado às ${horario}. Iniciando busca diária...`,
+        );
         await this.executarBuscaDiaria(true);
       });
 
@@ -169,59 +178,144 @@ export class BotService implements OnApplicationBootstrap {
 
   async executarBuscaDiaria(isAutomatic = false) {
     if (this.emExecucao) {
-      this.logger.warn('[BOT:GUARD] Bot já está em execução. Ignorando nova requisição.');
+      this.logger.warn(
+        '[BOT:GUARD] Bot já está em execução. Ignorando nova requisição.',
+      );
       return { message: 'Bot já está em execução.' };
     }
-
-    // Gera um ID único para rastrear todos os logs desta execução
-    const correlationId = randomUUID();
-    const inicioExecucao = Date.now();
 
     this.emExecucao = true;
     this.eventsService.emitDashboardUpdate();
 
-    this.logger.log(`[BOT:START] ===== NOVA EXECUÇÃO INICIADA | correlationId=${correlationId} | tipo=${isAutomatic ? 'automática' : 'manual'} =====`);
-
+    let timeoutId: NodeJS.Timeout | undefined;
     try {
-      const perfis = await this.perfilBuscaModel.find({ ativo: true });
-      this.logger.log(`[BOT:PERFIS] ${perfis.length} perfil(is) ativo(s) encontrado(s).`);
+      const timeoutMinutes = parseInt(
+        process.env.BOT_CYCLE_TIMEOUT_MIN || '60',
+        10,
+      );
+      const controller = new AbortController();
+      timeoutId = setTimeout(
+        () => {
+          this.logger.warn(
+            `Watchdog: o ciclo do bot excedeu o limite de ${timeoutMinutes} minutos e será abortado cooperativamente.`,
+          );
+          controller.abort();
+        },
+        timeoutMinutes * 60 * 1000,
+      );
 
-      const resultados = [];
+      return await this.executarBuscaInterna(isAutomatic, controller.signal);
+    } catch (error: any) {
+      this.logger.error(
+        `[BOT:WATCHDOG] Erro crítico no ciclo: ${error.message}`,
+      );
+      throw error;
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+      this.emExecucao = false;
+      this.eventsService.emitDashboardUpdate();
+      this.oportunidadeGateway.emitBotExecutionUpdated();
+    }
+  }
 
-      for (const perfil of perfis) {
-        const inicioPerfil = Date.now();
-        this.logger.log(`[BOT:PERFIL] ── Iniciando perfil: "${perfil.nome}" (${perfil.modalidades.length} modalidade(s)) ──`);
+  private async executarBuscaInterna(
+    isAutomatic = false,
+    signal?: AbortSignal,
+  ) {
+    const correlationId = randomUUID();
+    const inicioExecucao = Date.now();
 
-        let totalEncontrados = 0;
-        let totalNovos = 0;
-        const erros: BotErroExecucao[] = [];
+    this.logger.log(
+      `[BOT:START] ===== NOVA EXECUÇÃO INICIADA | correlationId=${correlationId} | tipo=${isAutomatic ? 'automática' : 'manual'} =====`,
+    );
 
-        // Contadores detalhados de filtragem
-        const filtros: BotFiltrosEstatisticas = {
-          descartadosFonte: 0,
-          descartadosMunicipio: 0,
-          descartadosPalavraChave: 0,
-          descartadosCnpjOrgao: 0,
-          descartadosUasg: 0,
-          atualizados: 0,
-        };
+    const perfis = await this.perfilBuscaModel.find({ ativo: true });
+    this.logger.log(
+      `[BOT:PERFIS] ${perfis.length} perfil(is) ativo(s) encontrado(s).`,
+    );
 
-        const { dataInicial, dataFinal } = this.calcularJanelaDeBusca();
+    const resultados = [];
+    let cicloAbortadoGlobal = false;
 
-        this.logger.log(`[BOT:DATAS] Janela de busca: ${dataInicial} → ${dataFinal} (encerramento da proposta)`);
+    for (const perfil of perfis) {
+      if (signal?.aborted) {
+        this.logger.warn(
+          `[BOT:ABORT] Ciclo abortado antes do perfil ${perfil.nome}. Encerrando.`,
+        );
+        cicloAbortadoGlobal = true;
+        break;
+      }
 
-        for (const modalidade of perfil.modalidades) {
+      const inicioPerfil = Date.now();
+      this.logger.log(
+        `[BOT:PERFIL] ── Iniciando perfil: "${perfil.nome}" (${perfil.modalidades.length} modalidade(s)) ──`,
+      );
+
+      let totalEncontrados = 0;
+      let totalNovos = 0;
+      const erros: BotErroExecucao[] = [];
+
+      // Contadores detalhados de filtragem
+      const filtros: BotFiltrosEstatisticas = {
+        descartadosFonte: 0,
+        descartadosMunicipio: 0,
+        descartadosPalavraChave: 0,
+        descartadosCnpjOrgao: 0,
+        descartadosUasg: 0,
+        atualizados: 0,
+      };
+
+      const { dataInicial, dataFinal } = this.calcularJanelaDeBusca();
+
+      this.logger.log(
+        `[BOT:DATAS] Janela de busca: ${dataInicial} → ${dataFinal} (encerramento da proposta)`,
+      );
+
+      for (const modalidade of perfil.modalidades) {
+        if (signal?.aborted) {
+          cicloAbortadoGlobal = true;
+          break;
+        }
+
+        const ufsBusca =
+          perfil.ufs && perfil.ufs.length > 0 ? perfil.ufs : [undefined];
+
+        for (let ufBusca of ufsBusca) {
+          if (signal?.aborted) {
+            cicloAbortadoGlobal = true;
+            break;
+          }
+
+          ufBusca = ufBusca ? ufBusca.trim().toUpperCase() : undefined;
+
           try {
-            this.logger.log(`[BOT:PNCP] Buscando modalidade ${modalidade} para perfil "${perfil.nome}"...`);
-            const rawContratacoes =
-              await this.pncpClientService.buscarContratacoesComPropostaAberta({
-                dataInicial,
-                dataFinal,
-                codigoModalidadeContratacao: modalidade,
-                uf: undefined,
-              });
+            this.logger.log(
+              `[BOT:PNCP] Buscando modalidade ${modalidade} UF ${ufBusca || 'BR'} para perfil "${perfil.nome}"...`,
+            );
+            const responseAPI =
+              await this.pncpClientService.buscarContratacoesComPropostaAberta(
+                {
+                  dataInicial,
+                  dataFinal,
+                  codigoModalidadeContratacao: modalidade,
+                  uf: ufBusca,
+                },
+                signal,
+              );
 
-            this.logger.log(`[BOT:PNCP] Modalidade ${modalidade}: ${rawContratacoes.length} contrataçõe(s) recebidas da API.`);
+            const rawContratacoes = responseAPI.resultados;
+            this.logger.log(
+              `[BOT:PNCP] Modalidade ${modalidade} UF ${ufBusca || 'BR'} Retornado: ${rawContratacoes.length} contrataçõe(s).`,
+            );
+
+            if (responseAPI.parcial) {
+              erros.push({
+                modalidade,
+                perfilNome: perfil.nome,
+                mensagem: `Consulta parcial. Falha irrecuperável em ${responseAPI.paginasComFalha} página(s) intermediárias.`,
+                dataHora: new Date(),
+              });
+            }
 
             for (const raw of rawContratacoes) {
               try {
@@ -301,7 +395,9 @@ export class BotService implements OnApplicationBootstrap {
                   const deepSearchHabilitado = false; // TODO: Mover para configuração do painel
                   if (!match && deepSearchHabilitado) {
                     try {
-                      this.logger.log(`[BOT:DEEP] Título não bateu. Buscando itens do edital ${opDto.numeroControlePNCP}...`);
+                      this.logger.log(
+                        `[BOT:DEEP] Título não bateu. Buscando itens do edital ${opDto.numeroControlePNCP}...`,
+                      );
                       const itensDaCompra =
                         await this.pncpClientService.buscarItensDaContratacao(
                           opDto.numeroControlePNCP,
@@ -391,7 +487,21 @@ export class BotService implements OnApplicationBootstrap {
                 continue; // Processa os próximos itens normalmente
               }
             }
-          } catch (err) {
+          } catch (err: any) {
+            if (err.name === 'CicloAbortadoError') {
+              this.logger.warn(
+                `[BOT:ABORT] Modalidade ${modalidade} UF ${ufBusca || 'BR'} abortada no perfil "${perfil.nome}".`,
+              );
+              erros.push({
+                modalidade,
+                perfilNome: perfil.nome,
+                mensagem: 'Ciclo abortado por timeout.',
+                dataHora: new Date(),
+              });
+              cicloAbortadoGlobal = true;
+              break; // Sai do for ufs
+            }
+
             const errMsg = err instanceof Error ? err.message : String(err);
             this.logger.error(
               `[BOT:ERRO] Modalidade ${modalidade} do perfil "${perfil.nome}" falhou: ${errMsg}`,
@@ -410,68 +520,91 @@ export class BotService implements OnApplicationBootstrap {
               dataHora: new Date(),
             });
           }
-        }
+        } // fecha for ufBusca
+        if (cicloAbortadoGlobal) break;
+      } // fecha for modalidade
 
-        const duracaoMs = Date.now() - inicioPerfil;
+      const duracaoMs = Date.now() - inicioPerfil;
 
-        const totalBruto = totalEncontrados + filtros.descartadosFonte + filtros.descartadosMunicipio + filtros.descartadosPalavraChave + filtros.descartadosCnpjOrgao + filtros.descartadosUasg;
+      const totalBruto =
+        totalEncontrados +
+        filtros.descartadosFonte +
+        filtros.descartadosMunicipio +
+        filtros.descartadosPalavraChave +
+        filtros.descartadosCnpjOrgao +
+        filtros.descartadosUasg;
 
-        this.logger.log(
-          `[BOT:PERFIL] ── Perfil "${perfil.nome}" concluído em ${duracaoMs}ms | ` +
+      this.logger.log(
+        `[BOT:PERFIL] ── Perfil "${perfil.nome}" concluído em ${duracaoMs}ms | ` +
           `Bruto: ${totalBruto} | UF/IBGE: ${filtros.descartadosMunicipio} | CNAE/Palavra: ${filtros.descartadosPalavraChave} | Duplicados(Atz): ${filtros.atualizados} | Criados: ${totalNovos} ──`,
-        );
+      );
 
-        if (totalBruto === 0 || totalNovos === 0) {
-          this.zeroYieldCycles++;
-          if (this.zeroYieldCycles >= 3) {
-            await this.systemLogService.logWarn('Bot', `Bot teve 0 retorno bruto ou 0 criados por ${this.zeroYieldCycles} ciclos consecutivos no perfil ${perfil.nome}.`);
-          }
-        } else {
-          this.zeroYieldCycles = 0;
+      if (totalBruto === 0 || totalNovos === 0) {
+        this.zeroYieldCycles++;
+        if (this.zeroYieldCycles >= 3) {
+          await this.systemLogService.logWarn(
+            'Bot',
+            `Bot teve 0 retorno bruto ou 0 criados por ${this.zeroYieldCycles} ciclos consecutivos no perfil ${perfil.nome}.`,
+          );
         }
-
-        const execucao = await this.botExecucaoModel.create({
-          correlationId,
-          perfilBuscaId: perfil._id,
-          perfilNome: perfil.nome,
-          totalEncontrados,
-          totalNovos,
-          duracaoMs,
-          filtros,
-          erros,
-        });
-        resultados.push(execucao);
-      }
-
-      const duracaoTotalMs = Date.now() - inicioExecucao;
-
-      if (isAutomatic) {
-        const hojeDate = new Date();
-        const dataHoje = `${hojeDate.getFullYear()}-${String(hojeDate.getMonth() + 1).padStart(2, '0')}-${String(hojeDate.getDate()).padStart(2, '0')}`;
-        await this.configService.setUltimaExecucao(dataHoje);
-        this.logger.log(
-          `[BOT:END] ===== EXECUÇÃO AUTOMÁTICA CONCLUÍDA em ${duracaoTotalMs}ms | correlationId=${correlationId} | Data registrada: ${dataHoje} =====`,
-        );
       } else {
-        this.logger.log(
-          `[BOT:END] ===== EXECUÇÃO MANUAL CONCLUÍDA em ${duracaoTotalMs}ms | correlationId=${correlationId} =====`,
-        );
+        this.zeroYieldCycles = 0;
       }
 
-      return resultados;
-    } finally {
-      this.emExecucao = false;
-      this.eventsService.emitDashboardUpdate();
-      this.oportunidadeGateway.emitBotExecutionUpdated();
+      const execucao = await this.botExecucaoModel.create({
+        correlationId,
+        perfilBuscaId: perfil._id,
+        perfilNome: perfil.nome,
+        totalEncontrados,
+        totalNovos,
+        duracaoMs,
+        filtros,
+        erros: cicloAbortadoGlobal
+          ? [
+              ...erros,
+              {
+                mensagem: 'Ciclo abortado.',
+                dataHora: new Date(),
+              } as BotErroExecucao,
+            ]
+          : erros,
+      });
+      resultados.push(execucao);
+      if (cicloAbortadoGlobal) break;
     }
+
+    const duracaoTotalMs = Date.now() - inicioExecucao;
+
+    if (isAutomatic) {
+      const hojeDate = new Date();
+      const dataHoje = `${hojeDate.getFullYear()}-${String(hojeDate.getMonth() + 1).padStart(2, '0')}-${String(hojeDate.getDate()).padStart(2, '0')}`;
+      await this.configService.setUltimaExecucao(dataHoje);
+      this.logger.log(
+        `[BOT:END] ===== EXECUÇÃO AUTOMÁTICA CONCLUÍDA em ${duracaoTotalMs}ms | correlationId=${correlationId} | Data registrada: ${dataHoje} =====`,
+      );
+    } else {
+      this.logger.log(
+        `[BOT:END] ===== EXECUÇÃO MANUAL CONCLUÍDA em ${duracaoTotalMs}ms | correlationId=${correlationId} =====`,
+      );
+    }
+
+    return resultados;
   }
 
   isExecucao(): boolean {
     return this.emExecucao;
   }
 
-  public calcularJanelaDeBusca(): { dataInicial: string, dataFinal: string, dataInicialDate: Date, dataFinalDate: Date } {
-    const windowDaysForward = parseInt(process.env.BOT_WINDOW_DAYS_FORWARD || '45', 10);
+  public calcularJanelaDeBusca(): {
+    dataInicial: string;
+    dataFinal: string;
+    dataInicialDate: Date;
+    dataFinalDate: Date;
+  } {
+    const windowDaysForward = parseInt(
+      process.env.BOT_WINDOW_DAYS_FORWARD || '45',
+      10,
+    );
     const dataFinalDate = new Date();
     dataFinalDate.setDate(dataFinalDate.getDate() + windowDaysForward);
     const yyyyF = dataFinalDate.getFullYear();
@@ -479,7 +612,10 @@ export class BotService implements OnApplicationBootstrap {
     const ddF = String(dataFinalDate.getDate()).padStart(2, '0');
     const dataFinal = `${yyyyF}${mmF}${ddF}`;
 
-    const windowDaysBack = parseInt(process.env.BOT_WINDOW_DAYS_BACK || '20', 10);
+    const windowDaysBack = parseInt(
+      process.env.BOT_WINDOW_DAYS_BACK || '20',
+      10,
+    );
     const dataInicialDate = new Date();
     dataInicialDate.setDate(dataInicialDate.getDate() - windowDaysBack);
     const yyyyI = dataInicialDate.getFullYear();

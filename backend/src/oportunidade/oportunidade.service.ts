@@ -151,12 +151,21 @@ export class OportunidadeService {
 
   async sincronizarItens(id: string) {
     if (this.activeSyncs.has(id)) {
-      throw new HttpException({ status: 'ja_em_andamento', message: 'Sincronização já em andamento para este edital.' }, 202);
+      throw new HttpException(
+        {
+          status: 'ja_em_andamento',
+          message: 'Sincronização já em andamento para este edital.',
+        },
+        202,
+      );
     }
 
-    const timeoutId = setTimeout(() => {
-      this.activeSyncs.delete(id);
-    }, 10 * 60 * 1000); // 10 minutes timeout
+    const timeoutId = setTimeout(
+      () => {
+        this.activeSyncs.delete(id);
+      },
+      10 * 60 * 1000,
+    ); // 10 minutes timeout
     this.activeSyncs.set(id, timeoutId);
 
     let doc;
@@ -165,7 +174,9 @@ export class OportunidadeService {
       if (!doc) throw new NotFoundException('Oportunidade não encontrada');
 
       if (!doc.numeroControlePNCP) {
-        throw new BadRequestException('Oportunidade sem número de controle PNCP');
+        throw new BadRequestException(
+          'Oportunidade sem número de controle PNCP',
+        );
       }
     } catch (e) {
       clearTimeout(timeoutId);
@@ -282,48 +293,61 @@ export class OportunidadeService {
         `Background: Salvos ${novosProdutos.length} itens base para ${id}. Agora buscando vencedores...`,
       );
 
-      const promises = novosProdutos.map(async (prod) => {
+      let produtosParaBuscar = novosProdutos.filter((prod) => {
         const st = (prod.situacaoJulgamento || '').toLowerCase();
-        if (
+        return (
           st.includes('homologado') ||
           st.includes('adjudicado') ||
           st.includes('finalizada') ||
           st.includes('encerrado')
-        ) {
-          try {
-            const resultados =
-              await this.pncpClientService.buscarResultadosDoItem(
-                String(doc.numeroControlePNCP),
-                Number(prod.numeroItem),
-              );
-            if (resultados && resultados.length > 0) {
-              const vencedor = resultados[0];
-              const vencedorCnpj = vencedor.niFornecedor || '';
-              const vencedorNome = vencedor.nomeRazaoSocialFornecedor || '';
-              const valorVencedor =
-                vencedor.valorTotalHomologado ||
-                vencedor.valorTotalAdjudicado ||
-                vencedor.valorProposta ||
-                0;
-
-              await this.produtoModel.updateOne(
-                {
-                  oportunidadeId: prod.oportunidadeId,
-                  numeroItem: prod.numeroItem,
-                  numeroLote: prod.numeroLote,
-                },
-                { $set: { vencedorCnpj, vencedorNome, valorVencedor } },
-              );
-            }
-          } catch {
-            this.logger.warn(
-              `Background: Não foi possível buscar o resultado do item ${prod.numeroItem}`,
-            );
-          }
-        }
+        );
       });
 
-      await Promise.all(promises);
+      const maxItens = 50;
+      if (produtosParaBuscar.length > maxItens) {
+        this.logger.warn(
+          `Background: Oportunidade ${id} tem muitos itens homologados (${produtosParaBuscar.length}). Limitando a ${maxItens}.`,
+        );
+        produtosParaBuscar = produtosParaBuscar.slice(0, maxItens);
+      }
+
+      for (let i = 0; i < produtosParaBuscar.length; i += 3) {
+        const chunk = produtosParaBuscar.slice(i, i + 3);
+        await Promise.all(
+          chunk.map(async (prod) => {
+            try {
+              const resultados =
+                await this.pncpClientService.buscarResultadosDoItem(
+                  String(doc.numeroControlePNCP),
+                  Number(prod.numeroItem),
+                );
+              if (resultados && resultados.length > 0) {
+                const vencedor = resultados[0];
+                const vencedorCnpj = vencedor.niFornecedor || '';
+                const vencedorNome = vencedor.nomeRazaoSocialFornecedor || '';
+                const valorVencedor =
+                  vencedor.valorTotalHomologado ||
+                  vencedor.valorTotalAdjudicado ||
+                  vencedor.valorProposta ||
+                  0;
+
+                await this.produtoModel.updateOne(
+                  {
+                    oportunidadeId: prod.oportunidadeId,
+                    numeroItem: prod.numeroItem,
+                    numeroLote: prod.numeroLote,
+                  },
+                  { $set: { vencedorCnpj, vencedorNome, valorVencedor } },
+                );
+              }
+            } catch {
+              this.logger.warn(
+                `Background: Não foi possível buscar o resultado do item ${prod.numeroItem}`,
+              );
+            }
+          }),
+        );
+      }
 
       this.logger.info(
         `Background: Sincronização COMPLETA finalizada para ${id}`,
@@ -531,8 +555,13 @@ export class OportunidadeService {
       for (const op of activeOps) {
         if (!op.numeroControlePNCP) continue;
         try {
-          await this.sincronizarItens(op._id.toString());
-          // Delay removido pois a fila global do PncpClientService agora trata isso
+          // Utilizar a função de background diretamente para o cron aguardar e processar sequencialmente
+          await this.executarSincronizacaoCompletaBackground(
+            op._id.toString(),
+            op,
+          );
+          // Pequena pausa entre oportunidades
+          await new Promise((res) => setTimeout(res, 500));
         } catch (err: any) {
           this.logger.warn(
             `Erro na sincronização em background da oportunidade ${op._id.toString()}: ${err.message}`,

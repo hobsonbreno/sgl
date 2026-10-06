@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { PncpContratacaoRawDto } from '../../dtos/pncp.dto';
-import { catchError, firstValueFrom, retry, timer, of } from 'rxjs';
+import { catchError, firstValueFrom, of } from 'rxjs';
 import { AxiosError } from 'axios';
 
 export interface FiltroBuscaDto {
@@ -21,135 +21,185 @@ export class PncpClientService {
     process.env.PNCP_BASE_URL || 'https://pncp.gov.br/api/consulta';
 
   private activeRequests = 0;
+  private backgroundRequests = 0;
   private readonly MAX_CONCURRENT = 5;
+  private readonly MAX_BACKGROUND = 2; // Semáforo global para itens/resultados
   private readonly MIN_DELAY = 150;
 
-  private async waitForCapacity(): Promise<void> {
-    while (this.activeRequests >= this.MAX_CONCURRENT) {
+  private async waitForCapacity(isBackground = false): Promise<void> {
+    while (true) {
+      if (this.activeRequests < this.MAX_CONCURRENT) {
+        if (!isBackground) break;
+        if (isBackground && this.backgroundRequests < this.MAX_BACKGROUND)
+          break;
+      }
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
     this.activeRequests++;
+    if (isBackground) this.backgroundRequests++;
     await new Promise((resolve) => setTimeout(resolve, this.MIN_DELAY));
   }
 
   constructor(private readonly httpService: HttpService) {}
 
-  private async enfileirarRequisicao<T>(url: string, params?: any): Promise<T> {
-    this.logger.log(
-      `[PNCP_QUEUE] Enfileirando req para: ${url} (Ativos: ${this.activeRequests}/${this.MAX_CONCURRENT})`,
-    );
-    const start = Date.now();
-    await this.waitForCapacity();
-    try {
-      const response = await firstValueFrom(
-        this.httpService.get(url, { params, timeout: 240000 }).pipe(
-          retry({
-            count: 5,
-            delay: (error: AxiosError, retryCount: number) => {
-              if (
-                error.response?.status === 404 ||
-                error.response?.status === 400
-              ) {
-                throw error;
-              }
-              if (
-                error.response?.status === 429 ||
-                error.code === 'ECONNABORTED' ||
-                error.message.includes('timeout')
-              ) {
-                const backoff = Math.min(
-                  10000 * Math.pow(2, retryCount - 1),
-                  60000,
-                ); // 10s, 20s, 40s, 60s
-                this.logger.warn(
-                  `[PNCP_QUEUE] Rate limit/Timeout em ${url}! Aguardando ${backoff / 1000}s (Tentativa ${retryCount}/5)...`,
-                );
-                return timer(backoff);
-              }
-              this.logger.warn(
-                `[PNCP_QUEUE] Falha ${retryCount}/5 em ${url}: ${error.message}`,
-              );
-              return timer(2000 * retryCount);
-            },
-          }),
-          catchError((error: AxiosError) => {
-            if (error.response && error.response.status === 404) {
-              return of({ data: null });
-            }
-            throw error;
-          }),
-        ),
+  private async enfileirarRequisicao<T>(
+    url: string,
+    params?: any,
+    isBackground = false,
+  ): Promise<T> {
+    const maxTentativas = 5;
+    let tentativa = 1;
+
+    while (tentativa <= maxTentativas) {
+      const queueWaitStart = Date.now();
+      await this.waitForCapacity(isBackground);
+      const queueWaitMs = Date.now() - queueWaitStart;
+
+      this.logger.log(
+        `[PNCP_QUEUE] Iniciando req para: ${url} após aguardar ${queueWaitMs}ms na fila (Tentativa ${tentativa}/${maxTentativas})`,
       );
-      this.logger.log(`[PNCP_QUEUE] Sucesso ${url} em ${Date.now() - start}ms`);
-      return response?.data || null;
-    } finally {
-      this.activeRequests--;
+
+      const start = Date.now();
+      let response: any;
+      let errorEncountered: any;
+
+      try {
+        response = await firstValueFrom(
+          this.httpService.get(url, { params, timeout: 60000 }).pipe(
+            catchError((error: AxiosError) => {
+              if (error.response && error.response.status === 404) {
+                return of({ data: null, status: 404 });
+              }
+              throw error;
+            }),
+          ),
+        );
+      } catch (err: any) {
+        errorEncountered = err;
+      } finally {
+        this.activeRequests--;
+        if (isBackground) this.backgroundRequests--;
+      }
+
+      if (!errorEncountered) {
+        const itemCount = response?.data?.data
+          ? response.data.data.length
+          : response?.data?.length || 0;
+        this.logger.log(
+          `[PNCP_QUEUE] Sucesso ${url} em ${Date.now() - start}ms (fila: ${queueWaitMs}ms) | Status HTTP: ${response?.status} | Itens recebidos: ${itemCount}`,
+        );
+        return response?.data || null;
+      }
+
+      const status = errorEncountered.response?.status;
+      const isRetriable = !status || status === 429 || status >= 500;
+
+      if (!isRetriable || tentativa === maxTentativas) {
+        throw errorEncountered;
+      }
+
+      const backoff = Math.min(10000 * Math.pow(2, tentativa - 1), 60000);
+      this.logger.warn(
+        `[PNCP_QUEUE] Falha retentável (${status || errorEncountered.code || errorEncountered.message}) em ${url}. Aguardando ${backoff / 1000}s FORA DO SLOT...`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, backoff));
+      tentativa++;
     }
+
+    throw new Error(`Falha crítica na requisição ${url}`);
   }
 
   async buscarContratacoesComPropostaAberta(
     filtros: FiltroBuscaDto,
-  ): Promise<PncpContratacaoRawDto[]> {
+    signal?: AbortSignal,
+  ): Promise<{
+    resultados: PncpContratacaoRawDto[];
+    parcial: boolean;
+    paginasComFalha: number;
+  }> {
     const resultados: PncpContratacaoRawDto[] = [];
-    
-    // Converte datas AAAAMMDD para objetos Date
-    const parseDate = (d: string) => new Date(parseInt(d.substring(0,4)), parseInt(d.substring(4,6))-1, parseInt(d.substring(6,8)));
-    const formatDate = (d: Date) => `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
-
-    let currentDate = parseDate(filtros.dataInicial);
-    const endDate = parseDate(filtros.dataFinal);
-
-    while (currentDate <= endDate) {
-      const chunkEnd = new Date(currentDate);
-      chunkEnd.setDate(chunkEnd.getDate() + 15);
-      
-      const chunkEndStr = chunkEnd > endDate ? formatDate(endDate) : formatDate(chunkEnd);
-      const chunkStartStr = formatDate(currentDate);
-
-      this.logger.log(`[PNCP] Buscando janela de ${chunkStartStr} a ${chunkEndStr} para modalidade ${filtros.codigoModalidadeContratacao}...`);
-
-      let pagina = 1;
-      let totalPaginas = 1;
-
-      while (pagina <= totalPaginas) {
-        this.logger.log(`[PNCP] Buscando página ${pagina}/${totalPaginas} para janela ${chunkStartStr}-${chunkEndStr}...`);
-        
-        try {
-          const dataPayload = await this.enfileirarRequisicao<any>(
-            `${this.baseUrl}/v1/contratacoes/proposta`,
-            {
-              ...filtros,
-              dataInicial: chunkStartStr,
-              dataFinal: chunkEndStr,
-              pagina,
-              tamanhoPagina: 50,
-            },
-          );
-
-          if (dataPayload) {
-            const itens: any[] = dataPayload.data || [];
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-            resultados.push(...itens);
-            totalPaginas = dataPayload.totalPaginas || 1;
-          } else {
-            break; // Sai do loop se não houver dados
-          }
-        } catch (error) {
-          this.logger.error(`[PNCP] Erro ao buscar página ${pagina} (janela ${chunkStartStr}-${chunkEndStr}): ${error.message}`);
-          // Continua para a próxima página ou aborta o chunk atual?
-          // O usuário pediu: "a falha de uma página não deve abortar o ciclo inteiro."
-        }
-        pagina++;
-      }
-
-      currentDate = new Date(chunkEnd);
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
 
     this.logger.log(
-      `Total encontrado para modalidade ${filtros.codigoModalidadeContratacao}: ${resultados.length}`,
+      `[PNCP] Buscando consulta única até ${filtros.dataFinal} para modalidade ${filtros.codigoModalidadeContratacao} (UF: ${filtros.uf || 'BR'})...`,
     );
-    return resultados;
+
+    let pagina = 1;
+    let totalPaginas = 1;
+    let paginasComFalha = 0;
+    const inicioConsulta = Date.now();
+
+    while (pagina <= totalPaginas) {
+      if (signal?.aborted) {
+        const err: any = new Error('Ciclo abortado por timeout.');
+        err.name = 'CicloAbortadoError';
+        throw err;
+      }
+      const pageStart = Date.now();
+      this.logger.log(
+        `[PNCP] INÍCIO Busca página ${pagina}/${totalPaginas}...`,
+      );
+
+      try {
+        const dataPayload = await this.enfileirarRequisicao<any>(
+          `${this.baseUrl}/v1/contratacoes/proposta`,
+          {
+            ...filtros,
+            dataInicial: filtros.dataInicial,
+            dataFinal: filtros.dataFinal,
+            pagina,
+            tamanhoPagina: 50,
+          },
+        );
+
+        const durationMs = Date.now() - pageStart;
+        if (dataPayload) {
+          const itens: PncpContratacaoRawDto[] = dataPayload.data || [];
+          this.logger.log(
+            `[PNCP] FIM Busca página ${pagina}/${totalPaginas} - Duração: ${durationMs}ms - Itens: ${itens.length}`,
+          );
+          resultados.push(...itens);
+          totalPaginas = dataPayload.totalPaginas || 1;
+        } else {
+          if (pagina > 1) {
+            this.logger.warn(
+              `[PNCP] Página ${pagina} retornou vazia (nula) no meio da consulta. Tratando como falha.`,
+            );
+            paginasComFalha++;
+          } else {
+            this.logger.log(
+              `[PNCP] FIM Busca página ${pagina}/${totalPaginas} (Vazia) - Duração: ${durationMs}ms`,
+            );
+            break;
+          }
+        }
+      } catch (error: any) {
+        paginasComFalha++;
+        const durationMs = Date.now() - pageStart;
+        this.logger.error(
+          `[PNCP] Erro ao buscar página ${pagina}: ${error.message} - Duração: ${durationMs}ms`,
+        );
+        if (pagina === 1) {
+          throw new Error(
+            `Falha crítica na primeira página da consulta: ${error.message}`,
+          );
+        }
+      }
+      pagina++;
+    }
+
+    const duracaoTotal = Date.now() - inicioConsulta;
+    this.logger.log(
+      `[PNCP] FIM DA CONSULTA | Modalidade: ${filtros.codigoModalidadeContratacao} | Duração: ${duracaoTotal}ms | Total Encontrado: ${resultados.length} | Páginas Falhas: ${paginasComFalha}`,
+    );
+
+    const parcial = paginasComFalha > 0;
+    if (parcial) {
+      this.logger.warn(
+        `[PNCP] Consulta PARCIAL: falha persistente em ${paginasComFalha} página(s).`,
+      );
+    }
+
+    return { resultados, parcial, paginasComFalha };
   }
 
   async buscarItensDaContratacao(numeroControlePNCP: string): Promise<any[]> {
@@ -199,9 +249,14 @@ export class PncpClientService {
 
     while (temMais) {
       const url = `${baseUrl}?pagina=${pagina}&tamanhoPagina=${tamanhoPagina}`;
-      const dataPayload = await this.enfileirarRequisicao<any>(url);
+      const dataPayload = await this.enfileirarRequisicao<any>(
+        url,
+        undefined,
+        true,
+      );
 
-      const itensDaPagina = (dataPayload && dataPayload.data) ? dataPayload.data : (dataPayload || []);
+      const itensDaPagina =
+        dataPayload && dataPayload.data ? dataPayload.data : dataPayload || [];
       todosItens = todosItens.concat(itensDaPagina);
 
       if (itensDaPagina.length < tamanhoPagina) {
@@ -242,7 +297,7 @@ export class PncpClientService {
 
       while (temMais) {
         const url = `${baseUrl}?pagina=${pagina}&tamanhoPagina=${tamanhoPagina}`;
-        const data = await this.enfileirarRequisicao<any>(url);
+        const data = await this.enfileirarRequisicao<any>(url, undefined, true);
 
         const resultadosDaPagina = data || [];
         todosResultados = todosResultados.concat(resultadosDaPagina);
@@ -277,7 +332,7 @@ export class PncpClientService {
     const url = `https://pncp.gov.br/api/consulta/v1/orgaos/${cnpj}/compras/${ano}/${sequencial}`;
 
     try {
-      const data = await this.enfileirarRequisicao<any>(url);
+      const data = await this.enfileirarRequisicao<any>(url, undefined, false);
       return data;
     } catch (e) {
       this.logger.error(
