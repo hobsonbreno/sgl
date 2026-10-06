@@ -228,7 +228,8 @@ export class BotService implements OnApplicationBootstrap {
                 // ── FILTRO: UF / Estado ──
                 if (perfil.ufs && perfil.ufs.length > 0) {
                   const ufSigla = raw.unidadeOrgao?.ufSigla;
-                  if (ufSigla && !perfil.ufs.includes(ufSigla)) {
+                  const ufsUpper = perfil.ufs.map((u) => u.toUpperCase());
+                  if (ufSigla && !ufsUpper.includes(ufSigla.toUpperCase())) {
                     filtros.descartadosMunicipio++;
                     continue;
                   }
