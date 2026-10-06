@@ -42,16 +42,16 @@ export class PncpClientService {
   constructor(private readonly httpService: HttpService) {}
 
   private async enfileirarRequisicao<T>(url: string, params?: any, isBackground = false): Promise<T> {
-    const queueWaitStart = Date.now();
-    await this.waitForCapacity(isBackground);
-    const queueWaitMs = Date.now() - queueWaitStart;
-    
-    this.logger.log(`[PNCP_QUEUE] Iniciando req para: ${url} após aguardar ${queueWaitMs}ms na fila`);
-    
     const maxTentativas = 5;
     let tentativa = 1;
 
     while (tentativa <= maxTentativas) {
+      const queueWaitStart = Date.now();
+      await this.waitForCapacity(isBackground);
+      const queueWaitMs = Date.now() - queueWaitStart;
+      
+      this.logger.log(`[PNCP_QUEUE] Iniciando req para: ${url} após aguardar ${queueWaitMs}ms na fila (Tentativa ${tentativa}/${maxTentativas})`);
+
       const start = Date.now();
       let response: any;
       let errorEncountered: any;
@@ -76,31 +76,24 @@ export class PncpClientService {
 
       if (!errorEncountered) {
         const itemCount = response?.data?.data ? response.data.data.length : (response?.data?.length || 0);
-        this.logger.log(`[PNCP_QUEUE] Sucesso ${url} em ${Date.now() - start}ms | Status HTTP: ${response?.status} | Itens recebidos: ${itemCount}`);
+        this.logger.log(`[PNCP_QUEUE] Sucesso ${url} em ${Date.now() - start}ms (fila: ${queueWaitMs}ms) | Status HTTP: ${response?.status} | Itens recebidos: ${itemCount}`);
         return response?.data || null;
       }
 
-      if (errorEncountered.response?.status === 404 || errorEncountered.response?.status === 400) {
+      const status = errorEncountered.response?.status;
+      const isRetriable = !status || status === 429 || status >= 500;
+
+      if (!isRetriable || tentativa === maxTentativas) {
         throw errorEncountered;
       }
 
-      if (errorEncountered.response?.status === 429 || errorEncountered.code === 'ECONNABORTED' || errorEncountered.message.includes('timeout')) {
-         const backoff = Math.min(10000 * Math.pow(2, tentativa - 1), 60000);
-         this.logger.warn(`[PNCP_QUEUE] Rate limit/Timeout em ${url}! Aguardando ${backoff / 1000}s FORA DO SLOT (Tentativa ${tentativa}/${maxTentativas})...`);
-         await new Promise((resolve) => setTimeout(resolve, backoff));
-         
-         // Readquire o slot antes da próxima tentativa
-         await this.waitForCapacity(isBackground);
-         tentativa++;
-         continue;
-      }
-
-      this.logger.warn(`[PNCP_QUEUE] Falha ${tentativa}/${maxTentativas} em ${url}: ${errorEncountered.message}. Aguardando fora do slot...`);
-      await new Promise((resolve) => setTimeout(resolve, 2000 * tentativa));
-      await this.waitForCapacity(isBackground);
+      const backoff = Math.min(10000 * Math.pow(2, tentativa - 1), 60000);
+      this.logger.warn(`[PNCP_QUEUE] Falha retentável (${status || errorEncountered.code || errorEncountered.message}) em ${url}. Aguardando ${backoff / 1000}s FORA DO SLOT...`);
+      await new Promise((resolve) => setTimeout(resolve, backoff));
       tentativa++;
     }
-    throw new Error(`Falha crítica após ${maxTentativas} tentativas na requisição ${url}`);
+    
+    throw new Error(`Falha crítica na requisição ${url}`);
   }
 
   async buscarContratacoesComPropostaAberta(
