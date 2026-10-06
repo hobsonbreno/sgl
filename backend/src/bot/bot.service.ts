@@ -34,7 +34,6 @@ import { SyncFailureLoggerService } from '../observability/sync-failure-logger.s
 import { SystemLogService } from '../observability/system-log/system-log.service';
 import { OportunidadeGateway } from '../oportunidade/oportunidade.gateway';
 
-
 /** Fontes/portais consideradas públicas e sem custo de acesso para o usuário */
 const FONTES_PERMITIDAS = [
   'Secretaria do Planejamento e Gestão do Ceará',
