@@ -82,7 +82,7 @@ export class PncpController {
     const ddI = String(hojeInicial.getDate()).padStart(2, '0');
     const dataInicial = `${yyyyI}${mmI}${ddI}`;
 
-    const rawResult =
+    const responseAPI =
       await this.pncpClientService.buscarContratacoesComPropostaAberta({
         dataInicial,
         dataFinal,
@@ -90,6 +90,6 @@ export class PncpController {
         uf,
       });
 
-    return rawResult.map((raw) => mapPncpParaOportunidade(raw));
+    return responseAPI.resultados.map((raw) => mapPncpParaOportunidade(raw));
   }
 }

@@ -173,18 +173,37 @@ export class BotService implements OnApplicationBootstrap {
       return { message: 'Bot já está em execução.' };
     }
 
-    // Gera um ID único para rastrear todos os logs desta execução
-    const correlationId = randomUUID();
-    const inicioExecucao = Date.now();
-
     this.emExecucao = true;
     this.eventsService.emitDashboardUpdate();
 
+    try {
+      const timeoutMinutes = parseInt(process.env.BOT_CYCLE_TIMEOUT_MIN || '20', 10);
+      const timeoutPromise = new Promise<any>((_, reject) =>
+        setTimeout(() => reject(new Error(`Watchdog: o ciclo do bot excedeu o limite de ${timeoutMinutes} minutos e foi abortado.`)), timeoutMinutes * 60 * 1000)
+      );
+
+      return await Promise.race([
+        this.executarBuscaInterna(isAutomatic),
+        timeoutPromise
+      ]);
+    } catch (error: any) {
+      this.logger.error(`[BOT:WATCHDOG] Erro ou timeout crítico no ciclo: ${error.message}`);
+      throw error;
+    } finally {
+      this.emExecucao = false;
+      this.eventsService.emitDashboardUpdate();
+      this.oportunidadeGateway.emitBotExecutionUpdated();
+    }
+  }
+
+  private async executarBuscaInterna(isAutomatic = false) {
+    const correlationId = randomUUID();
+    const inicioExecucao = Date.now();
+
     this.logger.log(`[BOT:START] ===== NOVA EXECUÇÃO INICIADA | correlationId=${correlationId} | tipo=${isAutomatic ? 'automática' : 'manual'} =====`);
 
-    try {
-      const perfis = await this.perfilBuscaModel.find({ ativo: true });
-      this.logger.log(`[BOT:PERFIS] ${perfis.length} perfil(is) ativo(s) encontrado(s).`);
+    const perfis = await this.perfilBuscaModel.find({ ativo: true });
+    this.logger.log(`[BOT:PERFIS] ${perfis.length} perfil(is) ativo(s) encontrado(s).`);
 
       const resultados = [];
 
@@ -211,20 +230,35 @@ export class BotService implements OnApplicationBootstrap {
         this.logger.log(`[BOT:DATAS] Janela de busca: ${dataInicial} → ${dataFinal} (encerramento da proposta)`);
 
         for (const modalidade of perfil.modalidades) {
-          try {
-            this.logger.log(`[BOT:PNCP] Buscando modalidade ${modalidade} para perfil "${perfil.nome}"...`);
-            const rawContratacoes =
-              await this.pncpClientService.buscarContratacoesComPropostaAberta({
-                dataInicial,
-                dataFinal,
-                codigoModalidadeContratacao: modalidade,
-                uf: undefined,
-              });
+          const ufsBusca = (perfil.ufs && perfil.ufs.length > 0) ? perfil.ufs : [undefined];
+          
+          for (let ufBusca of ufsBusca) {
+            ufBusca = ufBusca ? ufBusca.trim().toUpperCase() : undefined;
 
-            this.logger.log(`[BOT:PNCP] Modalidade ${modalidade}: ${rawContratacoes.length} contrataçõe(s) recebidas da API.`);
+            try {
+              this.logger.log(`[BOT:PNCP] Buscando modalidade ${modalidade} UF ${ufBusca || 'BR'} para perfil "${perfil.nome}"...`);
+              const responseAPI =
+                await this.pncpClientService.buscarContratacoesComPropostaAberta({
+                  dataInicial,
+                  dataFinal,
+                  codigoModalidadeContratacao: modalidade,
+                  uf: ufBusca,
+                });
 
-            for (const raw of rawContratacoes) {
-              try {
+              const rawContratacoes = responseAPI.resultados;
+              this.logger.log(`[BOT:PNCP] Modalidade ${modalidade} UF ${ufBusca || 'BR'} Retornado: ${rawContratacoes.length} contrataçõe(s).`);
+
+              if (responseAPI.parcial) {
+                 erros.push({
+                   modalidade,
+                   perfilNome: perfil.nome,
+                   mensagem: `Consulta parcial. Falha irrecuperável em ${responseAPI.paginasComFalha} página(s) intermediárias.`,
+                   dataHora: new Date(),
+                 });
+              }
+
+              for (const raw of rawContratacoes) {
+                try {
                 // ── FILTRO: UF / Estado ──
                 if (perfil.ufs && perfil.ufs.length > 0) {
                   const ufSigla = raw.unidadeOrgao?.ufSigla;
@@ -410,7 +444,8 @@ export class BotService implements OnApplicationBootstrap {
               dataHora: new Date(),
             });
           }
-        }
+          } // fecha for ufBusca
+        } // fecha for modalidade
 
         const duracaoMs = Date.now() - inicioPerfil;
 
@@ -459,11 +494,6 @@ export class BotService implements OnApplicationBootstrap {
       }
 
       return resultados;
-    } finally {
-      this.emExecucao = false;
-      this.eventsService.emitDashboardUpdate();
-      this.oportunidadeGateway.emitBotExecutionUpdated();
-    }
   }
 
   isExecucao(): boolean {
