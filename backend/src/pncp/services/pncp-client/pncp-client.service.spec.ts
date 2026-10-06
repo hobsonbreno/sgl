@@ -1,8 +1,9 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
 import { PncpClientService } from './pncp-client.service';
 import { HttpService } from '@nestjs/axios';
-import { of, throwError, Observable } from 'rxjs';
-import { AxiosError, AxiosResponse } from 'axios';
+import { throwError, Observable } from 'rxjs';
+import { AxiosError } from 'axios';
 
 describe('PncpClientService', () => {
   let service: PncpClientService;
@@ -41,7 +42,9 @@ describe('PncpClientService', () => {
 
     const promises = [];
     for (let i = 0; i < 6; i++) {
-      promises.push(service.buscarContratacaoEspecifica('00', '2024', '1').catch(e => e));
+      promises.push(
+        service.buscarContratacaoEspecifica('00', '2024', '1').catch((e) => e),
+      );
     }
 
     // Avançar os timers para passar as tentativas (5 tentativas) e delays
@@ -53,11 +56,11 @@ describe('PncpClientService', () => {
 
     const results = await Promise.all(promises);
     expect(results[0]).toBeInstanceOf(Error);
-    
+
     // Validando activeRequests == 0
     expect((service as any).activeRequests).toBe(0);
     expect((service as any).backgroundRequests).toBe(0);
-    
+
     // Para 6 requests e 5 tentativas cada
     expect(httpService.get).toHaveBeenCalledTimes(30);
   });
@@ -65,10 +68,14 @@ describe('PncpClientService', () => {
   it('b) requisição 404 devolve null e libera slot sem retentar', async () => {
     httpService.get.mockReturnValue(throwError(() => createAxiosError(404)));
 
-    const resultPromise = service.buscarContratacaoEspecifica('00', '2024', '1');
+    const resultPromise = service.buscarContratacaoEspecifica(
+      '00',
+      '2024',
+      '1',
+    );
     await jest.advanceTimersByTimeAsync(1000);
     const result = await resultPromise;
-    
+
     expect(result).toBeNull();
     expect(httpService.get).toHaveBeenCalledTimes(1);
     expect((service as any).activeRequests).toBe(0);
@@ -78,7 +85,7 @@ describe('PncpClientService', () => {
     httpService.get.mockImplementation(() => {
       return new Observable((subscriber) => {
         setTimeout(() => {
-          subscriber.next({ data: { success: true } } as AxiosResponse);
+          subscriber.next({ data: { success: true } });
           subscriber.complete();
         }, 1000);
       }) as any;
@@ -95,20 +102,25 @@ describe('PncpClientService', () => {
     expect((service as any).backgroundRequests).toBe(2);
 
     const fgPromises = [];
-    fgPromises.push(service.buscarContratacaoEspecifica('00', '2024', '1'));
-    fgPromises.push(service.buscarContratacaoEspecifica('00', '2024', '1'));
-    fgPromises.push(service.buscarContratacaoEspecifica('00', '2024', '1'));
-    
+    const mockFiltro = {
+      dataInicial: '20240101',
+      dataFinal: '20240101',
+      codigoModalidadeContratacao: '1',
+    };
+    fgPromises.push(service.buscarContratacoesComPropostaAberta(mockFiltro));
+    fgPromises.push(service.buscarContratacoesComPropostaAberta(mockFiltro));
+    fgPromises.push(service.buscarContratacoesComPropostaAberta(mockFiltro));
+
     // Deixa os event loops executarem até enfileirarRequisicao
     await jest.advanceTimersByTimeAsync(1);
-    
+
     expect((service as any).activeRequests).toBe(5);
-    
+
     // O 3º bgPromise está na fila aguardando. Avançar para as primeiras concluírem
     await jest.advanceTimersByTimeAsync(1500);
     await Promise.resolve();
 
-    await Promise.all([...bgPromises, ...fgPromises]);
+    await Promise.allSettled([...bgPromises, ...fgPromises]);
     expect((service as any).activeRequests).toBe(0);
     expect((service as any).backgroundRequests).toBe(0);
   });
@@ -119,12 +131,13 @@ describe('PncpClientService', () => {
     let error;
     try {
       const p = service.buscarContratacaoEspecifica('00', '2024', '1');
+      p.catch(() => {});
       await jest.advanceTimersByTimeAsync(1000);
       await p;
     } catch (e) {
       error = e;
     }
-    
+
     expect(error).toBeDefined();
     expect(httpService.get).toHaveBeenCalledTimes(1);
     expect((service as any).activeRequests).toBe(0);

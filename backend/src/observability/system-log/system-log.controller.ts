@@ -25,7 +25,9 @@ export class SystemLogController {
   }
 
   @Get('stats')
-  @ApiOperation({ summary: 'Estatísticas de logs agrupadas por módulo e nível' })
+  @ApiOperation({
+    summary: 'Estatísticas de logs agrupadas por módulo e nível',
+  })
   async getStats(
     @Query('dataInicio') dataInicioStr?: string,
     @Query('dataFim') dataFimStr?: string,

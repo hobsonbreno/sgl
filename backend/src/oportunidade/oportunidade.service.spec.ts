@@ -39,17 +39,39 @@ describe('OportunidadeService - Sincronizacao Lock', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OportunidadeService,
-        { provide: getLoggerToken(OportunidadeService.name), useValue: { info: jest.fn(), warn: jest.fn(), error: jest.fn() } },
+        {
+          provide: getLoggerToken(OportunidadeService.name),
+          useValue: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
+        },
         { provide: getModelToken(Oportunidade.name), useValue: mockModel },
-        { provide: PncpClientService, useValue: { buscarItensDaContratacao: jest.fn().mockResolvedValue([]) } },
-        { provide: getModelToken(Produto.name), useValue: { find: jest.fn().mockResolvedValue([]), deleteMany: jest.fn(), insertMany: jest.fn(), updateOne: jest.fn() } },
+        {
+          provide: PncpClientService,
+          useValue: {
+            buscarItensDaContratacao: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: getModelToken(Produto.name),
+          useValue: {
+            find: jest.fn().mockResolvedValue([]),
+            deleteMany: jest.fn(),
+            insertMany: jest.fn(),
+            updateOne: jest.fn(),
+          },
+        },
         { provide: getModelToken(SimulacaoEstrategia.name), useValue: {} },
         { provide: FinanceiroService, useValue: {} },
         { provide: getModelToken(Cotacao.name), useValue: {} },
         { provide: OportunidadeGateway, useValue: mockGateway },
         { provide: SefazCeScraperService, useValue: {} },
-        { provide: CategoriaService, useValue: { categorizeProduto: jest.fn() } },
-        { provide: SystemLogService, useValue: { logError: jest.fn(), logWarn: jest.fn() } },
+        {
+          provide: CategoriaService,
+          useValue: { categorizeProduto: jest.fn() },
+        },
+        {
+          provide: SystemLogService,
+          useValue: { logError: jest.fn(), logWarn: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -61,14 +83,22 @@ describe('OportunidadeService - Sincronizacao Lock', () => {
   });
 
   it('deve retornar erro 202 (ja_em_andamento) na segunda chamada simultânea', async () => {
-    mockModel.exec.mockImplementationOnce(() => new Promise((resolve) => setTimeout(() => resolve({ _id: '1', numeroControlePNCP: '123' }), 50)));
-    
+    mockModel.exec.mockImplementationOnce(
+      () =>
+        new Promise((resolve) =>
+          setTimeout(
+            () => resolve({ _id: '1', numeroControlePNCP: '123' }),
+            50,
+          ),
+        ),
+    );
+
     // Inicia a primeira chamada
     const p1 = service.sincronizarItens('1');
-    
+
     // Inicia a segunda chamada imediatamente, deve falhar
     await expect(service.sincronizarItens('1')).rejects.toThrow(HttpException);
-    
+
     try {
       await service.sincronizarItens('1');
     } catch (e: any) {
@@ -81,11 +111,14 @@ describe('OportunidadeService - Sincronizacao Lock', () => {
 
   it('deve liberar a trava em caso de erro na busca da oportunidade', async () => {
     mockModel.exec.mockRejectedValueOnce(new Error('DB Error'));
-    
+
     await expect(service.sincronizarItens('2')).rejects.toThrow('DB Error');
-    
+
     // Como a trava foi liberada, a próxima chamada não deve dar erro de "ja_em_andamento"
-    mockModel.exec.mockResolvedValueOnce({ _id: '2', numeroControlePNCP: '123' });
+    mockModel.exec.mockResolvedValueOnce({
+      _id: '2',
+      numeroControlePNCP: '123',
+    });
     const result = await service.sincronizarItens('2');
     expect(result.message).toContain('iniciada em background');
   });

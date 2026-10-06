@@ -40,7 +40,8 @@ export class ComprasnetPublicService {
       try {
         browser = await puppeteer.launch({
           executablePath:
-            process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser',
+            process.env.PUPPETEER_EXECUTABLE_PATH ||
+            '/usr/bin/chromium-browser',
           headless: true,
           timeout: 90000,
           protocolTimeout: 120000,
@@ -74,7 +75,9 @@ export class ComprasnetPublicService {
           path: `/app/screenshot_${pIdFormated}.png`,
           fullPage: true,
         });
-        this.logger.log(`Screenshot salva em /app/screenshot_${pIdFormated}.png`);
+        this.logger.log(
+          `Screenshot salva em /app/screenshot_${pIdFormated}.png`,
+        );
 
         const data = await page.evaluate(() => {
           // Extrai o chat

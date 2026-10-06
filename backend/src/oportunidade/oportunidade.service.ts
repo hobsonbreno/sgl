@@ -151,12 +151,21 @@ export class OportunidadeService {
 
   async sincronizarItens(id: string) {
     if (this.activeSyncs.has(id)) {
-      throw new HttpException({ status: 'ja_em_andamento', message: 'Sincronização já em andamento para este edital.' }, 202);
+      throw new HttpException(
+        {
+          status: 'ja_em_andamento',
+          message: 'Sincronização já em andamento para este edital.',
+        },
+        202,
+      );
     }
 
-    const timeoutId = setTimeout(() => {
-      this.activeSyncs.delete(id);
-    }, 10 * 60 * 1000); // 10 minutes timeout
+    const timeoutId = setTimeout(
+      () => {
+        this.activeSyncs.delete(id);
+      },
+      10 * 60 * 1000,
+    ); // 10 minutes timeout
     this.activeSyncs.set(id, timeoutId);
 
     let doc;
@@ -165,7 +174,9 @@ export class OportunidadeService {
       if (!doc) throw new NotFoundException('Oportunidade não encontrada');
 
       if (!doc.numeroControlePNCP) {
-        throw new BadRequestException('Oportunidade sem número de controle PNCP');
+        throw new BadRequestException(
+          'Oportunidade sem número de controle PNCP',
+        );
       }
     } catch (e) {
       clearTimeout(timeoutId);
@@ -282,14 +293,21 @@ export class OportunidadeService {
         `Background: Salvos ${novosProdutos.length} itens base para ${id}. Agora buscando vencedores...`,
       );
 
-      let produtosParaBuscar = novosProdutos.filter(prod => {
+      let produtosParaBuscar = novosProdutos.filter((prod) => {
         const st = (prod.situacaoJulgamento || '').toLowerCase();
-        return st.includes('homologado') || st.includes('adjudicado') || st.includes('finalizada') || st.includes('encerrado');
+        return (
+          st.includes('homologado') ||
+          st.includes('adjudicado') ||
+          st.includes('finalizada') ||
+          st.includes('encerrado')
+        );
       });
 
       const maxItens = 50;
       if (produtosParaBuscar.length > maxItens) {
-        this.logger.warn(`Background: Oportunidade ${id} tem muitos itens homologados (${produtosParaBuscar.length}). Limitando a ${maxItens}.`);
+        this.logger.warn(
+          `Background: Oportunidade ${id} tem muitos itens homologados (${produtosParaBuscar.length}). Limitando a ${maxItens}.`,
+        );
         produtosParaBuscar = produtosParaBuscar.slice(0, maxItens);
       }
 
@@ -327,7 +345,7 @@ export class OportunidadeService {
                 `Background: Não foi possível buscar o resultado do item ${prod.numeroItem}`,
               );
             }
-          })
+          }),
         );
       }
 
@@ -538,7 +556,10 @@ export class OportunidadeService {
         if (!op.numeroControlePNCP) continue;
         try {
           // Utilizar a função de background diretamente para o cron aguardar e processar sequencialmente
-          await this.executarSincronizacaoCompletaBackground(op._id.toString(), op);
+          await this.executarSincronizacaoCompletaBackground(
+            op._id.toString(),
+            op,
+          );
           // Pequena pausa entre oportunidades
           await new Promise((res) => setTimeout(res, 500));
         } catch (err: any) {

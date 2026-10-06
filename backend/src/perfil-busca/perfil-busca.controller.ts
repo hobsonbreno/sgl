@@ -19,10 +19,12 @@ import { Types } from 'mongoose';
 export class ParseObjectIdPipe implements PipeTransform<any, string> {
   transform(value: any): string {
     const validObjectId = Types.ObjectId.isValid(value);
-    // Types.ObjectId.isValid('2301505') will return true unfortunately for any 12 byte string, 
+    // Types.ObjectId.isValid('2301505') will return true unfortunately for any 12 byte string,
     // but 2301505 is 7 bytes, so it will return false. Actually, to be safe, check if it's 24 hex characters.
     if (!validObjectId || !/^[0-9a-fA-F]{24}$/.test(value)) {
-      throw new BadRequestException('Formato de ID inválido. Apenas ObjectId do MongoDB é permitido.');
+      throw new BadRequestException(
+        'Formato de ID inválido. Apenas ObjectId do MongoDB é permitido.',
+      );
     }
     return value;
   }
@@ -88,7 +90,10 @@ export class PerfilBuscaController {
 
   @Put(':id')
   @ApiOperation({ summary: 'Atualizar um perfil' })
-  update(@Param('id', ParseObjectIdPipe) id: string, @Body() data: CreatePerfilDto) {
+  update(
+    @Param('id', ParseObjectIdPipe) id: string,
+    @Body() data: CreatePerfilDto,
+  ) {
     return this.service.update(id, data);
   }
 
