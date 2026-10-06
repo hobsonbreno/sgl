@@ -52,7 +52,15 @@ export class DashboardService {
     const hoje = new Date();
     const prazosCriticos = await this.oportunidadeModel
       .find({
-        kanbanStatus: { $in: ['FAZENDO', 'FEITO', 'AGUARDANDO_RESPOSTA'] },
+        kanbanStatus: {
+          $in: [
+            'A_FAZER',
+            'FAZENDO',
+            'FEITO',
+            'AGUARDANDO_RESPOSTA',
+            'EM_NEGOCIACAO',
+          ],
+        },
         dataEncerramentoProposta: { $gte: hoje },
       })
       .sort({ dataEncerramentoProposta: 1 })
