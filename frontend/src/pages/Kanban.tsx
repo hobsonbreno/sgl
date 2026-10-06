@@ -200,14 +200,28 @@ export default function Kanban() {
 
   const carregarOportunidadesEProdutos = async () => {
     try {
-      const [resOp, resProd, resConfig] = await Promise.all([
-        fetch(`${window.API_URL}/oportunidades?limit=500`),
-        fetch(`${window.API_URL}/produto?limit=10000`),
-        fetch(`${window.API_URL}/configuracoes`)
+      // Busca TODAS as páginas: com o bot trazendo muitas oportunidades novas,
+      // um limit fixo (500) cortava os cards mais antigos (sort createdAt desc).
+      const fetchAll = async (path: string, pageSize: number) => {
+        const all: any[] = [];
+        let page = 1;
+        let totalPages = 1;
+        do {
+          const sep = path.includes('?') ? '&' : '?';
+          const r = await fetch(`${window.API_URL}${path}${sep}limit=${pageSize}&page=${page}`);
+          const j = await r.json();
+          if (Array.isArray(j)) return j; // endpoint sem paginação
+          all.push(...(j.data || []));
+          totalPages = Number(j.totalPages) || 1;
+          page++;
+        } while (page <= totalPages);
+        return all;
+      };
+      const [dataOp, dataProd, dataConfig] = await Promise.all([
+        fetchAll('/oportunidades', 500),
+        fetchAll('/produto', 5000),
+        fetch(`${window.API_URL}/configuracoes`).then(r => r.json())
       ]);
-      const dataOp = await resOp.json();
-      const dataProd = await resProd.json();
-      const dataConfig = await resConfig.json();
       
       if (dataConfig && dataConfig.colunasKanban) {
         setColunas(dataConfig.colunasKanban);
