@@ -392,7 +392,7 @@ export class BotService implements OnApplicationBootstrap {
                   // DEEP SEARCH: Se não achou no título, vasculha os itens reais do edital.
                   // ATENÇÃO: Desativado temporariamente pois causa timeout e erro 503 no PNCP
                   // ao tentar buscar detalhes de milhares de editais em sequência.
-                  const deepSearchHabilitado = false; // TODO: Mover para configuração do painel
+                  const deepSearchHabilitado = true; // TODO: Mover para configuração do painel
                   if (!match && deepSearchHabilitado) {
                     try {
                       this.logger.log(
