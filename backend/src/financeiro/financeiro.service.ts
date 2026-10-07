@@ -69,15 +69,39 @@ export class FinanceiroService {
     return precoUnit * qtd;
   }
 
+  private buildLookupMaps(produtos: any[], cotacoes: any[]) {
+    const produtosMap = new Map<string, any[]>();
+    for (const p of produtos) {
+      const opId = p.oportunidadeId ? p.oportunidadeId.toString() : null;
+      if (!opId) continue;
+      let list = produtosMap.get(opId);
+      if (!list) {
+        list = [];
+        produtosMap.set(opId, list);
+      }
+      list.push(p);
+    }
+
+    const cotacoesMap = new Map<string, any>();
+    for (const c of cotacoes) {
+      const opId = c.oportunidadeId ? c.oportunidadeId.toString() : null;
+      if (opId) {
+        cotacoesMap.set(opId, c);
+      }
+    }
+
+    return { produtosMap, cotacoesMap };
+  }
+
   async findResumo() {
-    const transacoes = await this.transacaoModel.find().exec();
+    const transacoes = await this.transacaoModel.find().lean().exec();
 
     let receitasPendentes = 0;
     let receitasPagas = 0;
     let despesasPendentes = 0;
     let despesasPagas = 0;
 
-    transacoes.forEach((t) => {
+    transacoes.forEach((t: any) => {
       if (t.tipo === 'RECEITA') {
         if (t.status === 'PAGO') receitasPagas += t.valor;
         else receitasPendentes += t.valor;
@@ -88,10 +112,41 @@ export class FinanceiroService {
     });
 
     const oportunidades = await this.oportunidadeModel
-      .find({ kanbanStatus: { $ne: 'EXCLUIDA' } })
+      .find({ kanbanStatus: { $ne: 'EXCLUIDA' } }, { kanbanStatus: 1, valorTotalEstimado: 1 })
+      .lean()
       .exec();
-    const produtos = await this.produtoModel.find().exec();
-    const cotacoes = await this.cotacaoModel.find().exec();
+
+    const produtos = await this.produtoModel
+      .find(
+        {},
+        {
+          oportunidadeId: 1,
+          quantidade: 1,
+          vencedorNome: 1,
+          vencedorCnpj: 1,
+          valorVencedor: 1,
+          valorNossoLance: 1,
+          valorUnitarioEstimado: 1,
+          numeroItem: 1,
+        },
+      )
+      .lean()
+      .exec();
+
+    const cotacoes = await this.cotacaoModel
+      .find(
+        {},
+        {
+          oportunidadeId: 1,
+          'itens.produtoId': 1,
+          'itens.numeroItem': 1,
+          'itens.melhorPreco': 1,
+        },
+      )
+      .lean()
+      .exec();
+
+    const { produtosMap, cotacoesMap } = this.buildLookupMaps(produtos, cotacoes);
 
     let valorNovasOportunidades = 0;
     let saldoProjetadoKanban = 0;
@@ -99,27 +154,31 @@ export class FinanceiroService {
     let lucroRealAReceberKanban = 0;
 
     for (const op of oportunidades) {
-      const prods = produtos.filter(
-        (p) => p.oportunidadeId === op._id.toString(),
-      );
-      const cotacao = cotacoes.find(
-        (c) => c.oportunidadeId.toString() === op._id.toString(),
-      );
+      const opIdStr = op._id.toString();
+      const prods = produtosMap.get(opIdStr) || [];
+      const cotacao = cotacoesMap.get(opIdStr);
+
+      const cotacaoItemMap = new Map<string, any>();
+      if (cotacao && cotacao.itens) {
+        cotacao.itens.forEach((it: any) => {
+          const pId = it.produtoId?._id
+            ? it.produtoId._id.toString()
+            : it.produtoId?.toString();
+          if (pId) cotacaoItemMap.set(pId, it);
+          if (it.numeroItem) cotacaoItemMap.set(`num_${it.numeroItem}`, it);
+        });
+      }
 
       let valorEfetivoNosso = 0;
       let custoEfetivoNosso = 0;
 
-      prods.forEach((p) => {
+      prods.forEach((p: any) => {
         const val = this.getValorNossoEfetivo(p);
         valorEfetivoNosso += val;
 
-        if (val > 0 && cotacao && cotacao.itens) {
-          const itemCot = cotacao.itens.find(
-            (it) =>
-              (it.produtoId as any)?._id?.toString() === p._id.toString() ||
-              it.produtoId?.toString() === p._id.toString() ||
-              it.numeroItem === p.numeroItem,
-          );
+        if (val > 0 && cotacaoItemMap.size > 0) {
+          const pIdStr = p._id.toString();
+          const itemCot = cotacaoItemMap.get(pIdStr) || cotacaoItemMap.get(`num_${p.numeroItem}`);
           if (
             itemCot &&
             itemCot.melhorPreco &&
@@ -164,44 +223,72 @@ export class FinanceiroService {
 
   async findNegociosFechados() {
     const oportunidades = await this.oportunidadeModel
-      .find({
-        kanbanStatus: {
-          $ne: 'EXCLUIDA',
-        },
-      })
+      .find(
+        { kanbanStatus: { $ne: 'EXCLUIDA' } },
+        { orgaoNome: 1, numeroControlePNCP: 1, objetoCompra: 1, kanbanStatus: 1 },
+      )
+      .lean()
       .exec();
 
     const ids = oportunidades.map((o) => o._id.toString());
     const produtos = await this.produtoModel
-      .find({ oportunidadeId: { $in: ids } })
+      .find(
+        { oportunidadeId: { $in: ids } },
+        {
+          oportunidadeId: 1,
+          quantidade: 1,
+          vencedorNome: 1,
+          vencedorCnpj: 1,
+          valorVencedor: 1,
+          valorNossoLance: 1,
+          valorUnitarioEstimado: 1,
+          numeroItem: 1,
+        },
+      )
+      .lean()
       .exec();
     const cotacoes = await this.cotacaoModel
-      .find({ oportunidadeId: { $in: ids } })
+      .find(
+        { oportunidadeId: { $in: ids } },
+        {
+          oportunidadeId: 1,
+          'itens.produtoId': 1,
+          'itens.numeroItem': 1,
+          'itens.melhorPreco': 1,
+        },
+      )
+      .lean()
       .exec();
 
+    const { produtosMap, cotacoesMap } = this.buildLookupMaps(produtos, cotacoes);
+
     return oportunidades
-      .map((op) => {
-        const prods = produtos.filter(
-          (p) => p.oportunidadeId === op._id.toString(),
-        );
-        const cotacao = cotacoes.find(
-          (c) => c.oportunidadeId.toString() === op._id.toString(),
-        );
+      .map((op: any) => {
+        const opIdStr = op._id.toString();
+        const prods = produtosMap.get(opIdStr) || [];
+        const cotacao = cotacoesMap.get(opIdStr);
+
+        const cotacaoItemMap = new Map<string, any>();
+        if (cotacao && cotacao.itens) {
+          cotacao.itens.forEach((it: any) => {
+            const pId = it.produtoId?._id
+              ? it.produtoId._id.toString()
+              : it.produtoId?.toString();
+            if (pId) cotacaoItemMap.set(pId, it);
+            if (it.numeroItem) cotacaoItemMap.set(`num_${it.numeroItem}`, it);
+          });
+        }
 
         let valorTotalLancado = 0;
         let custoTotal = 0;
 
-        prods.forEach((p) => {
+        prods.forEach((p: any) => {
           const val = this.getValorNossoEfetivo(p);
           valorTotalLancado += val;
 
-          if (val > 0 && cotacao && cotacao.itens) {
-            const itemCot = cotacao.itens.find(
-              (it) =>
-                (it.produtoId as any)?._id?.toString() === p._id.toString() ||
-                it.produtoId?.toString() === p._id.toString() ||
-                it.numeroItem === p.numeroItem,
-            );
+          if (val > 0 && cotacaoItemMap.size > 0) {
+            const pIdStr = p._id.toString();
+            const itemCot = cotacaoItemMap.get(pIdStr) || cotacaoItemMap.get(`num_${p.numeroItem}`);
             if (
               itemCot &&
               itemCot.melhorPreco &&
@@ -236,10 +323,11 @@ export class FinanceiroService {
 
     const produtos = await this.produtoModel
       .find({ oportunidadeId: op._id.toString() })
+      .lean()
       .exec();
 
     let valorTotalLancado = 0;
-    produtos.forEach((p) => {
+    produtos.forEach((p: any) => {
       valorTotalLancado += this.getValorNossoEfetivo(p);
     });
 
@@ -251,14 +339,15 @@ export class FinanceiroService {
 
     const cotacao = await this.cotacaoModel
       .findOne({ oportunidadeId: op._id })
+      .lean()
       .exec();
     let custoTotal = 0;
     if (cotacao && cotacao.itens) {
-      produtos.forEach((p) => {
+      produtos.forEach((p: any) => {
         const val = this.getValorNossoEfetivo(p);
         if (val > 0) {
           const itemCot = cotacao.itens.find(
-            (it) =>
+            (it: any) =>
               (it.produtoId as any)?._id?.toString() === p._id.toString() ||
               it.produtoId?.toString() === p._id.toString() ||
               it.numeroItem === p.numeroItem,
@@ -315,41 +404,71 @@ export class FinanceiroService {
 
   async findArquivados() {
     const oportunidades = await this.oportunidadeModel
-      .find({
-        kanbanStatus: { $in: ['ARQUIVADO', 'ARQUIVADOS'] },
-      })
+      .find(
+        { kanbanStatus: { $in: ['ARQUIVADO', 'ARQUIVADOS'] } },
+        { orgaoNome: 1, numeroControlePNCP: 1, objetoCompra: 1 },
+      )
+      .lean()
       .exec();
 
     const ids = oportunidades.map((o) => o._id.toString());
     const produtos = await this.produtoModel
-      .find({ oportunidadeId: { $in: ids } })
+      .find(
+        { oportunidadeId: { $in: ids } },
+        {
+          oportunidadeId: 1,
+          quantidade: 1,
+          vencedorNome: 1,
+          vencedorCnpj: 1,
+          valorVencedor: 1,
+          valorNossoLance: 1,
+          valorUnitarioEstimado: 1,
+          numeroItem: 1,
+        },
+      )
+      .lean()
       .exec();
     const cotacoes = await this.cotacaoModel
-      .find({ oportunidadeId: { $in: ids } })
+      .find(
+        { oportunidadeId: { $in: ids } },
+        {
+          oportunidadeId: 1,
+          'itens.produtoId': 1,
+          'itens.numeroItem': 1,
+          'itens.melhorPreco': 1,
+        },
+      )
+      .lean()
       .exec();
 
-    return oportunidades.map((op) => {
-      const prods = produtos.filter(
-        (p) => p.oportunidadeId === op._id.toString(),
-      );
-      const cotacao = cotacoes.find(
-        (c) => c.oportunidadeId.toString() === op._id.toString(),
-      );
+    const { produtosMap, cotacoesMap } = this.buildLookupMaps(produtos, cotacoes);
+
+    return oportunidades.map((op: any) => {
+      const opIdStr = op._id.toString();
+      const prods = produtosMap.get(opIdStr) || [];
+      const cotacao = cotacoesMap.get(opIdStr);
+
+      const cotacaoItemMap = new Map<string, any>();
+      if (cotacao && cotacao.itens) {
+        cotacao.itens.forEach((it: any) => {
+          const pId = it.produtoId?._id
+            ? it.produtoId._id.toString()
+            : it.produtoId?.toString();
+          if (pId) cotacaoItemMap.set(pId, it);
+          if (it.numeroItem) cotacaoItemMap.set(`num_${it.numeroItem}`, it);
+        });
+      }
 
       let valorTotalLancado = 0;
       let custoTotal = 0;
 
-      prods.forEach((p) => {
+      prods.forEach((p: any) => {
         const val = this.getValorNossoEfetivo(p);
         valorTotalLancado += val;
 
-        if (val > 0 && cotacao && cotacao.itens) {
-          const itemCot = cotacao.itens.find(
-            (it) =>
-              (it.produtoId as any)?._id?.toString() === p._id.toString() ||
-              it.produtoId?.toString() === p._id.toString() ||
-              it.numeroItem === p.numeroItem,
-          );
+        if (val > 0 && cotacaoItemMap.size > 0) {
+          const pIdStr = p._id.toString();
+          const itemCot = cotacaoItemMap.get(pIdStr) || cotacaoItemMap.get(`num_${p.numeroItem}`);
           if (
             itemCot &&
             itemCot.melhorPreco &&
