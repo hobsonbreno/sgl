@@ -258,8 +258,29 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
       >
         <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start' }}>
           <div style={{ width: '40%' }}>
-            <span style={{ fontWeight: 500, color: '#334155', textTransform: 'uppercase' }}>
-              {item.numeroItem || index + 1} {item.descricaoCurta || ((item.descricaoItem || item.descricao) ? (item.descricaoItem || item.descricao).split(' ')[0] : 'ITEM')}
+            <span style={{ fontWeight: 500, color: '#334155', textTransform: 'uppercase', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+              <span>{item.numeroItem || index + 1} {item.descricaoCurta || ((item.descricaoItem || item.descricao) ? (item.descricaoItem || item.descricao).split(' ')[0] : 'ITEM')}</span>
+              {(() => {
+                const vencNome = (item.vencedorNome || item.produtoId?.vencedorNome || '').toUpperCase();
+                const vencCnpj = item.vencedorCnpj || item.produtoId?.vencedorCnpj || '';
+                const isNosso = vencNome.includes('IRMÃOS NASCIMENTO') || vencNome.includes('IRMAOS NASCIMENTO') || vencCnpj.includes('48262939') || vencCnpj.includes('48.262.939');
+                const valVenc = item.valorVencedor || item.produtoId?.valorVencedor || 0;
+                
+                if (isNosso) {
+                  return (
+                    <span style={{ fontSize: '0.72rem', background: '#dcfce7', color: '#15803d', padding: '0.2rem 0.5rem', borderRadius: '4px', fontWeight: 700, border: '1px solid #86efac', width: 'fit-content', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                      🏆 HOMOLOGADO A SEU FAVOR {valVenc > 0 ? `(R$ ${valVenc.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })})` : ''}
+                    </span>
+                  );
+                } else if (vencNome) {
+                  return (
+                    <span style={{ fontSize: '0.72rem', background: '#fef2f2', color: '#991b1b', padding: '0.2rem 0.5rem', borderRadius: '4px', fontWeight: 600, border: '1px solid #fca5a5', width: 'fit-content' }}>
+                      ❌ Vencido por: {vencNome} {valVenc > 0 ? `(R$ ${valVenc.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })})` : ''}
+                    </span>
+                  );
+                }
+                return null;
+              })()}
             </span>
           </div>
           
@@ -1714,6 +1735,74 @@ export default function OportunidadeDetalhe() {
               </div>
             </div>
           </div>
+
+          {/* PAINEL DE HOMOLOGAÇÃO / CONTRATO VENCIDO */}
+          {(() => {
+            const isNossoVencedorItem = (it: any) => {
+              const nome = (it.vencedorNome || it.produtoId?.vencedorNome || '').toUpperCase();
+              const cnpj = it.vencedorCnpj || it.produtoId?.vencedorCnpj || '';
+              return nome.includes('IRMÃOS NASCIMENTO') || nome.includes('IRMAOS NASCIMENTO') || cnpj.includes('48262939') || cnpj.includes('48.262.939');
+            };
+
+            const itensNossos = cotacao.itens.filter((it: any) => isNossoVencedorItem(it));
+            const itensConcorrentes = cotacao.itens.filter((it: any) => {
+              const venc = (it.vencedorNome || it.produtoId?.vencedorNome || it.vencedorCnpj || it.produtoId?.vencedorCnpj || '');
+              const st = (it.situacaoJulgamento || it.produtoId?.situacaoJulgamento || '').toLowerCase();
+              const isFinalizado = st.includes('homologado') || st.includes('adjudicado') || st.includes('finalizada') || st.includes('encerrado');
+              return (venc !== '' || isFinalizado) && !isNossoVencedorItem(it);
+            });
+
+            const valContratoNosso = itensNossos.reduce((acc: number, it: any) => {
+              const valVencedor = it.valorVencedor || it.produtoId?.valorVencedor || (liveLances[it._id]?.nossoLance ?? (it.produtoId?.valorNossoLance || it.valorNossoLance || 0));
+              return acc + (Number(valVencedor) * Number(it.quantidade || 1));
+            }, 0);
+
+            const custoNosso = itensNossos.reduce((acc: number, it: any) => {
+              const c = it.melhorPreco ? Number(it.melhorPreco.precoUnitario) : 0;
+              return acc + (c * Number(it.quantidade || 1));
+            }, 0);
+
+            const impostoNosso = valContratoNosso * aliquotaEfetivaGlobal;
+            const lucroRealHomologado = valContratoNosso - custoNosso - impostoNosso;
+
+            if (itensNossos.length === 0 && itensConcorrentes.length === 0) return null;
+
+            return (
+              <div style={{ background: '#f0fdf4', border: '2px solid #86efac', padding: '1.25rem', borderRadius: '10px', marginBottom: '1.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.03)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <h4 style={{ margin: 0, color: '#166534', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    🏆 Resultado da Homologação (Produtos Vencidos pela Sua Empresa)
+                  </h4>
+                  <span style={{ fontSize: '0.8rem', background: '#dcfce7', color: '#15803d', padding: '0.25rem 0.65rem', borderRadius: '12px', fontWeight: 700, border: '1px solid #bbf7d0' }}>
+                    {itensNossos.length} de {cotacao.itens.length} itens homologados a seu favor
+                  </span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                  <div style={{ background: '#fff', padding: '0.85rem', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#166534', display: 'block', fontWeight: 600 }}>Valor Contratado (Homologado a Seu Favor)</span>
+                    <strong style={{ fontSize: '1.3rem', color: '#15803d', display: 'block', marginTop: '0.2rem' }}>
+                      R$ {valContratoNosso.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </strong>
+                  </div>
+
+                  <div style={{ background: '#fff', padding: '0.85rem', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#166534', display: 'block', fontWeight: 600 }}>Lucro Real Líquido Homologado</span>
+                    <strong style={{ fontSize: '1.3rem', color: '#047857', display: 'block', marginTop: '0.2rem' }}>
+                      R$ {lucroRealHomologado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </strong>
+                  </div>
+
+                  <div style={{ background: '#fff', padding: '0.85rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', fontWeight: 600 }}>Itens Homologados para Concorrentes</span>
+                    <strong style={{ fontSize: '1.1rem', color: '#475569', display: 'block', marginTop: '0.2rem' }}>
+                      {itensConcorrentes.length} item(ns)
+                    </strong>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {cotacao.itens.length === 0 ? (

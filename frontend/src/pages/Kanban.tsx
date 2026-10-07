@@ -780,6 +780,23 @@ export default function Kanban() {
                                       {item.visualizado && <span title="Visualizado"><Eye size={14} color="#94a3b8" /></span>}
                                     </h4>
                                   </Link>
+
+                                  {/* Badge de Contrato Homologado a Nosso Favor */}
+                                  {(() => {
+                                    const prodsNosso = prods.filter(p => {
+                                      const nome = (p.vencedorNome || '').toUpperCase();
+                                      const cnpj = p.vencedorCnpj || '';
+                                      return nome.includes('IRMÃOS NASCIMENTO') || nome.includes('IRMAOS NASCIMENTO') || cnpj.includes('48262939') || cnpj.includes('48.262.939');
+                                    });
+                                    if (prodsNosso.length === 0) return null;
+                                    const valHomologado = prodsNosso.reduce((acc, p) => acc + (p.valorVencedor || 0), 0);
+                                    return (
+                                      <div style={{ background: '#dcfce7', border: '1px solid #86efac', color: '#15803d', padding: '0.3rem 0.6rem', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 800, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <span>🏆 CONTRATO HOMOLOGADO ({prodsNosso.length} item{prodsNosso.length > 1 ? 'ns' : ''}):</span>
+                                        <span style={{ fontSize: '0.85rem' }}>R$ {valHomologado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                      </div>
+                                    );
+                                  })()}
                                   <div style={{ marginBottom: '0.5rem' }}>
                                     <Countdown 
                                       targetDate={item.dataEncerramentoProposta} 
@@ -1093,11 +1110,16 @@ export default function Kanban() {
                                               return (
                                                 <li key={p._id} style={{ marginBottom: '0.25rem' }}>
                                                   item {p.numeroItem || (i + 1)}: {cleanName} - <strong>{p.situacaoJulgamento || 'Aguardando atualização'}</strong>
-                                                  {p.vencedorNome && (
-                                                    <div style={{ fontSize: '0.65rem', color: '#166534', marginTop: '0.1rem' }}>
-                                                      🏆 {p.vencedorNome} (R$ {p.valorVencedor?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })})
-                                                    </div>
-                                                  )}
+                                                  {p.vencedorNome && (() => {
+                                                    const vNome = (p.vencedorNome || '').toUpperCase();
+                                                    const vCnpj = p.vencedorCnpj || '';
+                                                    const isEmpresaNosser = vNome.includes('IRMÃOS NASCIMENTO') || vNome.includes('IRMAOS NASCIMENTO') || vCnpj.includes('48262939') || vCnpj.includes('48.262.939');
+                                                    return (
+                                                      <div style={{ fontSize: '0.68rem', color: isEmpresaNosser ? '#15803d' : '#475569', marginTop: '0.1rem', fontWeight: isEmpresaNosser ? 700 : 500 }}>
+                                                        {isEmpresaNosser ? '🏆 HOMOLOGADO PARA SUA EMPRESA' : `🏆 ${p.vencedorNome}`} (R$ {p.valorVencedor?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })})
+                                                      </div>
+                                                    );
+                                                  })()}
                                                 </li>
                                               );
                                             });
