@@ -40,6 +40,46 @@ export class FinanceiroService {
       .exec();
   }
 
+  private getValorNossoEfetivo(p: Produto): number {
+    if (!p) return 0;
+
+    const vencNome = (p.vencedorNome || '').toUpperCase();
+    const vencCnpj = (p.vencedorCnpj || '').replace(/\D/g, '');
+    const vencNomeNorm = vencNome
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    const temVencedor = Boolean(vencCnpj || vencNome);
+    const isNosso =
+      vencCnpj.includes('48262939') ||
+      vencNomeNorm.includes('IRMAOS NASCIMENTO') ||
+      (vencNomeNorm.includes('IRMAOS') && vencNomeNorm.includes('NASCIMENTO'));
+
+    // Se o item foi ganho por um concorrente, a nossa empresa não faturou esse item (0)
+    if (temVencedor && !isNosso) {
+      return 0;
+    }
+
+    const qtd = p.quantidade || 1;
+
+    if (isNosso) {
+      const precoUnit =
+        p.valorVencedor && p.valorVencedor > 0
+          ? p.valorVencedor
+          : p.valorNossoLance && p.valorNossoLance > 0
+          ? p.valorNossoLance
+          : p.valorUnitarioEstimado || 0;
+      return precoUnit * qtd;
+    }
+
+    // Se ainda não há vencedor homologado mas demos o Nosso Lance Oficial
+    if (p.valorNossoLance && p.valorNossoLance > 0) {
+      return p.valorNossoLance * qtd;
+    }
+
+    return 0;
+  }
+
   async findResumo() {
     const transacoes = await this.transacaoModel.find().exec();
 
@@ -58,21 +98,55 @@ export class FinanceiroService {
       }
     });
 
-    // Calcular valores vindos do Kanban
     const oportunidades = await this.oportunidadeModel
       .find({ kanbanStatus: { $ne: 'EXCLUIDA' } })
       .exec();
     const produtos = await this.produtoModel.find().exec();
+    const cotacoes = await this.cotacaoModel.find().exec();
 
     let valorNovasOportunidades = 0;
     let saldoProjetadoKanban = 0;
     let faturamentoAReceberKanban = 0;
+    let lucroRealAReceberKanban = 0;
 
     for (const op of oportunidades) {
+      const prods = produtos.filter(
+        (p) => p.oportunidadeId === op._id.toString(),
+      );
+      const cotacao = cotacoes.find(
+        (c) => c.oportunidadeId.toString() === op._id.toString(),
+      );
+
+      let valorEfetivoNosso = 0;
+      let custoEfetivoNosso = 0;
+
+      prods.forEach((p) => {
+        const val = this.getValorNossoEfetivo(p);
+        valorEfetivoNosso += val;
+
+        if (val > 0 && cotacao && cotacao.itens) {
+          const itemCot = cotacao.itens.find(
+            (it) =>
+              (it.produtoId as any)?._id?.toString() === p._id.toString() ||
+              it.produtoId?.toString() === p._id.toString() ||
+              it.numeroItem === p.numeroItem,
+          );
+          if (
+            itemCot &&
+            itemCot.melhorPreco &&
+            itemCot.melhorPreco.precoUnitario
+          ) {
+            custoEfetivoNosso +=
+              Number(itemCot.melhorPreco.precoUnitario) *
+              Number(p.quantidade || 1);
+          }
+        }
+      });
+
       if (op.kanbanStatus === 'A_FAZER') {
-        valorNovasOportunidades += op.valorTotalEstimado || 0;
+        valorNovasOportunidades += valorEfetivoNosso > 0 ? valorEfetivoNosso : (op.valorTotalEstimado || 0);
       } else if (op.kanbanStatus === 'FAZENDO') {
-        saldoProjetadoKanban += op.valorTotalEstimado || 0;
+        saldoProjetadoKanban += valorEfetivoNosso > 0 ? valorEfetivoNosso : (op.valorTotalEstimado || 0);
       } else if (
         [
           'FEITO',
@@ -84,28 +158,14 @@ export class FinanceiroService {
           'NEGÓCIO FECHADO',
         ].includes(op.kanbanStatus)
       ) {
-        // Se estiver em uma dessas fases de lance/fechamento, usar o valor do Nosso Lance
-        // Se ainda não tiver Nosso Lance, pode usar o estimado ou zero. Vamos somar os lances:
-        const prods = produtos.filter(
-          (p) => p.oportunidadeId === op._id.toString(),
-        );
-        let valorOp = 0;
-        prods.forEach((p) => {
-          if (p.valorNossoLance !== undefined && p.valorNossoLance > 0) {
-            valorOp += p.valorNossoLance * (p.quantidade || 1);
-          }
-        });
-        faturamentoAReceberKanban += valorOp;
+        faturamentoAReceberKanban += valorEfetivoNosso;
+        lucroRealAReceberKanban += (valorEfetivoNosso - custoEfetivoNosso);
       }
     }
 
     const saldoAtual = receitasPagas - despesasPagas;
-
-    // O Saldo Projetado (Futuro) será: Saldo Atual + Receitas Pendentes Manuais - Despesas Pendentes Manuais + Oportunidades Fazendo
     const saldoProjetado =
       saldoAtual + receitasPendentes - despesasPendentes + saldoProjetadoKanban;
-
-    // Faturamento a Receber será: Receitas Pendentes Manuais + Faturamento a Receber Kanban (FEITO, NEGOCIACAO, etc)
     const receitasPendentesTotal =
       receitasPendentes + faturamentoAReceberKanban;
 
@@ -117,13 +177,24 @@ export class FinanceiroService {
       saldoAtual,
       saldoProjetado,
       valorNovasOportunidades,
+      lucroRealEsperado: lucroRealAReceberKanban,
     };
   }
 
   async findNegociosFechados() {
     const oportunidades = await this.oportunidadeModel
       .find({
-        kanbanStatus: { $in: ['NEGOCIO_FECHADO', 'NEGÓCIO FECHADO'] },
+        kanbanStatus: {
+          $in: [
+            'NEGOCIO_FECHADO',
+            'NEGÓCIO FECHADO',
+            'HOMOLOGACAO',
+            'HOMOLOGAÇÃO',
+            'FEITO',
+            'NEGOCIACAO',
+            'NEGOCIAÇÃO',
+          ],
+        },
       })
       .exec();
 
@@ -131,25 +202,59 @@ export class FinanceiroService {
     const produtos = await this.produtoModel
       .find({ oportunidadeId: { $in: ids } })
       .exec();
+    const cotacoes = await this.cotacaoModel
+      .find({ oportunidadeId: { $in: ids } })
+      .exec();
 
-    return oportunidades.map((op) => {
-      const prods = produtos.filter(
-        (p) => p.oportunidadeId === op._id.toString(),
-      );
-      let valorTotalLancado = 0;
-      prods.forEach((p) => {
-        if (p.valorNossoLance !== undefined && p.valorNossoLance > 0) {
-          valorTotalLancado += p.valorNossoLance * (p.quantidade || 1);
-        }
-      });
-      return {
-        _id: op._id,
-        orgaoNome: op.orgaoNome,
-        numeroControlePNCP: op.numeroControlePNCP,
-        objetoCompra: op.objetoCompra,
-        valorTotalLancado,
-      };
-    });
+    return oportunidades
+      .map((op) => {
+        const prods = produtos.filter(
+          (p) => p.oportunidadeId === op._id.toString(),
+        );
+        const cotacao = cotacoes.find(
+          (c) => c.oportunidadeId.toString() === op._id.toString(),
+        );
+
+        let valorTotalLancado = 0;
+        let custoTotal = 0;
+
+        prods.forEach((p) => {
+          const val = this.getValorNossoEfetivo(p);
+          valorTotalLancado += val;
+
+          if (val > 0 && cotacao && cotacao.itens) {
+            const itemCot = cotacao.itens.find(
+              (it) =>
+                (it.produtoId as any)?._id?.toString() === p._id.toString() ||
+                it.produtoId?.toString() === p._id.toString() ||
+                it.numeroItem === p.numeroItem,
+            );
+            if (
+              itemCot &&
+              itemCot.melhorPreco &&
+              itemCot.melhorPreco.precoUnitario
+            ) {
+              custoTotal +=
+                Number(itemCot.melhorPreco.precoUnitario) *
+                Number(p.quantidade || 1);
+            }
+          }
+        });
+
+        const lucroEstimado = valorTotalLancado - custoTotal;
+
+        return {
+          _id: op._id,
+          orgaoNome: op.orgaoNome,
+          numeroControlePNCP: op.numeroControlePNCP,
+          objetoCompra: op.objetoCompra,
+          kanbanStatus: op.kanbanStatus,
+          valorTotalLancado,
+          custoTotal,
+          lucroEstimado,
+        };
+      })
+      .filter((item) => item.valorTotalLancado > 0);
   }
 
   async receberNegocioFechado(oportunidadeId: string) {
@@ -159,30 +264,41 @@ export class FinanceiroService {
     const produtos = await this.produtoModel
       .find({ oportunidadeId: op._id.toString() })
       .exec();
+
     let valorTotalLancado = 0;
     produtos.forEach((p) => {
-      if (p.valorNossoLance !== undefined && p.valorNossoLance > 0) {
-        valorTotalLancado += p.valorNossoLance * (p.quantidade || 1);
-      }
+      valorTotalLancado += this.getValorNossoEfetivo(p);
     });
 
     if (valorTotalLancado <= 0) {
       throw new Error(
-        'Não há lances válidos registrados para esta oportunidade.',
+        'Não há lances homologados a nosso favor para esta oportunidade.',
       );
     }
 
-    // Calcular custo total dos fornecedores campeões a partir da cotação
     const cotacao = await this.cotacaoModel
       .findOne({ oportunidadeId: op._id })
       .exec();
     let custoTotal = 0;
     if (cotacao && cotacao.itens) {
-      cotacao.itens.forEach((item) => {
-        if (item.melhorPreco && item.melhorPreco.precoUnitario) {
-          custoTotal +=
-            Number(item.melhorPreco.precoUnitario) *
-            Number(item.quantidade || 1);
+      produtos.forEach((p) => {
+        const val = this.getValorNossoEfetivo(p);
+        if (val > 0) {
+          const itemCot = cotacao.itens.find(
+            (it) =>
+              (it.produtoId as any)?._id?.toString() === p._id.toString() ||
+              it.produtoId?.toString() === p._id.toString() ||
+              it.numeroItem === p.numeroItem,
+          );
+          if (
+            itemCot &&
+            itemCot.melhorPreco &&
+            itemCot.melhorPreco.precoUnitario
+          ) {
+            custoTotal +=
+              Number(itemCot.melhorPreco.precoUnitario) *
+              Number(p.quantidade || 1);
+          }
         }
       });
     }
@@ -194,10 +310,9 @@ export class FinanceiroService {
       descricao: `Faturamento Negócio: ${op.numeroControlePNCP}`,
       valor: valorTotalLancado,
       dataVencimento: new Date(),
-      status: 'PENDENTE', // Quando dá baixa, vira faturamento pendente (A Receber), ou se já recebido fica PAGO, depende da lógica. Vou manter como PAGO pq antes estava PAGO
+      status: 'PENDENTE',
     });
 
-    // Atualizar a RECEITA para PAGO para manter o fluxo anterior de dar baixa
     await this.transacaoModel.updateMany(
       { oportunidadeId: op._id, tipo: 'RECEITA' },
       {
@@ -207,7 +322,6 @@ export class FinanceiroService {
       },
     );
 
-    // Criar a transação de DESPESA se houver custo
     if (custoTotal > 0) {
       await this.create({
         oportunidadeId: op._id,
@@ -215,11 +329,10 @@ export class FinanceiroService {
         descricao: `Custo Fornecedores Negócio: ${op.numeroControlePNCP}`,
         valor: custoTotal,
         dataVencimento: new Date(),
-        status: 'PENDENTE', // Despesa entra como Pendente
+        status: 'PENDENTE',
       });
     }
 
-    // Atualizar o Kanban para ARQUIVADOS
     op.kanbanStatus = 'ARQUIVADOS';
     await op.save();
 
@@ -238,23 +351,54 @@ export class FinanceiroService {
     const produtos = await this.produtoModel
       .find({ oportunidadeId: { $in: ids } })
       .exec();
+    const cotacoes = await this.cotacaoModel
+      .find({ oportunidadeId: { $in: ids } })
+      .exec();
 
     return oportunidades.map((op) => {
       const prods = produtos.filter(
         (p) => p.oportunidadeId === op._id.toString(),
       );
+      const cotacao = cotacoes.find(
+        (c) => c.oportunidadeId.toString() === op._id.toString(),
+      );
+
       let valorTotalLancado = 0;
+      let custoTotal = 0;
+
       prods.forEach((p) => {
-        if (p.valorNossoLance !== undefined && p.valorNossoLance > 0) {
-          valorTotalLancado += p.valorNossoLance * (p.quantidade || 1);
+        const val = this.getValorNossoEfetivo(p);
+        valorTotalLancado += val;
+
+        if (val > 0 && cotacao && cotacao.itens) {
+          const itemCot = cotacao.itens.find(
+            (it) =>
+              (it.produtoId as any)?._id?.toString() === p._id.toString() ||
+              it.produtoId?.toString() === p._id.toString() ||
+              it.numeroItem === p.numeroItem,
+          );
+          if (
+            itemCot &&
+            itemCot.melhorPreco &&
+            itemCot.melhorPreco.precoUnitario
+          ) {
+            custoTotal +=
+              Number(itemCot.melhorPreco.precoUnitario) *
+              Number(p.quantidade || 1);
+          }
         }
       });
+
+      const lucroEstimado = valorTotalLancado - custoTotal;
+
       return {
         _id: op._id,
         orgaoNome: op.orgaoNome,
         numeroControlePNCP: op.numeroControlePNCP,
         objetoCompra: op.objetoCompra,
         valorTotalLancado,
+        custoTotal,
+        lucroEstimado,
       };
     });
   }

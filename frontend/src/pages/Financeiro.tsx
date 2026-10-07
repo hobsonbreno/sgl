@@ -169,7 +169,7 @@ export default function Financeiro() {
           <div style={{ fontSize: '1.8rem', fontWeight: 'bold', marginTop: '0.5rem', color: '#8b5cf6' }}>
             {formataMoeda(resumo.valorNovasOportunidades)}
           </div>
-          <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.2rem' }}>Total Estimado</div>
+          <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.2rem' }}>Total Estimado dos Itens</div>
         </div>
 
         <div className="card" style={{ padding: '1.5rem', background: '#fff', borderLeft: '4px solid #3b82f6' }}>
@@ -185,12 +185,24 @@ export default function Financeiro() {
 
         <div className="card" style={{ padding: '1.5rem', background: '#fff', borderLeft: '4px solid #eab308' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#64748b', fontSize: '0.9rem', fontWeight: 600 }}>FATURAMENTO A RECEBER</span>
+            <span style={{ color: '#64748b', fontSize: '0.9rem', fontWeight: 600 }}>FATURAMENTO HOMOLOGADO</span>
             <TrendingUp size={20} color="#eab308" />
           </div>
           <div style={{ fontSize: '1.8rem', fontWeight: 'bold', marginTop: '0.5rem', color: '#eab308' }}>
             {formataMoeda(resumo.receitasPendentes)}
           </div>
+          <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.2rem' }}>Vendas a Receber da Empresa</div>
+        </div>
+
+        <div className="card" style={{ padding: '1.5rem', background: '#fff', borderLeft: '4px solid #059669' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: '#059669', fontSize: '0.9rem', fontWeight: 700 }}>🏆 LUCRO REAL ESPERADO</span>
+            <DollarSign size={20} color="#059669" />
+          </div>
+          <div style={{ fontSize: '1.8rem', fontWeight: 'bold', marginTop: '0.5rem', color: '#059669' }}>
+            {formataMoeda(resumo.lucroRealEsperado)}
+          </div>
+          <div style={{ fontSize: '0.75rem', color: '#047857', marginTop: '0.2rem' }}>Faturamento - Custo Fornecedores</div>
         </div>
 
         <div className="card" style={{ padding: '1.5rem', background: '#fff', borderLeft: '4px solid #ef4444' }}>
@@ -323,7 +335,7 @@ export default function Financeiro() {
       {/* Lista de Negócios Fechados (Kanban) */}
       <div className="card" style={{ padding: '1.5rem', background: '#fff', marginTop: '2rem' }}>
         <h3 style={{ marginTop: 0, marginBottom: '1.5rem', fontSize: '1.1rem', color: '#166534', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Check size={20} color="#166534" /> Negócios Fechados (Aguardando Pagamento)
+          <Check size={20} color="#166534" /> Negócios Homologados & Fechados (Nossa Empresa)
         </h3>
         {negociosFechados.length === 0 ? (
           <p style={{ color: '#64748b' }}>Nenhum negócio aguardando recebimento no momento.</p>
@@ -335,7 +347,9 @@ export default function Financeiro() {
                   <th style={{ padding: '0.75rem 0.5rem' }}>Órgão</th>
                   <th style={{ padding: '0.75rem 0.5rem' }}>Nº PNCP</th>
                   <th style={{ padding: '0.75rem 0.5rem' }}>Objeto</th>
-                  <th style={{ padding: '0.75rem 0.5rem' }}>Faturamento Esperado</th>
+                  <th style={{ padding: '0.75rem 0.5rem' }}>Faturamento Homologado</th>
+                  <th style={{ padding: '0.75rem 0.5rem' }}>Custo Fornecedores</th>
+                  <th style={{ padding: '0.75rem 0.5rem' }}>Lucro Real Estimado</th>
                   <th style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>Ação</th>
                 </tr>
               </thead>
@@ -344,9 +358,15 @@ export default function Financeiro() {
                   <tr key={nf._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                     <td style={{ padding: '0.75rem 0.5rem', fontWeight: 600, color: '#334155' }}>{nf.orgaoNome}</td>
                     <td style={{ padding: '0.75rem 0.5rem', color: '#64748b' }}>{nf.numeroControlePNCP}</td>
-                    <td style={{ padding: '0.75rem 0.5rem', color: '#64748b', maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nf.objetoCompra}</td>
-                    <td style={{ padding: '0.75rem 0.5rem', fontWeight: 600, color: '#10b981' }}>
+                    <td style={{ padding: '0.75rem 0.5rem', color: '#64748b', maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nf.objetoCompra}</td>
+                    <td style={{ padding: '0.75rem 0.5rem', fontWeight: 700, color: '#10b981' }}>
                       {formataMoeda(nf.valorTotalLancado)}
+                    </td>
+                    <td style={{ padding: '0.75rem 0.5rem', fontWeight: 600, color: '#ef4444' }}>
+                      {formataMoeda(nf.custoTotal)}
+                    </td>
+                    <td style={{ padding: '0.75rem 0.5rem', fontWeight: 700, color: nf.lucroEstimado >= 0 ? '#15803d' : '#b91c1c' }}>
+                      {formataMoeda(nf.lucroEstimado)}
                     </td>
                     <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>
                       <button 
