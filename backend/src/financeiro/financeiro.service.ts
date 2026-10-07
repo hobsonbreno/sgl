@@ -112,7 +112,10 @@ export class FinanceiroService {
     });
 
     const oportunidades = await this.oportunidadeModel
-      .find({ kanbanStatus: { $ne: 'EXCLUIDA' } }, { kanbanStatus: 1, valorTotalEstimado: 1 })
+      .find(
+        { kanbanStatus: { $ne: 'EXCLUIDA' } },
+        { kanbanStatus: 1, valorTotalEstimado: 1 },
+      )
       .lean()
       .exec();
 
