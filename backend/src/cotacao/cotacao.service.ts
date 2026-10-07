@@ -46,7 +46,7 @@ export class CotacaoService {
           await existe.save();
         }
       }
-      return existe;
+      return this.findOne(existe._id.toString());
     }
 
     const itens = initialItems.map((i) => ({
@@ -62,7 +62,8 @@ export class CotacaoService {
       oportunidadeId,
       itens,
     });
-    return nova.save();
+    const criada = await nova.save();
+    return this.findOne(criada._id.toString());
   }
 
   async findOne(id: string): Promise<Cotacao> {

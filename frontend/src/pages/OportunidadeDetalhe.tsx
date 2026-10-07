@@ -96,13 +96,30 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
   const [justificativasDesclassificacao, setJustificativasDesclassificacao] = useState<Record<string, string>>({});
 
   // Estados para Calculadora de Concorrência
-  const initialConcorrente = item.produtoId?.valorConcorrente || item.valorConcorrente || '';
-  const [precoConcorrenteStr, setPrecoConcorrenteStr] = useState(initialConcorrente ? Number(initialConcorrente).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}) : '');
+  const rawConcorrente = item.produtoId?.valorConcorrente ?? item.valorConcorrente;
+  const rawNossoLance = item.produtoId?.valorNossoLance ?? item.valorNossoLance;
+
+  const [precoConcorrenteStr, setPrecoConcorrenteStr] = useState(rawConcorrente ? Number(rawConcorrente).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}) : '');
   const precoConcorrente = parseFloat(precoConcorrenteStr.replace(/\./g, '').replace(',', '.')) || 0;
 
-  const initialNossoLance = item.produtoId?.valorNossoLance || item.valorNossoLance || '';
-  const [nossoLanceStr, setNossoLanceStr] = useState(initialNossoLance ? Number(initialNossoLance).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}) : '');
+  const [nossoLanceStr, setNossoLanceStr] = useState(rawNossoLance ? Number(rawNossoLance).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}) : '');
   const nossoLanceVal = parseFloat(nossoLanceStr.replace(/\./g, '').replace(',', '.')) || 0;
+
+  useEffect(() => {
+    if (rawConcorrente !== undefined && rawConcorrente !== null && Number(rawConcorrente) > 0) {
+      setPrecoConcorrenteStr(Number(rawConcorrente).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    } else if (!rawConcorrente) {
+      setPrecoConcorrenteStr('');
+    }
+  }, [rawConcorrente]);
+
+  useEffect(() => {
+    if (rawNossoLance !== undefined && rawNossoLance !== null && Number(rawNossoLance) > 0) {
+      setNossoLanceStr(Number(rawNossoLance).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    } else if (!rawNossoLance) {
+      setNossoLanceStr('');
+    }
+  }, [rawNossoLance]);
 
   const nossoCusto = item.melhorPreco ? item.melhorPreco.precoUnitario : 0;
   const divisorTempo = modeloEntrega === 'FRACIONADO' ? (mesesContrato || 1) : 1;
