@@ -201,7 +201,7 @@ export class FinanceiroService {
 
       if (valorEfetivoNosso > 0) {
         faturamentoAReceberKanban += valorEfetivoNosso;
-        lucroRealAReceberKanban += (valorEfetivoNosso - custoEfetivoNosso);
+        lucroRealAReceberKanban += valorEfetivoNosso - custoEfetivoNosso;
       } else {
         if (op.kanbanStatus === 'A_FAZER') {
           valorNovasOportunidades += op.valorTotalEstimado || 0;
