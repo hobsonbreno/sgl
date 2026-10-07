@@ -202,7 +202,7 @@ export default function Kanban() {
     try {
       // Busca TODAS as páginas: com o bot trazendo muitas oportunidades novas,
       // um limit fixo (500) cortava os cards mais antigos (sort createdAt desc).
-      const fetchAll = async (path: string, pageSize: number) => {
+      const fetchAll = async (path: string, pageSize: number): Promise<any> => {
         const all: any[] = [];
         let page = 1;
         let totalPages = 1;
