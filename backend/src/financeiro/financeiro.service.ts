@@ -49,35 +49,24 @@ export class FinanceiroService {
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '');
 
-    const temVencedor = Boolean(vencCnpj || vencNome);
     const isNosso =
       vencCnpj.includes('48262939') ||
       vencNomeNorm.includes('IRMAOS NASCIMENTO') ||
       (vencNomeNorm.includes('IRMAOS') && vencNomeNorm.includes('NASCIMENTO'));
 
-    // Se o item foi ganho por um concorrente, a nossa empresa não faturou esse item (0)
-    if (temVencedor && !isNosso) {
+    if (!isNosso) {
       return 0;
     }
 
     const qtd = p.quantidade || 1;
+    const precoUnit =
+      p.valorVencedor && p.valorVencedor > 0
+        ? p.valorVencedor
+        : p.valorNossoLance && p.valorNossoLance > 0
+        ? p.valorNossoLance
+        : p.valorUnitarioEstimado || 0;
 
-    if (isNosso) {
-      const precoUnit =
-        p.valorVencedor && p.valorVencedor > 0
-          ? p.valorVencedor
-          : p.valorNossoLance && p.valorNossoLance > 0
-          ? p.valorNossoLance
-          : p.valorUnitarioEstimado || 0;
-      return precoUnit * qtd;
-    }
-
-    // Se ainda não há vencedor homologado mas demos o Nosso Lance Oficial
-    if (p.valorNossoLance && p.valorNossoLance > 0) {
-      return p.valorNossoLance * qtd;
-    }
-
-    return 0;
+    return precoUnit * qtd;
   }
 
   async findResumo() {
@@ -143,23 +132,15 @@ export class FinanceiroService {
         }
       });
 
-      if (op.kanbanStatus === 'A_FAZER') {
-        valorNovasOportunidades += valorEfetivoNosso > 0 ? valorEfetivoNosso : (op.valorTotalEstimado || 0);
-      } else if (op.kanbanStatus === 'FAZENDO') {
-        saldoProjetadoKanban += valorEfetivoNosso > 0 ? valorEfetivoNosso : (op.valorTotalEstimado || 0);
-      } else if (
-        [
-          'FEITO',
-          'NEGOCIACAO',
-          'HOMOLOGACAO',
-          'NEGOCIO_FECHADO',
-          'NEGOCIAÇÃO',
-          'HOMOLOGAÇÃO',
-          'NEGÓCIO FECHADO',
-        ].includes(op.kanbanStatus)
-      ) {
+      if (valorEfetivoNosso > 0) {
         faturamentoAReceberKanban += valorEfetivoNosso;
         lucroRealAReceberKanban += (valorEfetivoNosso - custoEfetivoNosso);
+      } else {
+        if (op.kanbanStatus === 'A_FAZER') {
+          valorNovasOportunidades += op.valorTotalEstimado || 0;
+        } else if (op.kanbanStatus === 'FAZENDO') {
+          saldoProjetadoKanban += op.valorTotalEstimado || 0;
+        }
       }
     }
 
@@ -185,15 +166,7 @@ export class FinanceiroService {
     const oportunidades = await this.oportunidadeModel
       .find({
         kanbanStatus: {
-          $in: [
-            'NEGOCIO_FECHADO',
-            'NEGÓCIO FECHADO',
-            'HOMOLOGACAO',
-            'HOMOLOGAÇÃO',
-            'FEITO',
-            'NEGOCIACAO',
-            'NEGOCIAÇÃO',
-          ],
+          $ne: 'EXCLUIDA',
         },
       })
       .exec();
