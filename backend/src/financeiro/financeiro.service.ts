@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -63,8 +64,8 @@ export class FinanceiroService {
       p.valorVencedor && p.valorVencedor > 0
         ? p.valorVencedor
         : p.valorNossoLance && p.valorNossoLance > 0
-        ? p.valorNossoLance
-        : p.valorUnitarioEstimado || 0;
+          ? p.valorNossoLance
+          : p.valorUnitarioEstimado || 0;
 
     return precoUnit * qtd;
   }
@@ -233,7 +234,12 @@ export class FinanceiroService {
     const oportunidades = await this.oportunidadeModel
       .find(
         { kanbanStatus: { $ne: 'EXCLUIDA' } },
-        { orgaoNome: 1, numeroControlePNCP: 1, objetoCompra: 1, kanbanStatus: 1 },
+        {
+          orgaoNome: 1,
+          numeroControlePNCP: 1,
+          objetoCompra: 1,
+          kanbanStatus: 1,
+        },
       )
       .lean()
       .exec();
@@ -268,7 +274,10 @@ export class FinanceiroService {
       .lean()
       .exec();
 
-    const { produtosMap, cotacoesMap } = this.buildLookupMaps(produtos, cotacoes);
+    const { produtosMap, cotacoesMap } = this.buildLookupMaps(
+      produtos,
+      cotacoes,
+    );
 
     return oportunidades
       .map((op: any) => {
@@ -296,7 +305,9 @@ export class FinanceiroService {
 
           if (val > 0 && cotacaoItemMap.size > 0) {
             const pIdStr = p._id.toString();
-            const itemCot = cotacaoItemMap.get(pIdStr) || cotacaoItemMap.get(`num_${p.numeroItem}`);
+            const itemCot =
+              cotacaoItemMap.get(pIdStr) ||
+              cotacaoItemMap.get(`num_${p.numeroItem}`);
             if (
               itemCot &&
               itemCot.melhorPreco &&
@@ -356,7 +367,7 @@ export class FinanceiroService {
         if (val > 0) {
           const itemCot = cotacao.itens.find(
             (it: any) =>
-              (it.produtoId as any)?._id?.toString() === p._id.toString() ||
+              it.produtoId?._id?.toString() === p._id.toString() ||
               it.produtoId?.toString() === p._id.toString() ||
               it.numeroItem === p.numeroItem,
           );
@@ -449,7 +460,10 @@ export class FinanceiroService {
       .lean()
       .exec();
 
-    const { produtosMap, cotacoesMap } = this.buildLookupMaps(produtos, cotacoes);
+    const { produtosMap, cotacoesMap } = this.buildLookupMaps(
+      produtos,
+      cotacoes,
+    );
 
     return oportunidades.map((op: any) => {
       const opIdStr = op._id.toString();
@@ -476,7 +490,9 @@ export class FinanceiroService {
 
         if (val > 0 && cotacaoItemMap.size > 0) {
           const pIdStr = p._id.toString();
-          const itemCot = cotacaoItemMap.get(pIdStr) || cotacaoItemMap.get(`num_${p.numeroItem}`);
+          const itemCot =
+            cotacaoItemMap.get(pIdStr) ||
+            cotacaoItemMap.get(`num_${p.numeroItem}`);
           if (
             itemCot &&
             itemCot.melhorPreco &&

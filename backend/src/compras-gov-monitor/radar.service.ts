@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
 import { OportunidadeService } from '../oportunidade/oportunidade.service';
 import { ComprasnetPublicService } from './comprasnet-public.service';
 import { ComprasGovMonitorService } from './compras-gov-monitor.service';
@@ -41,7 +41,7 @@ export class RadarService {
             'HOMOLOGAÇÃO',
             'A_FAZER',
             'PROPOSTA',
-          ].includes(op.kanbanStatus),
+          ].includes(String(op.kanbanStatus)),
       );
 
       this.logger.log(
@@ -49,12 +49,14 @@ export class RadarService {
       );
 
       for (const op of ativas as any[]) {
-        let uasg = op.unidadeCompradora ? op.unidadeCompradora.toString() : '';
-        let pregaoNum = op.numeroCompraOrigem ? op.numeroCompraOrigem.toString() : '';
+        let uasg = op.unidadeCompradora ? String(op.unidadeCompradora) : '';
+        let pregaoNum = op.numeroCompraOrigem
+          ? String(op.numeroCompraOrigem)
+          : '';
         let anoNum = op.anoCompraOrigem;
 
         if ((!uasg || !pregaoNum) && op.numeroControlePNCP) {
-          const parts = op.numeroControlePNCP.split('-');
+          const parts = String(op.numeroControlePNCP).split('-');
           if (parts.length >= 3) {
             if (!uasg) uasg = parts[0];
             if (!pregaoNum) pregaoNum = parts[2];
@@ -95,22 +97,30 @@ export class RadarService {
               id: pId,
               uasg: uasg,
               pregao: pregaoStr,
-              orgaoNome: op.orgaoNome,
-              objetoCompra: op.objetoCompra,
+              orgaoNome: String(op.orgaoNome || ''),
+              objetoCompra: String(op.objetoCompra || ''),
               itens: [
                 {
                   itemId: `Pregão ${pregaoStr}`,
-                  nossaPosicao: Array.isArray(data.posicoes) && data.posicoes.length > 0 ? 1 : 999,
+                  nossaPosicao:
+                    Array.isArray(data.posicoes) && data.posicoes.length > 0
+                      ? 1
+                      : 999,
                   rawChat: rawChat,
-                  rawPosicoes: Array.isArray(data.posicoes) ? data.posicoes.join('\n') : '',
+                  rawPosicoes: Array.isArray(data.posicoes)
+                    ? data.posicoes.join('\n')
+                    : '',
                   chat: rawChat,
-                  status: op.kanbanStatus === 'HOMOLOGACAO' ? 'Homologado' : 'Participando',
+                  status:
+                    op.kanbanStatus === 'HOMOLOGACAO'
+                      ? 'Homologado'
+                      : 'Participando',
                 },
               ],
             },
           ];
 
-          await this.monitorService.saveSyncData(payload);
+          this.monitorService.saveSyncData(payload);
 
           // Espera um pouco antes da próxima para economizar memória
           await new Promise((r) => setTimeout(r, 3000));
