@@ -637,37 +637,32 @@ export default function Dashboard() {
           </div>
           
           <div style={{ flex: 1 }}>
-            {resumo.ultimaExecucaoBot ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '1.25rem', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-                  <span style={{ color: '#475569', fontSize: '1.05rem', fontWeight: 600 }}>Sincronizado em:</span>
-                  <strong style={{ color: '#0f172a', fontSize: '1.1rem' }}>{new Date(resumo.ultimaExecucaoBot.dataExecucao).toLocaleString('pt-BR')}</strong>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '1.25rem', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                <span style={{ color: '#475569', fontSize: '1.05rem', fontWeight: 600 }}>Sincronizado em:</span>
+                <strong style={{ color: '#0f172a', fontSize: '1.1rem' }}>
+                  {resumo.ultimaExecucaoBot ? new Date(resumo.ultimaExecucaoBot.dataExecucao).toLocaleString('pt-BR') : 'Ainda não sincronizado hoje'}
+                </strong>
+              </div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                <div style={{ background: '#f0fdf4', padding: '2rem 1rem', borderRadius: '20px', border: '1px solid #bbf7d0', textAlign: 'center' }}>
+                  <span style={{ display: 'block', fontSize: '3.5rem', fontWeight: 900, color: '#16a34a', lineHeight: 1, letterSpacing: '-1px' }}>{resumo.novasHoje}</span>
+                  <span style={{ fontSize: '0.95rem', color: '#15803d', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.5px', marginTop: '0.75rem', display: 'block' }}>Novas Descobertas</span>
                 </div>
                 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                  <div style={{ background: '#f0fdf4', padding: '2rem 1rem', borderRadius: '20px', border: '1px solid #bbf7d0', textAlign: 'center' }}>
-                    <span style={{ display: 'block', fontSize: '3.5rem', fontWeight: 900, color: '#16a34a', lineHeight: 1, letterSpacing: '-1px' }}>{resumo.novasHoje}</span>
-                    <span style={{ fontSize: '0.95rem', color: '#15803d', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.5px', marginTop: '0.75rem', display: 'block' }}>Novas Descobertas</span>
-                  </div>
-                  
-                  <div 
-                    onClick={() => { if (resumo.ultimaExecucaoBot.erros.length > 0) setShowErrosModal(true); }}
-                    style={{ background: resumo.ultimaExecucaoBot.erros.length > 0 ? '#fef2f2' : '#f8fafc', padding: '2rem 1rem', borderRadius: '20px', border: `1px solid ${resumo.ultimaExecucaoBot.erros.length > 0 ? '#fecaca' : '#e2e8f0'}`, textAlign: 'center', cursor: resumo.ultimaExecucaoBot.erros.length > 0 ? 'pointer' : 'default', transition: 'all 0.2s' }}
-                    onMouseEnter={e => { if (resumo.ultimaExecucaoBot.erros.length > 0) e.currentTarget.style.transform = 'scale(1.02)'; }}
-                    onMouseLeave={e => { if (resumo.ultimaExecucaoBot.erros.length > 0) e.currentTarget.style.transform = 'scale(1)'; }}
-                  >
-                    <span style={{ display: 'block', fontSize: '3.5rem', fontWeight: 900, color: resumo.ultimaExecucaoBot.erros.length > 0 ? '#dc2626' : '#64748b', lineHeight: 1, letterSpacing: '-1px' }}>{resumo.ultimaExecucaoBot.erros.length}</span>
-                    <span style={{ fontSize: '0.95rem', color: resumo.ultimaExecucaoBot.erros.length > 0 ? '#b91c1c' : '#475569', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.5px', marginTop: '0.75rem', display: 'block' }}>Falhas</span>
-                    {resumo.ultimaExecucaoBot.erros.length > 0 && <span style={{ fontSize: '0.75rem', color: '#dc2626', marginTop: '0.5rem', display: 'block' }}>Ver detalhes</span>}
-                  </div>
+                <div 
+                  onClick={() => { if (resumo.ultimaExecucaoBot?.erros?.length > 0) setShowErrosModal(true); }}
+                  style={{ background: (resumo.ultimaExecucaoBot?.erros?.length > 0) ? '#fef2f2' : '#f8fafc', padding: '2rem 1rem', borderRadius: '20px', border: `1px solid ${(resumo.ultimaExecucaoBot?.erros?.length > 0) ? '#fecaca' : '#e2e8f0'}`, textAlign: 'center', cursor: (resumo.ultimaExecucaoBot?.erros?.length > 0) ? 'pointer' : 'default', transition: 'all 0.2s' }}
+                  onMouseEnter={e => { if (resumo.ultimaExecucaoBot?.erros?.length > 0) e.currentTarget.style.transform = 'scale(1.02)'; }}
+                  onMouseLeave={e => { if (resumo.ultimaExecucaoBot?.erros?.length > 0) e.currentTarget.style.transform = 'scale(1)'; }}
+                >
+                  <span style={{ display: 'block', fontSize: '3.5rem', fontWeight: 900, color: (resumo.ultimaExecucaoBot?.erros?.length > 0) ? '#dc2626' : '#64748b', lineHeight: 1, letterSpacing: '-1px' }}>{resumo.ultimaExecucaoBot?.erros?.length || 0}</span>
+                  <span style={{ fontSize: '0.95rem', color: (resumo.ultimaExecucaoBot?.erros?.length > 0) ? '#b91c1c' : '#475569', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.5px', marginTop: '0.75rem', display: 'block' }}>Falhas</span>
+                  {(resumo.ultimaExecucaoBot?.erros?.length > 0) && <span style={{ fontSize: '0.75rem', color: '#dc2626', marginTop: '0.5rem', display: 'block' }}>Ver detalhes</span>}
                 </div>
               </div>
-            ) : (
-              <div style={{ textAlign: 'center', color: '#334155', padding: '4rem 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem' }}>
-                <Clock size={56} color="#94a3b8" />
-                <span style={{ fontSize: '1.3rem', fontWeight: 600 }}>Nenhuma varredura registrada no sistema.</span>
-              </div>
-            )}
+            </div>
           </div>
           
           <button 
