@@ -270,19 +270,92 @@ export default function Dashboard() {
                 </div>
               </div>
               
-              {monitoramentoData?.data && (
-                <div style={{ fontSize: '0.85rem', color: '#64748b', background: '#f8fafc', padding: '0.5rem 1rem', borderRadius: '999px', border: '1px solid #e2e8f0' }}>
-                  Atualizado: {new Date(monitoramentoData.data).toLocaleTimeString('pt-BR')}
-                </div>
-              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                {monitoramentoData?.data && (
+                  <div style={{ fontSize: '0.85rem', color: '#64748b', background: '#f8fafc', padding: '0.5rem 1rem', borderRadius: '999px', border: '1px solid #e2e8f0' }}>
+                    Atualizado: {new Date(monitoramentoData.data).toLocaleTimeString('pt-BR')}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setLoadingBot(true);
+                    try {
+                      await fetch(`${window.API_URL}/compras-gov-monitor/run-now`, { method: 'POST' });
+                      alert('⚡ Varredura das propostas iniciada no Compras.gov! O robô está varrendo a sala de disputa em segundo plano.');
+                    } catch (err) {
+                      console.error(err);
+                      alert('Erro ao iniciar a varredura do Compras.gov.');
+                    } finally {
+                      setTimeout(() => setLoadingBot(false), 4000);
+                    }
+                  }}
+                  disabled={loadingBot}
+                  style={{
+                    background: loadingBot ? '#94a3b8' : '#2563eb',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '0.6rem 1.25rem',
+                    borderRadius: '12px',
+                    fontWeight: 700,
+                    fontSize: '0.9rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    cursor: loadingBot ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 2px 4px rgba(37, 99, 235, 0.25)',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <RefreshCw size={18} className={loadingBot ? 'spin' : ''} />
+                  {loadingBot ? 'Varrendo Compras.gov...' : '🔄 Varrer / Atualizar Ranking Agora'}
+                </button>
+              </div>
             </div>
             
             <div style={{ flex: 1, overflowY: 'auto', paddingRight: '0.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               {(!monitoramentoData?.pregoes || monitoramentoData.pregoes.length === 0) ? (
-                <div style={{ textAlign: 'center', padding: '3rem 1rem', color: '#64748b', background: '#f8fafc', borderRadius: '20px', border: '2px dashed #cbd5e1', marginTop: '1rem' }}>
-                  <Bot size={48} color="#94a3b8" style={{ marginBottom: '1rem' }} />
-                  <p style={{ fontSize: '1.2rem', fontWeight: 700, color: '#334155', marginBottom: '0.5rem' }}>Nenhuma proposta processada</p>
-                  <p style={{ fontSize: '1rem' }}>Dispare a varredura para extrair o ranking do Compras.gov</p>
+                <div style={{ textAlign: 'center', padding: '3rem 1.5rem', color: '#64748b', background: '#f8fafc', borderRadius: '20px', border: '2px dashed #cbd5e1', marginTop: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                  <Bot size={48} color="#3b82f6" />
+                  <div>
+                    <p style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: '0 0 0.5rem 0' }}>Nenhuma proposta processada no momento</p>
+                    <p style={{ fontSize: '1rem', color: '#64748b', margin: 0, maxWidth: '480px', lineHeight: '1.5' }}>
+                      Dispare a varredura automatizada para extrair seu ranking em tempo real no Compras.gov (incluindo Edital 37/2026, 51/2027 e demais participações ativas).
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setLoadingBot(true);
+                      try {
+                        await fetch(`${window.API_URL}/compras-gov-monitor/run-now`, { method: 'POST' });
+                        alert('⚡ Varredura iniciada! O bot está consultando as disputas ativas no Compras.gov.');
+                      } catch (err) {
+                        console.error(err);
+                      } finally {
+                        setTimeout(() => setLoadingBot(false), 4000);
+                      }
+                    }}
+                    disabled={loadingBot}
+                    style={{
+                      background: '#16a34a',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '0.75rem 1.5rem',
+                      borderRadius: '12px',
+                      fontWeight: 700,
+                      fontSize: '1rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.6rem',
+                      cursor: loadingBot ? 'not-allowed' : 'pointer',
+                      marginTop: '0.5rem',
+                      boxShadow: '0 4px 6px -1px rgba(22, 163, 74, 0.3)'
+                    }}
+                  >
+                    <RefreshCw size={20} className={loadingBot ? 'spin' : ''} />
+                    {loadingBot ? 'Processando Varredura...' : '⚡ Disparar Varredura de Propostas Agora'}
+                  </button>
                 </div>
               ) : (
                 (() => {

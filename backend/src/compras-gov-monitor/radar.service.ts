@@ -27,57 +27,84 @@ export class RadarService {
     this.isRunning = true;
     try {
       const response = await this.oportunidadeService.findAll({});
-      const oportunidades = response.data;
-      // Filtrar oportunidades na fase 'FAZENDO' que sejam do Comprasnet
-      const fazendo = oportunidades.filter(
+      const oportunidades = response.data || [];
+      // Filtrar todas as oportunidades ativas (diferentes de EXCLUIDA) que possuam UASG e número
+      const ativas = oportunidades.filter(
         (op: any) =>
-          op.kanbanStatus === 'FAZENDO' &&
-          (op.linkSistemaOrigem?.includes('comprasnet') ||
-            op.linkSistemaOrigem?.includes('cnetmobile')),
+          op.kanbanStatus !== 'EXCLUIDA' &&
+          [
+            'FAZENDO',
+            'FEITO',
+            'NEGOCIACAO',
+            'HOMOLOGACAO',
+            'NEGOCIAÇÃO',
+            'HOMOLOGAÇÃO',
+            'A_FAZER',
+            'PROPOSTA',
+          ].includes(op.kanbanStatus),
       );
 
       this.logger.log(
-        `Encontradas ${fazendo.length} oportunidades em FAZENDO no Comprasnet para monitorar.`,
+        `Encontradas ${ativas.length} oportunidades ativas para monitoramento no Compras.gov.`,
       );
 
-      for (const op of fazendo as any[]) {
-        if (
-          !op.unidadeCompradora ||
-          !op.numeroCompraOrigem ||
-          !op.anoCompraOrigem
-        ) {
+      for (const op of ativas as any[]) {
+        let uasg = op.unidadeCompradora ? op.unidadeCompradora.toString() : '';
+        let pregaoNum = op.numeroCompraOrigem ? op.numeroCompraOrigem.toString() : '';
+        let anoNum = op.anoCompraOrigem;
+
+        if ((!uasg || !pregaoNum) && op.numeroControlePNCP) {
+          const parts = op.numeroControlePNCP.split('-');
+          if (parts.length >= 3) {
+            if (!uasg) uasg = parts[0];
+            if (!pregaoNum) pregaoNum = parts[2];
+          }
+        }
+
+        if (pregaoNum && pregaoNum.includes('/')) {
+          const [n, a] = pregaoNum.split('/');
+          pregaoNum = n;
+          anoNum = anoNum || Number(a);
+        }
+
+        if (!uasg || !pregaoNum) {
           this.logger.log(
-            `Oportunidade ${op._id} sem uasg/numero completos. Pulando...`,
+            `Oportunidade ${op._id} sem UASG/Número identificável. Pulando...`,
           );
           continue;
         }
 
+        const anoFinal = anoNum || new Date().getFullYear();
+        const pregaoStr = `${pregaoNum}/${anoFinal}`;
+
         try {
           this.logger.log(
-            `Varrendo: UASG ${op.unidadeCompradora} Pregão ${op.numeroCompraOrigem}/${op.anoCompraOrigem}`,
+            `Varrendo: UASG ${uasg} Pregão ${pregaoStr} (${op.orgaoNome || 'Órgão'})`,
           );
           const data = await this.comprasnetPublicService.scrapeSalaDisputa(
-            op.unidadeCompradora.toString(),
-            `${op.numeroCompraOrigem}/${op.anoCompraOrigem}`,
+            uasg,
+            pregaoStr,
           );
 
           // Mapear os dados para o formato esperado pelo monitorService
-          const rawChat = data.chat.join('\n');
-          const pId = `${op.unidadeCompradora}-${op.numeroCompraOrigem}/${op.anoCompraOrigem}`;
+          const rawChat = Array.isArray(data.chat) ? data.chat.join('\n') : '';
+          const pId = `${uasg}-${pregaoStr}`;
 
-          // Nós apenas passamos um "mock" de itensEncontrados contendo o texto do chat e ranking bruto
-          // Pois a extração exata de DOM pode precisar de refinamentos, mas o monitor já busca keywords no chat.
           const payload = [
             {
               id: pId,
-              uasg: op.unidadeCompradora.toString(),
-              pregao: `${op.numeroCompraOrigem}/${op.anoCompraOrigem}`,
+              uasg: uasg,
+              pregao: pregaoStr,
+              orgaoNome: op.orgaoNome,
+              objetoCompra: op.objetoCompra,
               itens: [
                 {
-                  numero: 1, // mock
-                  nossaPosicao: data.posicoes.join(' | '),
+                  itemId: `Pregão ${pregaoStr}`,
+                  nossaPosicao: Array.isArray(data.posicoes) && data.posicoes.length > 0 ? 1 : 999,
                   rawChat: rawChat,
-                  rawPosicoes: data.posicoes.join('\n'),
+                  rawPosicoes: Array.isArray(data.posicoes) ? data.posicoes.join('\n') : '',
+                  chat: rawChat,
+                  status: op.kanbanStatus === 'HOMOLOGACAO' ? 'Homologado' : 'Participando',
                 },
               ],
             },
@@ -85,8 +112,8 @@ export class RadarService {
 
           await this.monitorService.saveSyncData(payload);
 
-          // Espera um pouco antes de abrir a proxima aba para não estourar a RAM
-          await new Promise((r) => setTimeout(r, 5000));
+          // Espera um pouco antes da próxima para economizar memória
+          await new Promise((r) => setTimeout(r, 3000));
         } catch (err) {
           this.logger.error(`Erro ao monitorar a oportunidade ${op._id}`, err);
         }
