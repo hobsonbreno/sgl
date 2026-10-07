@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import type { MouseEvent } from "react";
 import { Link } from "react-router-dom";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
@@ -67,6 +67,16 @@ export default function Kanban() {
     itemId: string;
     mensagem: string;
   } | null>(null);
+
+  const produtosPorOpMap = useMemo(() => {
+    const map = new Map<string, any[]>();
+    for (const p of produtos) {
+      const arr = map.get(p.oportunidadeId) || [];
+      arr.push(p);
+      map.set(p.oportunidadeId, arr);
+    }
+    return map;
+  }, [produtos]);
 
   const toggleObjectExpand = (cardId: string) => {
     setExpandedObjects((prev) => ({
@@ -297,6 +307,13 @@ export default function Kanban() {
       }
 
       const ops = Array.isArray(dataOp) ? dataOp : dataOp.data || [];
+      const prodList = Array.isArray(dataProd) ? dataProd : dataProd.data || [];
+      const produtosMap = new Map();
+      for (const p of prodList) {
+        const arr = produtosMap.get(p.oportunidadeId) || [];
+        arr.push(p);
+        produtosMap.set(p.oportunidadeId, arr);
+      }
 
       const now = new Date().getTime();
       const validOps: any[] = [];
@@ -310,12 +327,7 @@ export default function Kanban() {
         }
 
         let st = op.kanbanStatus?.toUpperCase() || "";
-        const prodList = Array.isArray(dataProd)
-          ? dataProd
-          : dataProd.data || [];
-        const opProdutos = prodList.filter(
-          (p: any) => p.oportunidadeId === op._id,
-        );
+        const opProdutos = produtosMap.get(op._id) || [];
         const hasProdutos = opProdutos.length > 0;
 
         // Auto-Excluir: Expirou e não fez cotações/puxou -> move pra EXCLUIDA
@@ -1007,9 +1019,7 @@ export default function Kanban() {
                   ?.toLowerCase()
                   .includes(search);
 
-                const prods = produtos.filter(
-                  (p) => p.oportunidadeId === op._id,
-                );
+                const prods = produtosPorOpMap.get(op._id) || [];
                 const matchProduto = prods.some(
                   (p) =>
                     p.descricao?.toLowerCase().includes(search) ||
@@ -1123,9 +1133,7 @@ export default function Kanban() {
                         style={{ flex: 1, minHeight: "100px" }}
                       >
                         {itensDaColuna.map((item, index) => {
-                          const prods = produtos.filter(
-                            (p) => p.oportunidadeId === item._id,
-                          );
+                          const prods = produtosPorOpMap.get(item._id) || [];
                           const isFinalizada =
                             prods.length > 0 &&
                             prods.every((p) => {
@@ -2157,10 +2165,9 @@ export default function Kanban() {
                                           const searchStr = searchTerm
                                             .toLowerCase()
                                             .trim();
-                                          const todosProdutos = produtos.filter(
-                                            (p) =>
-                                              p.oportunidadeId === item._id,
-                                          );
+                                          const todosProdutos =
+                                            produtosPorOpMap.get(item._id) ||
+                                            [];
 
                                           let prodsParaMostrar = todosProdutos;
                                           if (searchStr) {
