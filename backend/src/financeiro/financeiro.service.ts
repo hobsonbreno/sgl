@@ -149,7 +149,10 @@ export class FinanceiroService {
       .lean()
       .exec();
 
-    const { produtosMap, cotacoesMap } = this.buildLookupMaps(produtos, cotacoes);
+    const { produtosMap, cotacoesMap } = this.buildLookupMaps(
+      produtos,
+      cotacoes,
+    );
 
     let valorNovasOportunidades = 0;
     let saldoProjetadoKanban = 0;
