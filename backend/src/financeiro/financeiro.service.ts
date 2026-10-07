@@ -184,7 +184,9 @@ export class FinanceiroService {
 
         if (val > 0 && cotacaoItemMap.size > 0) {
           const pIdStr = p._id.toString();
-          const itemCot = cotacaoItemMap.get(pIdStr) || cotacaoItemMap.get(`num_${p.numeroItem}`);
+          const itemCot =
+            cotacaoItemMap.get(pIdStr) ||
+            cotacaoItemMap.get(`num_${p.numeroItem}`);
           if (
             itemCot &&
             itemCot.melhorPreco &&
