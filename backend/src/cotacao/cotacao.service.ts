@@ -16,28 +16,100 @@ export class CotacaoService {
     private readonly gateway: CotacaoGateway,
   ) {}
 
+  private getMatchKey(item: any, fallbackIndex?: number): string {
+    const pId = (item.produtoId as any)?._id?.toString() || item.produtoId?.toString();
+    if (pId) return `pid_${pId}`;
+    if (item.numeroItem && Number(item.numeroItem) > 0) return `num_${item.numeroItem}`;
+    const desc = (item.descricaoItem || item.descricao || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (desc) return `desc_${desc}_${fallbackIndex ?? ''}`;
+    return `idx_${fallbackIndex}`;
+  }
+
+  private async deduplicateItens(doc: CotacaoDocument): Promise<boolean> {
+    if (!doc || !doc.itens || doc.itens.length <= 1) return false;
+
+    const seenKeys = new Map<string, any>();
+    const cleanItens: any[] = [];
+    let removed = false;
+
+    for (let i = 0; i < doc.itens.length; i++) {
+      const item = doc.itens[i];
+      if (!item.numeroItem) {
+        item.numeroItem = i + 1;
+      }
+
+      const key = this.getMatchKey(item, i + 1);
+
+      if (seenKeys.has(key)) {
+        removed = true;
+        const existing = seenKeys.get(key);
+        if (item.precosFornecedores && item.precosFornecedores.length > 0) {
+          if (!existing.precosFornecedores) existing.precosFornecedores = [];
+          for (const pf of item.precosFornecedores) {
+            const pfExists = existing.precosFornecedores.some(
+              (epf: any) =>
+                (epf.fornecedorId as any)?._id?.toString() === (pf.fornecedorId as any)?._id?.toString() ||
+                epf.fornecedorId?.toString() === pf.fornecedorId?.toString()
+            );
+            if (!pfExists) {
+              existing.precosFornecedores.push(pf);
+            }
+          }
+        }
+        if (!existing.produtoId && item.produtoId) {
+          existing.produtoId = item.produtoId;
+        }
+      } else {
+        seenKeys.set(key, item);
+        cleanItens.push(item);
+      }
+    }
+
+    if (removed) {
+      doc.itens = cleanItens as any;
+      await this.model.updateOne(
+        { _id: doc._id },
+        { $set: { itens: cleanItens } }
+      ).exec();
+      return true;
+    }
+    return false;
+  }
+
   async createOrGet(
     oportunidadeId: string,
     initialItems: any[] = [],
   ): Promise<Cotacao> {
-    const existe = await this.model.findOne({ oportunidadeId }).exec();
+    let existe = await this.model.findOne({ oportunidadeId }).exec();
     if (existe) {
-      if (initialItems.length > 0) {
-        for (const initialItem of initialItems) {
-          const itemExistente = existe.itens.find((it) => {
+      const cotId = existe._id.toString();
+      await this.deduplicateItens(existe);
+      existe = await this.model.findOne({ oportunidadeId }).exec();
+
+      if (existe && initialItems.length > 0) {
+        for (let idx = 0; idx < initialItems.length; idx++) {
+          const initialItem = initialItems[idx];
+          const targetNum = initialItem.numeroItem || (idx + 1);
+
+          const itemExistente = existe.itens.find((it, itIdx) => {
             const pId = (it.produtoId as any)?._id || it.produtoId;
-            if (pId && pId.toString() === initialItem._id.toString()) return true;
-            if (it.numeroItem && initialItem.numeroItem && it.numeroItem === initialItem.numeroItem) return true;
-            if (it.descricaoItem && initialItem.descricao && it.descricaoItem === initialItem.descricao) return true;
+            if (pId && initialItem._id && pId.toString() === initialItem._id.toString()) return true;
+            if (it.numeroItem && targetNum && Number(it.numeroItem) === Number(targetNum)) return true;
+            if (itIdx === idx && !it.numeroItem) return true;
             return false;
           });
 
           if (itemExistente) {
             const pId = (itemExistente.produtoId as any)?._id || itemExistente.produtoId;
-            if (!pId && initialItem._id) {
+            if ((!pId && initialItem._id) || !itemExistente.numeroItem) {
               await this.model.updateOne(
                 { _id: existe._id, 'itens._id': itemExistente._id },
-                { $set: { 'itens.$.produtoId': initialItem._id } }
+                {
+                  $set: {
+                    ...(!pId && initialItem._id ? { 'itens.$.produtoId': initialItem._id } : {}),
+                    ...(!itemExistente.numeroItem ? { 'itens.$.numeroItem': targetNum } : {}),
+                  }
+                }
               ).exec();
             }
           } else {
@@ -47,8 +119,8 @@ export class CotacaoService {
                 $push: {
                   itens: {
                     produtoId: initialItem._id,
-                    numeroItem: initialItem.numeroItem,
-                    descricaoItem: initialItem.descricao,
+                    numeroItem: targetNum,
+                    descricaoItem: initialItem.descricao || initialItem.descricaoItem || 'Item',
                     quantidade: initialItem.quantidade || 1,
                     unidadeMedida: initialItem.unidadeMedida || 'UN',
                     valorUnitarioEstimado: initialItem.valorUnitarioEstimado || 0,
@@ -60,13 +132,13 @@ export class CotacaoService {
           }
         }
       }
-      return this.findOne(existe._id.toString());
+      return this.findOne(cotId);
     }
 
-    const itens = initialItems.map((i) => ({
+    const itens = initialItems.map((i, idx) => ({
       produtoId: i._id,
-      numeroItem: i.numeroItem,
-      descricaoItem: i.descricao,
+      numeroItem: i.numeroItem || (idx + 1),
+      descricaoItem: i.descricao || i.descricaoItem || 'Item',
       quantidade: i.quantidade || 1,
       unidadeMedida: i.unidadeMedida || 'UN',
       valorUnitarioEstimado: i.valorUnitarioEstimado || 0,
@@ -133,9 +205,11 @@ export class CotacaoService {
       .exec();
     if (!doc) throw new NotFoundException('Cotação não encontrada');
 
+    const deduped = await this.deduplicateItens(doc);
     const unlinked = doc.itens.some((it) => !it.produtoId);
-    if (unlinked) {
-      await this.autoLinkProdutos(doc);
+
+    if (deduped || unlinked) {
+      if (unlinked) await this.autoLinkProdutos(doc);
       doc = await this.model
         .findById(id)
         .populate('itens.precosFornecedores.fornecedorId')
@@ -157,9 +231,11 @@ export class CotacaoService {
         'Cotação não encontrada para esta oportunidade',
       );
 
+    const deduped = await this.deduplicateItens(doc);
     const unlinked = doc.itens.some((it) => !it.produtoId);
-    if (unlinked) {
-      await this.autoLinkProdutos(doc);
+
+    if (deduped || unlinked) {
+      if (unlinked) await this.autoLinkProdutos(doc);
       doc = await this.model
         .findOne({ oportunidadeId })
         .populate('itens.precosFornecedores.fornecedorId')
