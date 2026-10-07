@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { InjectModel, InjectConnection } from '@nestjs/mongoose';
+import { Model, Connection } from 'mongoose';
 import { Produto } from './produto.schema';
 import { ProdutoGateway } from './produto.gateway';
 
@@ -8,6 +8,7 @@ import { ProdutoGateway } from './produto.gateway';
 export class ProdutoService {
   constructor(
     @InjectModel(Produto.name) private model: Model<Produto>,
+    @InjectConnection() private connection: Connection,
     private readonly gateway: ProdutoGateway,
   ) {}
 
@@ -49,9 +50,58 @@ export class ProdutoService {
   }
 
   async update(id: string, data: any): Promise<Produto | null> {
-    const updated = await this.model
+    let updated = await this.model
       .findByIdAndUpdate(id, data, { new: true })
       .exec();
+
+    if (!updated) {
+      try {
+        const CotacaoModel = this.connection.model('Cotacao');
+        const cotacao = await CotacaoModel.findOne({ 'itens._id': id }).exec();
+        if (cotacao) {
+          const item = cotacao.itens.find((i: any) => i._id.toString() === id);
+          if (item) {
+            let targetProdId = item.produtoId;
+            if (!targetProdId) {
+              const queryOr: any[] = [];
+              if (item.numeroItem) queryOr.push({ numeroItem: item.numeroItem });
+              if (item.descricaoItem) queryOr.push({ descricao: item.descricaoItem });
+
+              let prod = queryOr.length > 0
+                ? await this.model.findOne({
+                    oportunidadeId: cotacao.oportunidadeId.toString(),
+                    $or: queryOr,
+                  }).exec()
+                : null;
+
+              if (!prod) {
+                prod = await this.model.create({
+                  oportunidadeId: cotacao.oportunidadeId.toString(),
+                  numeroItem: item.numeroItem || 1,
+                  descricao: item.descricaoItem || 'Item',
+                  quantidade: item.quantidade || 1,
+                  unidadeMedida: item.unidadeMedida || 'UN',
+                  valorUnitarioEstimado: item.valorUnitarioEstimado || 0,
+                  ...data,
+                });
+              }
+              targetProdId = prod._id;
+              item.produtoId = prod._id as any;
+              await cotacao.save();
+            }
+
+            if (targetProdId) {
+              updated = await this.model
+                .findByIdAndUpdate(targetProdId, data, { new: true })
+                .exec();
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Erro no fallback do ProdutoService.update:', err);
+      }
+    }
+
     if (updated) {
       this.gateway.emitProdutoUpdate(updated);
     }

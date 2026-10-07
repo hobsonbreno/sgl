@@ -77,6 +77,15 @@ function FornecedorPrecoInput({ item, f, pf, precoEmbalagemSalvo, handlePrecoCom
     />
   );
 }
+const getProdutoId = (item: any) => {
+  if (item?.produtoId && typeof item.produtoId === 'object' && item.produtoId._id) {
+    return item.produtoId._id.toString();
+  }
+  if (item?.produtoId && typeof item.produtoId === 'string') {
+    return item.produtoId;
+  }
+  return item?._id ? item._id.toString() : '';
+};
 
 function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, handleRemovePreco, novoFornecedorId, setNovoFornecedorId, cotacaoId, setCotacao, onLiveValoresChange, aliquotaEfetivaGlobal, modeloEntrega, mesesContrato }: any) {
   const [open, setOpen] = useState(false);
@@ -297,47 +306,71 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                       </span>
                     ) : null}
 
-                    <button
-                      type="button"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        const pId = item.produtoId?._id || item.produtoId || item._id;
-                        const newNome = isNosso ? '' : 'IRMÃOS NASCIMENTO LTDA';
-                        const newCnpj = isNosso ? '' : '48262939000100';
-                        const newValor = item.produtoId?.valorNossoLance || item.valorNossoLance || item.valorUnitarioEstimado || 0;
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const pId = getProdutoId(item);
+                          const newNome = isNosso ? '' : 'IRMÃOS NASCIMENTO LTDA';
+                          const newCnpj = isNosso ? '' : '48262939000100';
+                          const newValor = item.produtoId?.valorNossoLance || item.valorNossoLance || item.valorUnitarioEstimado || 0;
 
-                        try {
-                          await fetch(`${window.API_URL}/produto/${pId}`, {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              vencedorNome: newNome,
-                              vencedorCnpj: newCnpj,
-                              valorVencedor: newValor
-                            })
-                          });
-                          if (setCotacao && cotacaoId) {
-                            const resCotFull = await fetch(`${window.API_URL}/cotacoes/${cotacaoId}`);
-                            setCotacao(await resCotFull.json());
+                          try {
+                            await fetch(`${window.API_URL}/produto/${pId}`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                vencedorNome: newNome,
+                                vencedorCnpj: newCnpj,
+                                valorVencedor: newValor
+                              })
+                            });
+                            if (setCotacao && cotacaoId) {
+                              const resCotFull = await fetch(`${window.API_URL}/cotacoes/${cotacaoId}`);
+                              setCotacao(await resCotFull.json());
+                            }
+                          } catch (err) {
+                            console.error(err);
                           }
-                        } catch (err) {
-                          console.error(err);
-                        }
-                      }}
-                      style={{
-                        fontSize: '0.7rem',
-                        background: isNosso ? '#fef2f2' : '#f0fdf4',
-                        color: isNosso ? '#991b1b' : '#15803d',
-                        border: `1px solid ${isNosso ? '#fca5a5' : '#86efac'}`,
-                        borderRadius: '4px',
-                        padding: '0.15rem 0.4rem',
-                        cursor: 'pointer',
-                        fontWeight: 600
-                      }}
-                      title={isNosso ? "Clique para desmarcar este item" : "Clique para marcar este item como vencido pela sua empresa"}
-                    >
-                      {isNosso ? '✖ Remover Homologação' : '+ Marcar Homologado a Nosso Favor'}
-                    </button>
+                        }}
+                        style={{
+                          fontSize: '0.7rem',
+                          background: isNosso ? '#fef2f2' : '#f0fdf4',
+                          color: isNosso ? '#991b1b' : '#15803d',
+                          border: `1px solid ${isNosso ? '#fca5a5' : '#86efac'}`,
+                          borderRadius: '4px',
+                          padding: '0.15rem 0.4rem',
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.2rem'
+                        }}
+                        title={isNosso ? "Clique para desmarcar este item" : "Clique para marcar este item como vencido pela sua empresa"}
+                      >
+                        {isNosso ? '✖ Remover Homologação' : '+ Marcar Homologado a Nosso Favor'}
+                      </button>
+                      {isNosso && (
+                        <span 
+                          style={{
+                            fontSize: '0.72rem',
+                            color: '#15803d',
+                            background: '#dcfce7',
+                            border: '1px solid #86efac',
+                            padding: '0.15rem 0.4rem',
+                            borderRadius: '4px',
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.2rem'
+                          }}
+                          title="Item Homologado a Nosso Favor (Clicado)"
+                        >
+                          <Check size={14} color="#15803d" /> ✓ Homologado
+                        </span>
+                      )}
+                    </div>
                   </div>
                 );
               })()}
@@ -1051,7 +1084,7 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                         const currentVal = item.produtoId?.valorConcorrente || item.valorConcorrente || 0;
                         if (val !== currentVal && val >= 0) {
                           try {
-                            const pId = item.produtoId?._id || item.produtoId || item._id;
+                            const pId = getProdutoId(item);
                             await fetch(`${window.API_URL}/produto/${pId}`, {
                               method: 'PATCH',
                               headers: { 'Content-Type': 'application/json' },
@@ -1166,7 +1199,7 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                 <button
                   onClick={async () => {
                     const val = parseFloat(nossoLanceStr.replace(/\./g, '').replace(',', '.')) || 0;
-                    const pId = item.produtoId?._id || item.produtoId || item._id;
+                    const pId = getProdutoId(item);
                     if (val >= 0) {
                       try {
                         await fetch(`${window.API_URL}/produto/${pId}`, {

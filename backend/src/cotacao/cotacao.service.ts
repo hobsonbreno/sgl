@@ -66,22 +66,93 @@ export class CotacaoService {
     return this.findOne(criada._id.toString());
   }
 
+  private async autoLinkProdutos(doc: CotacaoDocument): Promise<void> {
+    if (!doc || !doc.itens) return;
+    let changed = false;
+    let ProdutoModel: any;
+    try {
+      ProdutoModel = this.connection.model('Produto');
+    } catch {
+      return;
+    }
+
+    for (const item of doc.itens) {
+      if (!item.produtoId) {
+        const queryOr: any[] = [];
+        if (item.numeroItem) queryOr.push({ numeroItem: item.numeroItem });
+        if (item.descricaoItem) queryOr.push({ descricao: item.descricaoItem });
+
+        let prod = queryOr.length > 0
+          ? await ProdutoModel.findOne({
+              oportunidadeId: doc.oportunidadeId.toString(),
+              $or: queryOr,
+            }).exec()
+          : null;
+
+        if (!prod) {
+          prod = await ProdutoModel.create({
+            oportunidadeId: doc.oportunidadeId.toString(),
+            numeroItem: item.numeroItem || 1,
+            descricao: item.descricaoItem || 'Item',
+            quantidade: item.quantidade || 1,
+            unidadeMedida: item.unidadeMedida || 'UN',
+            valorUnitarioEstimado: item.valorUnitarioEstimado || 0,
+          });
+        }
+
+        if (prod) {
+          item.produtoId = prod._id as any;
+          changed = true;
+        }
+      }
+    }
+
+    if (changed) {
+      await doc.save();
+    }
+  }
+
   async findOne(id: string): Promise<Cotacao> {
-    const doc = await this.model
+    let doc = await this.model
       .findById(id)
       .populate('itens.precosFornecedores.fornecedorId')
       .populate('itens.produtoId')
       .exec();
     if (!doc) throw new NotFoundException('Cotação não encontrada');
+
+    const unlinked = doc.itens.some((it) => !it.produtoId);
+    if (unlinked) {
+      await this.autoLinkProdutos(doc);
+      doc = await this.model
+        .findById(id)
+        .populate('itens.precosFornecedores.fornecedorId')
+        .populate('itens.produtoId')
+        .exec();
+    }
+    if (!doc) throw new NotFoundException('Cotação não encontrada');
     return doc;
   }
 
   async findByOportunidade(oportunidadeId: string): Promise<Cotacao> {
-    const doc = await this.model
+    let doc = await this.model
       .findOne({ oportunidadeId })
       .populate('itens.precosFornecedores.fornecedorId')
       .populate('itens.produtoId')
       .exec();
+    if (!doc)
+      throw new NotFoundException(
+        'Cotação não encontrada para esta oportunidade',
+      );
+
+    const unlinked = doc.itens.some((it) => !it.produtoId);
+    if (unlinked) {
+      await this.autoLinkProdutos(doc);
+      doc = await this.model
+        .findOne({ oportunidadeId })
+        .populate('itens.precosFornecedores.fornecedorId')
+        .populate('itens.produtoId')
+        .exec();
+    }
     if (!doc)
       throw new NotFoundException(
         'Cotação não encontrada para esta oportunidade',
