@@ -108,7 +108,7 @@ describe('PncpClientService', () => {
     const mockFiltro = {
       dataInicial: '20240101',
       dataFinal: '20240101',
-      codigoModalidadeContratacao: '1',
+      codigoModalidadeContratacao: 1,
     };
     fgPromises.push(service.buscarContratacoesComPropostaAberta(mockFiltro));
     fgPromises.push(service.buscarContratacoesComPropostaAberta(mockFiltro));
