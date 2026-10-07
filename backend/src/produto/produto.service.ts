@@ -86,8 +86,10 @@ export class ProdutoService {
                 });
               }
               targetProdId = prod._id;
-              item.produtoId = prod._id as any;
-              await cotacao.save();
+              await CotacaoModel.updateOne(
+                { _id: cotacao._id, 'itens._id': item._id },
+                { $set: { 'itens.$.produtoId': prod._id } }
+              ).exec();
             }
 
             if (targetProdId) {
