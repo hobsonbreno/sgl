@@ -57,6 +57,14 @@ export class OportunidadeService {
   }> {
     const filters: any = {};
     if (query.kanbanStatus) filters.kanbanStatus = query.kanbanStatus;
+    if (query.kanbanStatusNotIn) {
+      const arr = String(query.kanbanStatusNotIn).split(',');
+      if (filters.kanbanStatus) {
+        // se tiver ambos, fica meio estranho, mas suportamos
+      } else {
+        filters.kanbanStatus = { $nin: arr };
+      }
+    }
     if (query.uf) filters.uf = query.uf;
     if (query.modalidadeCodigo)
       filters.modalidadeCodigo = query.modalidadeCodigo;

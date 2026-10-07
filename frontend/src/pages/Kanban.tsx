@@ -271,7 +271,7 @@ export default function Kanban() {
         return all;
       };
       const [dataOp, dataProd, dataConfig] = await Promise.all([
-        fetchAll("/oportunidades", 500),
+        fetchAll("/oportunidades?kanbanStatusNotIn=ARQUIVADA,ARQUIVADOS", 500),
         fetchAll("/produto", 5000),
         fetch(`${window.API_URL}/configuracoes`).then((r) => r.json()),
       ]);
