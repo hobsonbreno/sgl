@@ -279,24 +279,67 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
               <span>{item.numeroItem || index + 1} {item.descricaoCurta || ((item.descricaoItem || item.descricao) ? (item.descricaoItem || item.descricao).split(' ')[0] : 'ITEM')}</span>
               {(() => {
                 const vencNome = (item.vencedorNome || item.produtoId?.vencedorNome || '').toUpperCase();
-                const vencCnpj = item.vencedorCnpj || item.produtoId?.vencedorCnpj || '';
-                const isNosso = vencNome.includes('IRMÃOS NASCIMENTO') || vencNome.includes('IRMAOS NASCIMENTO') || vencCnpj.includes('48262939') || vencCnpj.includes('48.262.939');
+                const vencCnpj = (item.vencedorCnpj || item.produtoId?.vencedorCnpj || '').replace(/\D/g, '');
+                const vencNomeNorm = vencNome.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                
+                const isNosso = vencCnpj.includes('48262939') || vencNomeNorm.includes('IRMAOS NASCIMENTO') || (vencNomeNorm.includes('IRMAOS') && vencNomeNorm.includes('NASCIMENTO'));
                 const valVenc = item.valorVencedor || item.produtoId?.valorVencedor || 0;
                 
-                if (isNosso) {
-                  return (
-                    <span style={{ fontSize: '0.72rem', background: '#dcfce7', color: '#15803d', padding: '0.2rem 0.5rem', borderRadius: '4px', fontWeight: 700, border: '1px solid #86efac', width: 'fit-content', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
-                      🏆 HOMOLOGADO A SEU FAVOR {valVenc > 0 ? `(R$ ${valVenc.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })})` : ''}
-                    </span>
-                  );
-                } else if (vencNome) {
-                  return (
-                    <span style={{ fontSize: '0.72rem', background: '#fef2f2', color: '#991b1b', padding: '0.2rem 0.5rem', borderRadius: '4px', fontWeight: 600, border: '1px solid #fca5a5', width: 'fit-content' }}>
-                      ❌ Vencido por: {vencNome} {valVenc > 0 ? `(R$ ${valVenc.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })})` : ''}
-                    </span>
-                  );
-                }
-                return null;
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
+                    {isNosso ? (
+                      <span style={{ fontSize: '0.72rem', background: '#dcfce7', color: '#15803d', padding: '0.2rem 0.5rem', borderRadius: '4px', fontWeight: 700, border: '1px solid #86efac', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                        🏆 HOMOLOGADO A SEU FAVOR {valVenc > 0 ? `(R$ ${valVenc.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })})` : ''}
+                      </span>
+                    ) : vencNome ? (
+                      <span style={{ fontSize: '0.72rem', background: '#fef2f2', color: '#991b1b', padding: '0.2rem 0.5rem', borderRadius: '4px', fontWeight: 600, border: '1px solid #fca5a5' }}>
+                        ❌ Vencido por: {vencNome} {valVenc > 0 ? `(R$ ${valVenc.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })})` : ''}
+                      </span>
+                    ) : null}
+
+                    <button
+                      type="button"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        const pId = item.produtoId?._id || item.produtoId || item._id;
+                        const newNome = isNosso ? '' : 'IRMÃOS NASCIMENTO LTDA';
+                        const newCnpj = isNosso ? '' : '48262939000100';
+                        const newValor = item.produtoId?.valorNossoLance || item.valorNossoLance || item.valorUnitarioEstimado || 0;
+
+                        try {
+                          await fetch(`${window.API_URL}/produto/${pId}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              vencedorNome: newNome,
+                              vencedorCnpj: newCnpj,
+                              valorVencedor: newValor
+                            })
+                          });
+                          if (setCotacao && cotacaoId) {
+                            const resCotFull = await fetch(`${window.API_URL}/cotacoes/${cotacaoId}`);
+                            setCotacao(await resCotFull.json());
+                          }
+                        } catch (err) {
+                          console.error(err);
+                        }
+                      }}
+                      style={{
+                        fontSize: '0.7rem',
+                        background: isNosso ? '#fef2f2' : '#f0fdf4',
+                        color: isNosso ? '#991b1b' : '#15803d',
+                        border: `1px solid ${isNosso ? '#fca5a5' : '#86efac'}`,
+                        borderRadius: '4px',
+                        padding: '0.15rem 0.4rem',
+                        cursor: 'pointer',
+                        fontWeight: 600
+                      }}
+                      title={isNosso ? "Clique para desmarcar este item" : "Clique para marcar este item como vencido pela sua empresa"}
+                    >
+                      {isNosso ? '✖ Remover Homologação' : '+ Marcar Homologado a Nosso Favor'}
+                    </button>
+                  </div>
+                );
               })()}
             </span>
           </div>
@@ -1756,9 +1799,10 @@ export default function OportunidadeDetalhe() {
           {/* PAINEL DE HOMOLOGAÇÃO / CONTRATO VENCIDO */}
           {(() => {
             const isNossoVencedorItem = (it: any) => {
-              const nome = (it.vencedorNome || it.produtoId?.vencedorNome || '').toUpperCase();
-              const cnpj = it.vencedorCnpj || it.produtoId?.vencedorCnpj || '';
-              return nome.includes('IRMÃOS NASCIMENTO') || nome.includes('IRMAOS NASCIMENTO') || cnpj.includes('48262939') || cnpj.includes('48.262.939');
+              const vencNome = (it.vencedorNome || it.produtoId?.vencedorNome || '').toUpperCase();
+              const vencCnpj = (it.vencedorCnpj || it.produtoId?.vencedorCnpj || '').replace(/\D/g, '');
+              const vencNomeNorm = vencNome.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+              return vencCnpj.includes('48262939') || vencNomeNorm.includes('IRMAOS NASCIMENTO') || (vencNomeNorm.includes('IRMAOS') && vencNomeNorm.includes('NASCIMENTO'));
             };
 
             const itensNossos = cotacao.itens.filter((it: any) => isNossoVencedorItem(it));
@@ -1769,9 +1813,28 @@ export default function OportunidadeDetalhe() {
               return (venc !== '' || isFinalizado) && !isNossoVencedorItem(it);
             });
 
+            const calcularTotalItem = (it: any) => {
+              const p = it.produtoId || it;
+              const valVenc = p.valorVencedor || it.valorVencedor || 0;
+              const nossoLance = p.valorNossoLance || it.valorNossoLance || (it.melhorPreco ? it.melhorPreco.precoUnitario : 0);
+              const qtd = Number(it.quantidade || p.quantidade || 1);
+              const estUnit = Number(it.valorUnitarioEstimado || p.valorUnitarioEstimado || 0);
+
+              if (valVenc > 0) {
+                const totalEst = estUnit * qtd;
+                if (totalEst > 0 && valVenc < (totalEst * 0.5) && qtd > 1) {
+                  return valVenc * qtd;
+                }
+                if (nossoLance > 0 && Math.abs(valVenc - nossoLance) < 10 && qtd > 1) {
+                  return valVenc * qtd;
+                }
+                return valVenc;
+              }
+              return nossoLance * qtd;
+            };
+
             const valContratoNosso = itensNossos.reduce((acc: number, it: any) => {
-              const valVencedor = it.valorVencedor || it.produtoId?.valorVencedor || (liveLances[it._id]?.nossoLance ?? (it.produtoId?.valorNossoLance || it.valorNossoLance || 0));
-              return acc + (Number(valVencedor) * Number(it.quantidade || 1));
+              return acc + calcularTotalItem(it);
             }, 0);
 
             const custoNosso = itensNossos.reduce((acc: number, it: any) => {
