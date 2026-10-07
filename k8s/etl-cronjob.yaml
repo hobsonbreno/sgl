@@ -15,7 +15,7 @@ spec:
         spec:
           containers:
           - name: sgl-etl
-            image: hobson007breno/sgl-backend:c79658f
+            image: hobson007breno/sgl-backend:65a8a42
             command:
             - npm
             - run
