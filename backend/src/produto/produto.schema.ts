@@ -55,3 +55,5 @@ export class Produto {
 }
 
 export const ProdutoSchema = SchemaFactory.createForClass(Produto);
+
+ProdutoSchema.index({ oportunidadeId: 1, numeroItem: 1, numeroLote: 1 });

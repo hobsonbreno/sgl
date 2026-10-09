@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { CotacaoService } from './cotacao.service';
@@ -58,8 +59,11 @@ export class CotacaoController {
 
   @Post('oportunidades/cotacoes/batch')
   @ApiOperation({ summary: 'Obter cotações em lote por Oportunidade IDs' })
-  async findByOportunidadesBatch(@Body() body: FindBatchDto) {
-    return this.cotacaoService.findByOportunidades(body.oportunidadeIds);
+  async findByOportunidadesBatch(
+    @Body() body: FindBatchDto,
+    @Query('resumo') resumo?: string,
+  ) {
+    return this.cotacaoService.findByOportunidades(body.oportunidadeIds, resumo);
   }
 
   @Get('cotacoes/:id')

@@ -27,7 +27,7 @@ export class ProdutoService {
       filtro.oportunidadeId = query.oportunidadeId;
     }
 
-    const rawData = await this.model
+    let dbQuery = this.model
       .find(filtro)
       .populate({
         path: 'oportunidadeId',
@@ -37,8 +37,13 @@ export class ProdutoService {
       })
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit)
-      .exec();
+      .limit(limit);
+
+    if (query.lean === 'true' || query.lean === true) {
+      dbQuery = dbQuery.lean() as any;
+    }
+
+    const rawData = (await dbQuery.exec()) as any[];
 
     // Filtra os produtos onde a oportunidade foi excluída (populate retorna null)
     const data = rawData.filter((d) => d.oportunidadeId !== null);
