@@ -259,7 +259,7 @@ export class CotacaoService {
     if (isResumo) {
       query = query
         .select(
-          'oportunidadeId itens.melhorPreco itens.precosFornecedores.fornecedorId itens.quantidade itens.valorUnitarioEstimado',
+          'oportunidadeId valorTotalMelhorCotacao itens.melhorPreco itens.precosFornecedores.fornecedorId itens.quantidade itens.valorUnitarioEstimado itens.descricaoItem',
         )
         .populate('itens.precosFornecedores.fornecedorId', 'razaoSocial _id');
     } else {
