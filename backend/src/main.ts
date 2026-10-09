@@ -5,9 +5,17 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { json, urlencoded } from 'express';
 
 import { DatabaseLoggerService } from './observability/database-logger.service';
+import compression = require('compression');
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
+
+  app.use(
+    compression({
+      level: 4,
+      threshold: 1024,
+    }),
+  );
   app.useLogger(app.get(DatabaseLoggerService));
   app.enableCors();
 

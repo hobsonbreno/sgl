@@ -282,7 +282,7 @@ export default function Kanban() {
       };
       const [dataOp, dataProd, dataConfig] = await Promise.all([
         fetchAll("/oportunidades?kanbanStatusNotIn=ARQUIVADA,ARQUIVADOS", 500),
-        fetchAll("/produto", 5000),
+        fetchAll("/produto?lean=true", 5000),
         fetch(`${window.API_URL}/configuracoes`).then((r) => r.json()),
       ]);
 
@@ -429,7 +429,7 @@ export default function Kanban() {
           const opIds = batch.map((op: any) => op._id);
 
           const cotPromise = fetch(
-            `${window.API_URL}/oportunidades/cotacoes/batch`,
+            `${window.API_URL}/oportunidades/cotacoes/batch?resumo=true`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },

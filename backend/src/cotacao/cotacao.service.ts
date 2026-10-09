@@ -251,12 +251,28 @@ export class CotacaoService {
 
   async findByOportunidades(
     oportunidadeIds: string[],
+    resumo?: boolean | string,
   ): Promise<Record<string, Cotacao>> {
-    const docs = await this.model
-      .find({ oportunidadeId: { $in: oportunidadeIds } })
-      .populate('itens.precosFornecedores.fornecedorId')
-      .populate('itens.produtoId')
-      .exec();
+    const isResumo = resumo === true || resumo === 'true';
+    let query = this.model.find({ oportunidadeId: { $in: oportunidadeIds } });
+
+    if (isResumo) {
+      query = query
+        .select(
+          'oportunidadeId itens.melhorPreco itens.precosFornecedores.fornecedorId itens.quantidade itens.valorUnitarioEstimado',
+        )
+        .populate('itens.precosFornecedores.fornecedorId', 'razaoSocial _id');
+    } else {
+      query = query
+        .populate('itens.precosFornecedores.fornecedorId')
+        .populate('itens.produtoId');
+    }
+
+    if (isResumo) {
+      query = query.lean() as any;
+    }
+
+    const docs = (await query.exec()) as any[];
     const result: Record<string, Cotacao> = {};
     for (const doc of docs) {
       result[doc.oportunidadeId.toString()] = doc;

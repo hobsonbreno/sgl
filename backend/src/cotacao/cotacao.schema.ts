@@ -86,3 +86,5 @@ export class Cotacao {
 }
 
 export const CotacaoSchema = SchemaFactory.createForClass(Cotacao);
+
+CotacaoSchema.index({ oportunidadeId: 1 });
