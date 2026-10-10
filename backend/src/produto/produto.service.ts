@@ -69,15 +69,20 @@ export class ProdutoService {
             let targetProdId = item.produtoId;
             if (!targetProdId) {
               const queryOr: any[] = [];
-              if (item.numeroItem) queryOr.push({ numeroItem: item.numeroItem });
-              if (item.descricaoItem) queryOr.push({ descricao: item.descricaoItem });
+              if (item.numeroItem)
+                queryOr.push({ numeroItem: item.numeroItem });
+              if (item.descricaoItem)
+                queryOr.push({ descricao: item.descricaoItem });
 
-              let prod = queryOr.length > 0
-                ? await this.model.findOne({
-                    oportunidadeId: cotacao.oportunidadeId.toString(),
-                    $or: queryOr,
-                  }).exec()
-                : null;
+              let prod =
+                queryOr.length > 0
+                  ? await this.model
+                      .findOne({
+                        oportunidadeId: cotacao.oportunidadeId.toString(),
+                        $or: queryOr,
+                      })
+                      .exec()
+                  : null;
 
               if (!prod) {
                 prod = await this.model.create({
@@ -93,7 +98,7 @@ export class ProdutoService {
               targetProdId = prod._id;
               await CotacaoModel.updateOne(
                 { _id: cotacao._id, 'itens._id': item._id },
-                { $set: { 'itens.$.produtoId': prod._id } }
+                { $set: { 'itens.$.produtoId': prod._id } },
               ).exec();
             }
 

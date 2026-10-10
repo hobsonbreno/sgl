@@ -95,7 +95,7 @@ export class DashboardService {
             dataHora: f.createdAt,
             contexto: f.stage,
             palavraChave: f.itemId,
-          }))
+          })),
         ],
       };
     }

@@ -63,7 +63,10 @@ export class CotacaoController {
     @Body() body: FindBatchDto,
     @Query('resumo') resumo?: string,
   ) {
-    return this.cotacaoService.findByOportunidades(body.oportunidadeIds, resumo);
+    return this.cotacaoService.findByOportunidades(
+      body.oportunidadeIds,
+      resumo,
+    );
   }
 
   @Get('cotacoes/:id')

@@ -83,7 +83,7 @@ describe('PncpClientService', () => {
 
   it('c) requisições background respeitam limite de 2 slots simultâneos', async () => {
     jest.useRealTimers();
-    
+
     httpService.get.mockImplementation(() => {
       return new Observable((subscriber) => {
         setTimeout(() => {
@@ -122,7 +122,7 @@ describe('PncpClientService', () => {
 
     expect((service as any).activeRequests).toBe(0);
     expect((service as any).backgroundRequests).toBe(0);
-    
+
     jest.useFakeTimers();
   });
 

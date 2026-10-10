@@ -17,10 +17,15 @@ export class CotacaoService {
   ) {}
 
   private getMatchKey(item: any, fallbackIndex?: number): string {
-    const pId = (item.produtoId as any)?._id?.toString() || item.produtoId?.toString();
+    const pId = item.produtoId?._id?.toString() || item.produtoId?.toString();
     if (pId) return `pid_${pId}`;
-    if (item.numeroItem && Number(item.numeroItem) > 0) return `num_${item.numeroItem}`;
-    const desc = (item.descricaoItem || item.descricao || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (item.numeroItem && Number(item.numeroItem) > 0)
+      return `num_${item.numeroItem}`;
+    const desc = (item.descricaoItem || item.descricao || '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
     if (desc) return `desc_${desc}_${fallbackIndex ?? ''}`;
     return `idx_${fallbackIndex}`;
   }
@@ -48,8 +53,9 @@ export class CotacaoService {
           for (const pf of item.precosFornecedores) {
             const pfExists = existing.precosFornecedores.some(
               (epf: any) =>
-                (epf.fornecedorId as any)?._id?.toString() === (pf.fornecedorId as any)?._id?.toString() ||
-                epf.fornecedorId?.toString() === pf.fornecedorId?.toString()
+                epf.fornecedorId?._id?.toString() ===
+                  (pf.fornecedorId as any)?._id?.toString() ||
+                epf.fornecedorId?.toString() === pf.fornecedorId?.toString(),
             );
             if (!pfExists) {
               existing.precosFornecedores.push(pf);
@@ -67,10 +73,9 @@ export class CotacaoService {
 
     if (removed) {
       doc.itens = cleanItens as any;
-      await this.model.updateOne(
-        { _id: doc._id },
-        { $set: { itens: cleanItens } }
-      ).exec();
+      await this.model
+        .updateOne({ _id: doc._id }, { $set: { itens: cleanItens } })
+        .exec();
       return true;
     }
     return false;
@@ -89,46 +94,69 @@ export class CotacaoService {
       if (existe && initialItems.length > 0) {
         for (let idx = 0; idx < initialItems.length; idx++) {
           const initialItem = initialItems[idx];
-          const targetNum = initialItem.numeroItem || (idx + 1);
+          const targetNum = initialItem.numeroItem || idx + 1;
 
           const itemExistente = existe.itens.find((it, itIdx) => {
             const pId = (it.produtoId as any)?._id || it.produtoId;
-            if (pId && initialItem._id && pId.toString() === initialItem._id.toString()) return true;
-            if (it.numeroItem && targetNum && Number(it.numeroItem) === Number(targetNum)) return true;
+            if (
+              pId &&
+              initialItem._id &&
+              pId.toString() === initialItem._id.toString()
+            )
+              return true;
+            if (
+              it.numeroItem &&
+              targetNum &&
+              Number(it.numeroItem) === Number(targetNum)
+            )
+              return true;
             if (itIdx === idx && !it.numeroItem) return true;
             return false;
           });
 
           if (itemExistente) {
-            const pId = (itemExistente.produtoId as any)?._id || itemExistente.produtoId;
+            const pId =
+              (itemExistente.produtoId as any)?._id || itemExistente.produtoId;
             if ((!pId && initialItem._id) || !itemExistente.numeroItem) {
-              await this.model.updateOne(
-                { _id: existe._id, 'itens._id': itemExistente._id },
-                {
-                  $set: {
-                    ...(!pId && initialItem._id ? { 'itens.$.produtoId': initialItem._id } : {}),
-                    ...(!itemExistente.numeroItem ? { 'itens.$.numeroItem': targetNum } : {}),
-                  }
-                }
-              ).exec();
+              await this.model
+                .updateOne(
+                  { _id: existe._id, 'itens._id': itemExistente._id },
+                  {
+                    $set: {
+                      ...(!pId && initialItem._id
+                        ? { 'itens.$.produtoId': initialItem._id }
+                        : {}),
+                      ...(!itemExistente.numeroItem
+                        ? { 'itens.$.numeroItem': targetNum }
+                        : {}),
+                    },
+                  },
+                )
+                .exec();
             }
           } else {
-            await this.model.updateOne(
-              { _id: existe._id },
-              {
-                $push: {
-                  itens: {
-                    produtoId: initialItem._id,
-                    numeroItem: targetNum,
-                    descricaoItem: initialItem.descricao || initialItem.descricaoItem || 'Item',
-                    quantidade: initialItem.quantidade || 1,
-                    unidadeMedida: initialItem.unidadeMedida || 'UN',
-                    valorUnitarioEstimado: initialItem.valorUnitarioEstimado || 0,
-                    precosFornecedores: [],
-                  }
-                }
-              }
-            ).exec();
+            await this.model
+              .updateOne(
+                { _id: existe._id },
+                {
+                  $push: {
+                    itens: {
+                      produtoId: initialItem._id,
+                      numeroItem: targetNum,
+                      descricaoItem:
+                        initialItem.descricao ||
+                        initialItem.descricaoItem ||
+                        'Item',
+                      quantidade: initialItem.quantidade || 1,
+                      unidadeMedida: initialItem.unidadeMedida || 'UN',
+                      valorUnitarioEstimado:
+                        initialItem.valorUnitarioEstimado || 0,
+                      precosFornecedores: [],
+                    },
+                  },
+                },
+              )
+              .exec();
           }
         }
       }
@@ -137,7 +165,7 @@ export class CotacaoService {
 
     const itens = initialItems.map((i, idx) => ({
       produtoId: i._id,
-      numeroItem: i.numeroItem || (idx + 1),
+      numeroItem: i.numeroItem || idx + 1,
       descricaoItem: i.descricao || i.descricaoItem || 'Item',
       quantidade: i.quantidade || 1,
       unidadeMedida: i.unidadeMedida || 'UN',
@@ -169,12 +197,13 @@ export class CotacaoService {
         if (item.numeroItem) queryOr.push({ numeroItem: item.numeroItem });
         if (item.descricaoItem) queryOr.push({ descricao: item.descricaoItem });
 
-        let prod = queryOr.length > 0
-          ? await ProdutoModel.findOne({
-              oportunidadeId: doc.oportunidadeId.toString(),
-              $or: queryOr,
-            }).exec()
-          : null;
+        let prod =
+          queryOr.length > 0
+            ? await ProdutoModel.findOne({
+                oportunidadeId: doc.oportunidadeId.toString(),
+                $or: queryOr,
+              }).exec()
+            : null;
 
         if (!prod) {
           prod = await ProdutoModel.create({
@@ -188,10 +217,12 @@ export class CotacaoService {
         }
 
         if (prod) {
-          await this.model.updateOne(
-            { _id: doc._id, 'itens._id': item._id },
-            { $set: { 'itens.$.produtoId': prod._id } }
-          ).exec();
+          await this.model
+            .updateOne(
+              { _id: doc._id, 'itens._id': item._id },
+              { $set: { 'itens.$.produtoId': prod._id } },
+            )
+            .exec();
         }
       }
     }
