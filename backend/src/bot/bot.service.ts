@@ -14,7 +14,6 @@ import {
   BotExecucao,
   BotExecucaoDocument,
   BotErroExecucao,
-  BotFiltrosEstatisticas,
 } from './bot-execucao.schema';
 import {
   PerfilBusca,
@@ -33,6 +32,7 @@ import { EventsService } from '../events/events.service';
 import { SyncFailureLoggerService } from '../observability/sync-failure-logger.service';
 import { SystemLogService } from '../observability/system-log/system-log.service';
 import { OportunidadeGateway } from '../oportunidade/oportunidade.gateway';
+import { OportunidadeService } from '../oportunidade/oportunidade.service';
 
 /** Fontes/portais consideradas públicas e sem custo de acesso para o usuário */
 const FONTES_PERMITIDAS = [
@@ -95,6 +95,8 @@ export class BotService implements OnApplicationBootstrap {
     private readonly syncFailureLogger: SyncFailureLoggerService,
     private readonly systemLogService: SystemLogService,
     private readonly oportunidadeGateway: OportunidadeGateway,
+    @Inject(forwardRef(() => OportunidadeService))
+    private oportunidadeService: OportunidadeService,
   ) {}
 
   async onApplicationBootstrap() {
@@ -462,6 +464,15 @@ export class BotService implements OnApplicationBootstrap {
                 for (const pid of perfisMatched) {
                   statsMap.get(pid).totalNovos++;
                 }
+
+                // Dispara a sincronização de itens em background "fire-and-forget"
+                this.oportunidadeService
+                  .sincronizarItens(created._id.toString())
+                  .catch((err) => {
+                    this.logger.warn(
+                      `[BOT] Erro silencioso ao sincronizar itens do edital ${created.numeroControlePNCP}: ${err.message}`,
+                    );
+                  });
               } else {
                 await this.oportunidadeModel.updateOne(
                   { numeroControlePNCP: opDto.numeroControlePNCP },
