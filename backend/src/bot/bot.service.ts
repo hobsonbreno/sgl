@@ -236,294 +236,320 @@ export class BotService implements OnApplicationBootstrap {
 
     const resultados = [];
     let cicloAbortadoGlobal = false;
+    const { dataInicial, dataFinal } = this.calcularJanelaDeBusca();
+
+    this.logger.log(
+      `[BOT:DATAS] Janela de busca: ${dataInicial} → ${dataFinal} (encerramento da proposta)`,
+    );
+
+    // 1. Mapear combinações únicas de Modalidade + UF
+    const combinacoes = new Map<
+      string,
+      { modalidade: number; uf: string | undefined; perfisIds: string[] }
+    >();
+
+    // 2. Inicializar status por perfil
+    const statsMap = new Map<string, any>();
 
     for (const perfil of perfis) {
+      statsMap.set(perfil._id.toString(), {
+        perfil,
+        totalEncontrados: 0,
+        totalNovos: 0,
+        filtros: {
+          descartadosFonte: 0,
+          descartadosMunicipio: 0,
+          descartadosPalavraChave: 0,
+          descartadosCnpjOrgao: 0,
+          descartadosUasg: 0,
+          atualizados: 0,
+        },
+        erros: [],
+        inicioPerfil: Date.now(),
+      });
+
+      for (const modalidade of perfil.modalidades) {
+        const ufsBusca =
+          perfil.ufs && perfil.ufs.length > 0 ? perfil.ufs : [undefined];
+        for (let ufBusca of ufsBusca) {
+          ufBusca = ufBusca ? ufBusca.trim().toUpperCase() : undefined;
+          const key = `${modalidade}_${ufBusca || 'BR'}`;
+          if (!combinacoes.has(key)) {
+            combinacoes.set(key, { modalidade, uf: ufBusca, perfisIds: [] });
+          }
+          if (
+            !combinacoes.get(key)!.perfisIds.includes(perfil._id.toString())
+          ) {
+            combinacoes.get(key)!.perfisIds.push(perfil._id.toString());
+          }
+        }
+      }
+    }
+
+    this.logger.log(
+      `[BOT:AGRUPAMENTO] ${combinacoes.size} combinação(ões) única(s) de Modalidade+UF mapeada(s).`,
+    );
+
+    // 3. Iterar sobre as combinações (1 requisição ao PNCP por combinação)
+    for (const combo of combinacoes.values()) {
       if (signal?.aborted) {
-        this.logger.warn(
-          `[BOT:ABORT] Ciclo abortado antes do perfil ${perfil.nome}. Encerrando.`,
-        );
         cicloAbortadoGlobal = true;
         break;
       }
 
-      const inicioPerfil = Date.now();
-      this.logger.log(
-        `[BOT:PERFIL] ── Iniciando perfil: "${perfil.nome}" (${perfil.modalidades.length} modalidade(s)) ──`,
-      );
+      const { modalidade, uf, perfisIds } = combo;
 
-      let totalEncontrados = 0;
-      let totalNovos = 0;
-      const erros: BotErroExecucao[] = [];
+      try {
+        this.logger.log(
+          `[BOT:PNCP] Buscando modalidade ${modalidade} UF ${uf || 'BR'} (Agrupado para ${perfisIds.length} perfil(is))...`,
+        );
+        const responseAPI =
+          await this.pncpClientService.buscarContratacoesComPropostaAberta(
+            {
+              dataInicial,
+              dataFinal,
+              codigoModalidadeContratacao: modalidade,
+              uf,
+            },
+            signal,
+          );
 
-      // Contadores detalhados de filtragem
-      const filtros: BotFiltrosEstatisticas = {
-        descartadosFonte: 0,
-        descartadosMunicipio: 0,
-        descartadosPalavraChave: 0,
-        descartadosCnpjOrgao: 0,
-        descartadosUasg: 0,
-        atualizados: 0,
-      };
+        const rawContratacoes = responseAPI.resultados;
+        this.logger.log(
+          `[BOT:PNCP] Modalidade ${modalidade} UF ${uf || 'BR'} Retornado: ${rawContratacoes.length} contrataçõe(s).`,
+        );
 
-      const { dataInicial, dataFinal } = this.calcularJanelaDeBusca();
-
-      this.logger.log(
-        `[BOT:DATAS] Janela de busca: ${dataInicial} → ${dataFinal} (encerramento da proposta)`,
-      );
-
-      for (const modalidade of perfil.modalidades) {
-        if (signal?.aborted) {
-          cicloAbortadoGlobal = true;
-          break;
+        if (responseAPI.parcial) {
+          for (const pid of perfisIds) {
+            const stats = statsMap.get(pid);
+            stats.erros.push({
+              modalidade,
+              perfilNome: stats.perfil.nome,
+              mensagem: `Consulta parcial. Falha irrecuperável em ${responseAPI.paginasComFalha} página(s) intermediárias.`,
+              dataHora: new Date(),
+            });
+          }
         }
 
-        const ufsBusca =
-          perfil.ufs && perfil.ufs.length > 0 ? perfil.ufs : [undefined];
-
-        for (let ufBusca of ufsBusca) {
-          if (signal?.aborted) {
-            cicloAbortadoGlobal = true;
-            break;
-          }
-
-          ufBusca = ufBusca ? ufBusca.trim().toUpperCase() : undefined;
-
+        for (const raw of rawContratacoes) {
           try {
-            this.logger.log(
-              `[BOT:PNCP] Buscando modalidade ${modalidade} UF ${ufBusca || 'BR'} para perfil "${perfil.nome}"...`,
-            );
-            const responseAPI =
-              await this.pncpClientService.buscarContratacoesComPropostaAberta(
-                {
-                  dataInicial,
-                  dataFinal,
-                  codigoModalidadeContratacao: modalidade,
-                  uf: ufBusca,
-                },
-                signal,
-              );
+            const opDto = mapPncpParaOportunidade(raw);
+            const perfisMatched = [];
 
-            const rawContratacoes = responseAPI.resultados;
-            this.logger.log(
-              `[BOT:PNCP] Modalidade ${modalidade} UF ${ufBusca || 'BR'} Retornado: ${rawContratacoes.length} contrataçõe(s).`,
-            );
+            let itensDaCompra: any = null;
+            let itensFetched = false;
 
-            if (responseAPI.parcial) {
-              erros.push({
-                modalidade,
-                perfilNome: perfil.nome,
-                mensagem: `Consulta parcial. Falha irrecuperável em ${responseAPI.paginasComFalha} página(s) intermediárias.`,
-                dataHora: new Date(),
-              });
-            }
+            for (const pid of perfisIds) {
+              const stats = statsMap.get(pid);
+              const perfil = stats.perfil;
 
-            for (const raw of rawContratacoes) {
-              try {
-                // ── FILTRO: UF / Estado ──
-                if (perfil.ufs && perfil.ufs.length > 0) {
-                  const ufSigla = raw.unidadeOrgao?.ufSigla;
-                  const ufsUpper = perfil.ufs.map((u) => u.toUpperCase());
-                  if (ufSigla && !ufsUpper.includes(ufSigla.toUpperCase())) {
-                    filtros.descartadosMunicipio++;
-                    continue;
-                  }
+              // ── FILTRO: UF / Estado ──
+              if (perfil.ufs && perfil.ufs.length > 0) {
+                const ufSigla = raw.unidadeOrgao?.ufSigla;
+                const ufsUpper = perfil.ufs.map((u: string) => u.toUpperCase());
+                if (ufSigla && !ufsUpper.includes(ufSigla.toUpperCase())) {
+                  stats.filtros.descartadosMunicipio++;
+                  continue;
                 }
+              }
 
-                // ── FILTRO: Município/IBGE ──
-                if (perfil.municipiosIbge && perfil.municipiosIbge.length > 0) {
-                  const ibge = raw.unidadeOrgao?.codigoIbge;
-                  if (ibge && !perfil.municipiosIbge.includes(ibge)) {
-                    filtros.descartadosMunicipio++;
-                    continue;
-                  }
+              // ── FILTRO: Município/IBGE ──
+              if (perfil.municipiosIbge && perfil.municipiosIbge.length > 0) {
+                const ibge = raw.unidadeOrgao?.codigoIbge;
+                if (ibge && !perfil.municipiosIbge.includes(ibge)) {
+                  stats.filtros.descartadosMunicipio++;
+                  continue;
                 }
+              }
 
-                // ── FILTRO: CNPJ do Órgão ──
-                if (perfil.orgaosCnpj && perfil.orgaosCnpj.length > 0) {
-                  const cnpj = raw.orgaoEntidade?.cnpj;
-                  if (cnpj && !perfil.orgaosCnpj.includes(cnpj)) {
-                    filtros.descartadosCnpjOrgao++;
-                    continue;
-                  }
+              // ── FILTRO: CNPJ do Órgão ──
+              if (perfil.orgaosCnpj && perfil.orgaosCnpj.length > 0) {
+                const cnpj = raw.orgaoEntidade?.cnpj;
+                if (cnpj && !perfil.orgaosCnpj.includes(cnpj)) {
+                  stats.filtros.descartadosCnpjOrgao++;
+                  continue;
                 }
+              }
 
-                // ── FILTRO: UASG ──
-                if (perfil.unidadesUasg && perfil.unidadesUasg.length > 0) {
-                  const uasg = raw.unidadeOrgao?.codigoUnidade;
-                  if (uasg && !perfil.unidadesUasg.includes(uasg)) {
-                    filtros.descartadosUasg++;
-                    continue;
-                  }
+              // ── FILTRO: UASG ──
+              if (perfil.unidadesUasg && perfil.unidadesUasg.length > 0) {
+                const uasg = raw.unidadeOrgao?.codigoUnidade;
+                if (uasg && !perfil.unidadesUasg.includes(uasg)) {
+                  stats.filtros.descartadosUasg++;
+                  continue;
                 }
+              }
 
-                const opDto = mapPncpParaOportunidade(raw);
-
-                // ── FILTRO: Fonte/Portal de Origem ──
-                const usuarioNome = raw.usuarioNome;
-                if (usuarioNome) {
-                  const fonteValida = FONTES_PERMITIDAS.some((f) =>
-                    usuarioNome.toLowerCase().includes(f.toLowerCase()),
-                  );
-                  if (!fonteValida) {
-                    this.logger.debug(
-                      `[BOT:FONTE] Descartado por fonte desconhecida: "${usuarioNome}" | Edital: ${raw.numeroControlePNCP || 'N/A'}`,
-                    );
-                    filtros.descartadosFonte++;
-                    continue;
-                  }
+              // ── FILTRO: Fonte/Portal de Origem ──
+              const usuarioNome = raw.usuarioNome;
+              if (usuarioNome) {
+                const fonteValida = FONTES_PERMITIDAS.some((f) =>
+                  usuarioNome.toLowerCase().includes(f.toLowerCase()),
+                );
+                if (!fonteValida) {
+                  stats.filtros.descartadosFonte++;
+                  continue;
                 }
-                // Se usuarioNome for vazio/undefined, o edital é permitido (não descartamos sem motivo)
+              }
 
-                // ── FILTRO: Palavras-chave ──
-                if (perfil.palavrasChave && perfil.palavrasChave.length > 0) {
-                  const normalizar = (t: string) =>
-                    (t || '')
-                      .normalize('NFD')
-                      .replace(/[\u0300-\u036f]/g, '')
-                      .toLowerCase()
-                      .trim();
-                  const objetoCompra = normalizar(opDto.objetoCompra);
+              // ── FILTRO: Palavras-chave ──
+              if (perfil.palavrasChave && perfil.palavrasChave.length > 0) {
+                const normalizar = (t: string) =>
+                  (t || '')
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .toLowerCase()
+                    .trim();
+                const objetoCompra = normalizar(opDto.objetoCompra);
 
-                  let match = perfil.palavrasChave.some((p) => {
-                    const keyword = normalizar(p);
-                    return keyword.length > 0 && objetoCompra.includes(keyword);
-                  });
+                let match = perfil.palavrasChave.some((p: string) => {
+                  const keyword = normalizar(p);
+                  return keyword.length > 0 && objetoCompra.includes(keyword);
+                });
 
-                  // DEEP SEARCH: Se não achou no título, vasculha os itens reais do edital.
-                  // ATENÇÃO: Desativado temporariamente pois causa timeout e erro 503 no PNCP
-                  // ao tentar buscar detalhes de milhares de editais em sequência.
-                  const deepSearchHabilitado = true; // TODO: Mover para configuração do painel
-                  if (!match && deepSearchHabilitado) {
+                const deepSearchHabilitado = true; // TODO: Mover para configuração do painel
+                if (!match && deepSearchHabilitado) {
+                  if (!itensFetched) {
+                    itensFetched = true;
                     try {
                       this.logger.log(
                         `[BOT:DEEP] Título não bateu. Buscando itens do edital ${opDto.numeroControlePNCP}...`,
                       );
-                      const itensDaCompra =
+                      itensDaCompra =
                         await this.pncpClientService.buscarItensDaContratacao(
                           opDto.numeroControlePNCP,
                         );
-                      match = itensDaCompra.some((item) => {
-                        const descItem = normalizar(
-                          String(item.descricao || ''),
-                        );
-                        return perfil.palavrasChave.some((p) => {
-                          const keyword = normalizar(p);
-                          return (
-                            keyword.length > 0 && descItem.includes(keyword)
-                          );
-                        });
-                      });
                     } catch (err) {
                       const errMsg =
                         err instanceof Error ? err.message : String(err);
                       this.logger.warn(
                         `[BOT:DEEP] Erro ao buscar itens de ${opDto.numeroControlePNCP}: ${errMsg}`,
                       );
-                      await this.systemLogService.logWarn(
-                        'Bot',
-                        `Erro na Deep Search de Itens para ${opDto.numeroControlePNCP}: ${errMsg}`,
-                        { correlationId },
-                      );
+                      itensDaCompra = [];
                     }
                   }
 
-                  if (!match) {
-                    filtros.descartadosPalavraChave++;
-                    continue;
-                  }
-                }
-
-                totalEncontrados++;
-
-                // ── DB: Deduplicar e inserir/atualizar ──
-                const existe = await this.oportunidadeModel.findOne({
-                  numeroControlePNCP: opDto.numeroControlePNCP,
-                });
-
-                if (!existe) {
-                  const created = await this.oportunidadeModel.create(opDto);
-                  this.oportunidadeGateway.emitOportunidadeUpdate(created);
-                  totalNovos++;
-                } else {
-                  await this.oportunidadeModel.updateOne(
-                    { numeroControlePNCP: opDto.numeroControlePNCP },
-                    {
-                      $set: {
-                        situacaoCompraNome: opDto.situacaoCompraNome,
-                        dataEncerramentoProposta:
-                          opDto.dataEncerramentoProposta,
-                        valorTotalEstimado: opDto.valorTotalEstimado,
-                      },
-                    },
-                  );
-                  filtros.atualizados++;
-                }
-
-                // ── DB: Inserir Orgão se não existir ──
-                if (opDto.orgaoCnpj) {
-                  const orgaoExiste = await this.orgaoModel.findOne({
-                    cnpj: opDto.orgaoCnpj,
-                  });
-                  if (!orgaoExiste) {
-                    await this.orgaoModel.create({
-                      cnpj: opDto.orgaoCnpj,
-                      nome: opDto.orgaoNome,
-                      origem: 'bot',
+                  if (itensDaCompra && itensDaCompra.length > 0) {
+                    match = itensDaCompra.some((item: any) => {
+                      const descItem = normalizar(String(item.descricao || ''));
+                      return perfil.palavrasChave.some((p: string) => {
+                        const keyword = normalizar(p);
+                        return keyword.length > 0 && descItem.includes(keyword);
+                      });
                     });
                   }
                 }
-              } catch (itemErr) {
-                const numControle = raw?.numeroControlePNCP || 'desconhecido';
-                await this.syncFailureLogger.registrarFalha({
-                  jobName: 'automacao-pncp',
-                  itemId: numControle,
-                  stage: 'processar_oportunidade',
-                  error:
-                    itemErr instanceof Error
-                      ? itemErr
-                      : new Error(String(itemErr)),
-                  inputSnapshot: raw,
-                });
-                continue; // Processa os próximos itens normalmente
+
+                if (!match) {
+                  stats.filtros.descartadosPalavraChave++;
+                  continue;
+                }
               }
-            }
-          } catch (err: any) {
-            if (err.name === 'CicloAbortadoError') {
-              this.logger.warn(
-                `[BOT:ABORT] Modalidade ${modalidade} UF ${ufBusca || 'BR'} abortada no perfil "${perfil.nome}".`,
-              );
-              erros.push({
-                modalidade,
-                perfilNome: perfil.nome,
-                mensagem: 'Ciclo abortado por timeout.',
-                dataHora: new Date(),
-              });
-              cicloAbortadoGlobal = true;
-              break; // Sai do for ufs
+
+              stats.totalEncontrados++;
+              perfisMatched.push(pid);
             }
 
-            const errMsg = err instanceof Error ? err.message : String(err);
-            this.logger.error(
-              `[BOT:ERRO] Modalidade ${modalidade} do perfil "${perfil.nome}" falhou: ${errMsg}`,
-            );
-            await this.systemLogService.logError(
-              'Bot',
-              `Modalidade ${modalidade} do perfil "${perfil.nome}" falhou: ${errMsg}`,
-              err instanceof Error ? err.stack : undefined,
-              { correlationId, perfilNome: perfil.nome, modalidade },
-            );
-            erros.push({
+            // Se ao menos 1 perfil deu match, processa DB centralizado 1 única vez
+            if (perfisMatched.length > 0) {
+              const existe = await this.oportunidadeModel.findOne({
+                numeroControlePNCP: opDto.numeroControlePNCP,
+              });
+
+              if (!existe) {
+                const created = await this.oportunidadeModel.create(opDto);
+                this.oportunidadeGateway.emitOportunidadeUpdate(created);
+                for (const pid of perfisMatched) {
+                  statsMap.get(pid).totalNovos++;
+                }
+              } else {
+                await this.oportunidadeModel.updateOne(
+                  { numeroControlePNCP: opDto.numeroControlePNCP },
+                  {
+                    $set: {
+                      situacaoCompraNome: opDto.situacaoCompraNome,
+                      dataEncerramentoProposta: opDto.dataEncerramentoProposta,
+                      valorTotalEstimado: opDto.valorTotalEstimado,
+                    },
+                  },
+                );
+                for (const pid of perfisMatched) {
+                  statsMap.get(pid).filtros.atualizados++;
+                }
+              }
+
+              // Inserir Orgão se não existir
+              if (opDto.orgaoCnpj) {
+                const orgaoExiste = await this.orgaoModel.findOne({
+                  cnpj: opDto.orgaoCnpj,
+                });
+                if (!orgaoExiste) {
+                  await this.orgaoModel.create({
+                    cnpj: opDto.orgaoCnpj,
+                    nome: opDto.orgaoNome,
+                    origem: 'bot',
+                  });
+                }
+              }
+            }
+          } catch (itemErr) {
+            const numControle = raw?.numeroControlePNCP || 'desconhecido';
+            await this.syncFailureLogger.registrarFalha({
+              jobName: 'automacao-pncp',
+              itemId: numControle,
+              stage: 'processar_oportunidade',
+              error:
+                itemErr instanceof Error ? itemErr : new Error(String(itemErr)),
+              inputSnapshot: raw,
+            });
+            continue;
+          }
+        }
+      } catch (err: any) {
+        if (err.name === 'CicloAbortadoError') {
+          this.logger.warn(
+            `[BOT:ABORT] Modalidade ${modalidade} UF ${uf || 'BR'} abortada.`,
+          );
+          for (const pid of perfisIds) {
+            const stats = statsMap.get(pid);
+            stats.erros.push({
               modalidade,
-              perfilNome: perfil.nome,
-              mensagem: errMsg,
-              stack: err instanceof Error ? err.stack : undefined,
+              perfilNome: stats.perfil.nome,
+              mensagem: 'Ciclo abortado por timeout.',
               dataHora: new Date(),
             });
           }
-        } // fecha for ufBusca
-        if (cicloAbortadoGlobal) break;
-      } // fecha for modalidade
+          cicloAbortadoGlobal = true;
+          break; // Sai do loop de combinacoes
+        }
 
+        const errMsg = err instanceof Error ? err.message : String(err);
+        this.logger.error(
+          `[BOT:ERRO] Modalidade ${modalidade} UF ${uf || 'BR'} falhou: ${errMsg}`,
+        );
+        for (const pid of perfisIds) {
+          const stats = statsMap.get(pid);
+          stats.erros.push({
+            modalidade,
+            perfilNome: stats.perfil.nome,
+            mensagem: errMsg,
+            stack: err instanceof Error ? err.stack : undefined,
+            dataHora: new Date(),
+          });
+        }
+      }
+    }
+
+    // 4. Salvar histórico de execução por perfil
+    for (const stats of statsMap.values()) {
+      const {
+        perfil,
+        totalEncontrados,
+        totalNovos,
+        filtros,
+        erros,
+        inicioPerfil,
+      } = stats;
       const duracaoMs = Date.now() - inicioPerfil;
 
       const totalBruto =
@@ -544,7 +570,7 @@ export class BotService implements OnApplicationBootstrap {
         if (this.zeroYieldCycles >= 3) {
           await this.systemLogService.logWarn(
             'Bot',
-            `Bot teve 0 retorno bruto ou 0 criados por ${this.zeroYieldCycles} ciclos consecutivos no perfil ${perfil.nome}.`,
+            `Bot teve 0 retorno bruto ou 0 criados por ${this.zeroYieldCycles} ciclos no perfil ${perfil.nome}.`,
           );
         }
       } else {
@@ -570,7 +596,6 @@ export class BotService implements OnApplicationBootstrap {
           : erros,
       });
       resultados.push(execucao);
-      if (cicloAbortadoGlobal) break;
     }
 
     const duracaoTotalMs = Date.now() - inicioExecucao;

@@ -83,4 +83,14 @@ jobs:
           git config --global user.email 'actions@github.com'
           git add k8s/*.yaml
           git commit -m "chore(gitops): update image tags to ${{ steps.vars.outputs.sha_short }} [skip ci]" || echo "No changes to commit"
-          git push
+          for i in {1..5}; do
+            git pull --rebase origin ${{ github.ref_name }}
+            if git push origin HEAD:${{ github.ref_name }}; then
+              echo "Manifests pushed successfully!"
+              exit 0
+            fi
+            echo "Push failed. Retrying in 5 seconds..."
+            sleep 5
+          done
+          echo "Failed to push manifests after 5 attempts."
+          exit 1
