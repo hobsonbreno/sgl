@@ -1489,6 +1489,7 @@ export default function OportunidadeDetalhe() {
     if (window.confirm("Tem certeza? Isso vai remover permanentemente esta oportunidade, seus itens, cotações e qualquer proposta associada. Essa ação não pode ser desfeita.")) {
       try {
         let nextId = null;
+        let fetchedColIds: string[] = [];
         if (oportunidade?.kanbanStatus) {
           try {
             const listRes = await fetch(`${window.API_URL}/oportunidades?limit=500`);
@@ -1496,6 +1497,7 @@ export default function OportunidadeDetalhe() {
               const json = await listRes.json();
               const allOps = Array.isArray(json) ? json : (json.data || []);
               const colOps = allOps.filter((op: any) => op.kanbanStatus === oportunidade.kanbanStatus);
+              fetchedColIds = colOps.map((op: any) => op._id);
               const currentIndex = colOps.findIndex((op: any) => op._id === id);
               if (currentIndex >= 0 && currentIndex + 1 < colOps.length) {
                 nextId = colOps[currentIndex + 1]._id;
@@ -1509,9 +1511,9 @@ export default function OportunidadeDetalhe() {
         const res = await fetch(`${window.API_URL}/oportunidades/${id}`, { method: 'DELETE' });
         if (res.ok) {
           if (nextId) {
-            navigate(`/oportunidades/${nextId}`);
-            // Force a reload of the component data by navigating
-            window.location.href = `/oportunidades/${nextId}`;
+            const baseColIds = fetchedColIds.length > 0 ? fetchedColIds : colIds;
+            const newColIds = baseColIds.filter((cid: string) => cid !== id);
+            navigate(`/oportunidades/${nextId}`, { state: { colIds: newColIds, aba } });
           } else {
             navigate('/kanban');
           }
