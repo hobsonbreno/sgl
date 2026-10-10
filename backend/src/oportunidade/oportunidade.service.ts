@@ -33,6 +33,7 @@ import { SystemLogService } from '../observability/system-log/system-log.service
 
 @Injectable()
 export class OportunidadeService {
+  private isSyncingAll = false;
   constructor(
     @InjectPinoLogger(OportunidadeService.name)
     private readonly logger: PinoLogger,
@@ -549,6 +550,14 @@ export class OportunidadeService {
 
   @Cron(CronExpression.EVERY_4_HOURS)
   async syncAllActiveOpportunities() {
+    if (this.isSyncingAll) {
+      this.logger.warn(
+        'Sincronização periódica já está em andamento. Ignorando este ciclo para evitar sobreposição e estouro de memória.',
+      );
+      return;
+    }
+
+    this.isSyncingAll = true;
     this.logger.info(
       'Iniciando sincronização periódica de itens das oportunidades ativas...',
     );
@@ -581,6 +590,8 @@ export class OportunidadeService {
       this.logger.error(
         `Erro ao executar rotina de sincronização de itens: ${err.message}`,
       );
+    } finally {
+      this.isSyncingAll = false;
     }
   }
 

@@ -90,5 +90,5 @@ export const BotExecucaoSchema = SchemaFactory.createForClass(BotExecucao);
 
 // Índices para queries comuns no painel de logs
 BotExecucaoSchema.index({ dataExecucao: -1 });
-BotExecucaoSchema.index({ correlationId: 1 });
+// BotExecucaoSchema.index({ correlationId: 1 }); // Removido, pois já está no @Prop
 BotExecucaoSchema.index({ perfilBuscaId: 1, dataExecucao: -1 });
