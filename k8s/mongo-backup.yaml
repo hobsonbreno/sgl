@@ -60,8 +60,8 @@ spec:
                 cp "$OUT" "$WEEKLY/"
                 echo "[backup] copia semanal criada"
               fi
-              ls -1t "$DAILY"/*.archive.gz  | tail -n +8 | xargs -r rm -f
-              ls -1t "$WEEKLY"/*.archive.gz | tail -n +5 | xargs -r rm -f
+              find "$DAILY"  -name '*.archive.gz' -printf '%T@ %p\n' | sort -rn | tail -n +8 | cut -d' ' -f2- | xargs -r rm -f
+              find "$WEEKLY" -name '*.archive.gz' -printf '%T@ %p\n' | sort -rn | tail -n +5 | cut -d' ' -f2- | xargs -r rm -f
               echo "[backup] OK"; ls -lh "$DAILY" "$WEEKLY"
             resources:
               requests: { cpu: 50m, memory: 128Mi }
