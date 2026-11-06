@@ -24,6 +24,9 @@ spec:
       labels:
         app: sgl-mongo
     spec:
+      securityContext:
+        appArmorProfile:
+          type: Unconfined
       containers:
       - name: mongo
         image: mongo:4.4

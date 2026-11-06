@@ -1,0 +1,73 @@
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongo-backup-pvc
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sgl-mongo-backup
+spec:
+  schedule: "0 3 * * *"
+  timeZone: "America/Fortaleza"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 1800
+      template:
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            appArmorProfile:
+              type: Unconfined
+          containers:
+          - name: backup
+            image: mongo:4.4
+            command: ["/bin/bash", "-c"]
+            args:
+            - |
+              set -euo pipefail
+              DAILY=/backup/daily
+              WEEKLY=/backup/weekly
+              mkdir -p "$DAILY" "$WEEKLY"
+              TS=$(date +%Y%m%d-%H%M%S)
+              OUT="$DAILY/licitacoes-$TS.archive.gz"
+              echo "[backup] iniciando dump -> $OUT"
+              mongodump --host mongo --port 27017 --db licitacoes \
+                --gzip --archive="$OUT.tmp"
+              SIZE=$(stat -c %s "$OUT.tmp")
+              echo "[backup] tamanho: $SIZE bytes"
+              if [ "$SIZE" -lt 500000 ]; then
+                echo "[backup] ERRO: dump pequeno demais, descartando"
+                rm -f "$OUT.tmp"; exit 1
+              fi
+              mongorestore --gzip --archive="$OUT.tmp" --dryRun >/dev/null
+              mv "$OUT.tmp" "$OUT"
+              if [ "$(date +%u)" = "7" ]; then
+                cp "$OUT" "$WEEKLY/"
+                echo "[backup] copia semanal criada"
+              fi
+              ls -1t "$DAILY"/*.archive.gz  | tail -n +8 | xargs -r rm -f
+              ls -1t "$WEEKLY"/*.archive.gz | tail -n +5 | xargs -r rm -f
+              echo "[backup] OK"; ls -lh "$DAILY" "$WEEKLY"
+            resources:
+              requests: { cpu: 50m, memory: 128Mi }
+              limits:   { cpu: 500m, memory: 512Mi }
+            volumeMounts:
+            - { name: backup, mountPath: /backup }
+          volumes:
+          - name: backup
+            persistentVolumeClaim:
+              claimName: mongo-backup-pvc
