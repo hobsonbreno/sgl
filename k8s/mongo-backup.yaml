@@ -42,6 +42,7 @@ spec:
               DAILY=/backup/daily
               WEEKLY=/backup/weekly
               mkdir -p "$DAILY" "$WEEKLY"
+              rm -f "$DAILY"/*.tmp
               TS=$(date +%Y%m%d-%H%M%S)
               OUT="$DAILY/licitacoes-$TS.archive.gz"
               echo "[backup] iniciando dump -> $OUT"
@@ -53,7 +54,7 @@ spec:
                 echo "[backup] ERRO: dump pequeno demais, descartando"
                 rm -f "$OUT.tmp"; exit 1
               fi
-              mongorestore --gzip --archive="$OUT.tmp" --dryRun >/dev/null
+              mongorestore --host mongo --port 27017 --gzip --archive="$OUT.tmp" --dryRun >/dev/null
               mv "$OUT.tmp" "$OUT"
               if [ "$(date +%u)" = "7" ]; then
                 cp "$OUT" "$WEEKLY/"
