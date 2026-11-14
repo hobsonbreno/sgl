@@ -22,6 +22,19 @@ export class UpdatePrecoDto {
   permiteParcelamento?: boolean;
   observacao?: string;
   desclassificado?: boolean;
+  justificativaDesclassificacao?: string;
+  linkProduto?: string;
+  precoCustoContrato?: number;
+  dataAssinaturaContrato?: string;
+  valorOfertadoOrgao?: number;
+  valorFechadoOrgao?: number;
+  valorVendaReajuste?: number;
+  motivoContrato?: string;
+  quantidadeEntregue?: number;
+  dataUltimaAtualizacaoCusto?: string;
+  informeReajuste?: string;
+  chatNegociacao?: string;
+  registrarReajuste?: boolean;
 }
 
 export class CreateCotacaoDto {

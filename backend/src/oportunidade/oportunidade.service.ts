@@ -120,7 +120,23 @@ export class OportunidadeService {
       throw new BadRequestException('Status não informado');
     }
 
-    const doc = await this.model
+    // Nunca excluir automaticamente oportunidade que já possui cotação/contrato negociado
+    if (kanbanStatus === 'EXCLUIDA') {
+      const cotacaoExistente = await this.cotacaoModel
+        .findOne({ oportunidadeId: id, 'itens.precosFornecedores.0': { $exists: true } })
+        .lean()
+        .exec();
+      if (cotacaoExistente) {
+        this.logger.info(
+          `Ignorando auto-exclusão da oportunidade ${id} pois possui cotação/contrato negociado.`,
+        );
+        const existing = await this.model.findById(id).exec();
+        if (!existing) throw new NotFoundException('Oportunidade não encontrada');
+        return existing;
+      }
+    }
+
+    const updatedDoc = await this.model
       .findByIdAndUpdate(
         id,
         { kanbanStatus, dataMudancaStatus: new Date() },
@@ -128,19 +144,15 @@ export class OportunidadeService {
       )
       .exec();
 
-    if (!doc) throw new NotFoundException('Oportunidade não encontrada');
+    if (!updatedDoc) throw new NotFoundException('Oportunidade não encontrada');
 
     if (kanbanStatus === 'EXCLUIDA') {
-      await this.produtoModel.deleteMany({ oportunidadeId: id }).exec();
-      this.logger.info(
-        `Produtos da oportunidade ${id} removidos (movida para lixeira)`,
-      );
       this.gateway.emitOportunidadeDelete(id);
     } else {
-      this.gateway.emitOportunidadeUpdate(doc);
+      this.gateway.emitOportunidadeUpdate(updatedDoc);
     }
 
-    return doc;
+    return updatedDoc;
   }
 
   async marcarVisualizado(id: string): Promise<Oportunidade> {

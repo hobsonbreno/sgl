@@ -193,17 +193,19 @@ export class CotacaoService {
     for (const item of doc.itens) {
       const currentProdId = (item.produtoId as any)?._id || item.produtoId;
       if (!currentProdId) {
-        const queryOr: any[] = [];
-        if (item.numeroItem) queryOr.push({ numeroItem: item.numeroItem });
-        if (item.descricaoItem) queryOr.push({ descricao: item.descricaoItem });
-
-        let prod =
-          queryOr.length > 0
-            ? await ProdutoModel.findOne({
-                oportunidadeId: doc.oportunidadeId.toString(),
-                $or: queryOr,
-              }).exec()
-            : null;
+        let prod = null;
+        if (item.numeroItem) {
+          prod = await ProdutoModel.findOne({
+            oportunidadeId: doc.oportunidadeId.toString(),
+            numeroItem: item.numeroItem,
+          }).exec();
+        }
+        if (!prod && !item.numeroItem && item.descricaoItem) {
+          prod = await ProdutoModel.findOne({
+            oportunidadeId: doc.oportunidadeId.toString(),
+            descricao: item.descricaoItem,
+          }).exec();
+        }
 
         if (!prod) {
           prod = await ProdutoModel.create({
@@ -325,7 +327,33 @@ export class CotacaoService {
       permiteParcelamento?: boolean;
       observacao?: string;
       desclassificado?: boolean;
+      justificativaDesclassificacao?: string;
       linkProduto?: string;
+      precoCustoContrato?: number;
+      dataAssinaturaContrato?: string | Date;
+      valorOfertadoOrgao?: number;
+      valorFechadoOrgao?: number;
+      valorVendaReajuste?: number;
+      motivoContrato?: string;
+      quantidadeEntregue?: number;
+      entregasContrato?: {
+        dataEntrega?: string;
+        comandoDestino?: string;
+        notaEmpenho?: string;
+        notaFiscal?: string;
+        quantidade: number;
+        regimeEntrega?: string;
+        custoCompraUnitario?: number;
+        valorFaturadoUnitario?: number;
+        observacao?: string;
+      }[];
+      dataUltimaAtualizacaoCusto?: string | Date;
+      informeReajuste?: string;
+      chatNegociacao?: string;
+      registrarReajuste?: boolean;
+      novaAlta?: boolean;
+      limparReajuste?: boolean;
+      historicoNegociacaoOverride?: any[];
     },
   ) {
     const doc = await this.model.findById(cotacaoId).exec();
@@ -334,25 +362,302 @@ export class CotacaoService {
     const item = doc.itens.find((i) => i._id.toString() === itemId);
     if (!item) throw new NotFoundException('Item não encontrado na cotação');
 
+    // Fetch oportunidade and produto for context
+    let op: any = null;
+    let prodDoc: any = null;
+    try {
+      op = await this.connection
+        .collection('oportunidades')
+        .findOne({ _id: doc.oportunidadeId });
+      const pId = (item.produtoId as any)?._id || item.produtoId;
+      if (pId) {
+        prodDoc = await this.connection
+          .collection('produtos')
+          .findOne({ _id: new mongoose.Types.ObjectId(pId.toString()) });
+      }
+    } catch {
+      // ignore
+    }
+
+    const orgaoNome = op?.orgaoNome || '';
+    const uasg = op?.unidadeCompradora || '';
+    const pregaoNumero =
+      op?.numeroCompraOrigem && op?.anoCompraOrigem
+        ? `${op.modalidadeNome || 'Pregão Eletrônico'} Nº ${op.numeroCompraOrigem}/${op.anoCompraOrigem}`
+        : op?.numeroControlePNCP || '';
+
     // Add or update provider price
     const fIdx = item.precosFornecedores.findIndex(
       (p) => p.fornecedorId.toString() === precoData.fornecedorId,
     );
-    if (fIdx >= 0) {
+
+    const existingEntry = fIdx >= 0 ? item.precosFornecedores[fIdx] : null;
+    const precoCustoAnterior = existingEntry?.precoUnitario ?? precoData.precoUnitario;
+
+    const precoCustoContrato =
+      precoData.precoCustoContrato !== undefined && precoData.precoCustoContrato > 0
+        ? precoData.precoCustoContrato
+        : existingEntry?.precoCustoContrato && existingEntry.precoCustoContrato > 0
+          ? existingEntry.precoCustoContrato
+          : precoCustoAnterior > 0
+            ? precoCustoAnterior
+            : precoData.precoUnitario;
+
+    const valorFechadoOrgao =
+      precoData.valorFechadoOrgao !== undefined && precoData.valorFechadoOrgao > 0
+        ? precoData.valorFechadoOrgao
+        : existingEntry?.valorFechadoOrgao && existingEntry.valorFechadoOrgao > 0
+          ? existingEntry.valorFechadoOrgao
+          : prodDoc?.valorVencedor || prodDoc?.valorNossoLance || 0;
+
+    const valorOfertadoOrgao =
+      precoData.valorOfertadoOrgao !== undefined && precoData.valorOfertadoOrgao > 0
+        ? precoData.valorOfertadoOrgao
+        : existingEntry?.valorOfertadoOrgao && existingEntry.valorOfertadoOrgao > 0
+          ? existingEntry.valorOfertadoOrgao
+          : valorFechadoOrgao;
+
+    const parseSafeDate = (
+      val: string | Date | undefined,
+      isUpdateTimestamp = false,
+    ): Date | undefined => {
+      if (!val) return isUpdateTimestamp ? new Date() : undefined;
+      if (typeof val === 'string') {
+        const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(val.trim());
+        if (ymd) {
+          const y = parseInt(ymd[1], 10);
+          const m = parseInt(ymd[2], 10) - 1;
+          const d = parseInt(ymd[3], 10);
+          const now = new Date();
+          if (
+            isUpdateTimestamp &&
+            now.getUTCFullYear() === y &&
+            now.getUTCMonth() === m &&
+            now.getUTCDate() === d
+          ) {
+            return now;
+          }
+          return new Date(
+            Date.UTC(
+              y,
+              m,
+              d,
+              isUpdateTimestamp ? now.getUTCHours() || 12 : 12,
+              isUpdateTimestamp ? now.getUTCMinutes() : 0,
+              isUpdateTimestamp ? now.getUTCSeconds() : 0,
+            ),
+          );
+        }
+      }
+      const parsed = new Date(val);
+      if (isNaN(parsed.getTime())) {
+        return isUpdateTimestamp ? new Date() : undefined;
+      }
+      if (
+        parsed.getUTCHours() === 0 &&
+        parsed.getUTCMinutes() === 0 &&
+        parsed.getUTCSeconds() === 0
+      ) {
+        parsed.setUTCHours(12);
+      }
+      return parsed;
+    };
+
+    const dataAssinaturaContrato = precoData.dataAssinaturaContrato
+      ? parseSafeDate(precoData.dataAssinaturaContrato, false)
+      : existingEntry?.dataAssinaturaContrato || undefined;
+
+    const dataAtualizacao =
+      parseSafeDate(precoData.dataUltimaAtualizacaoCusto, true) || new Date();
+
+    const lucroContratoUnitario =
+      valorFechadoOrgao > 0 && precoCustoContrato > 0
+        ? Number((valorFechadoOrgao - precoCustoContrato).toFixed(4))
+        : 0;
+    const percentualLucroContrato =
+      precoCustoContrato > 0
+        ? Number(((lucroContratoUnitario / precoCustoContrato) * 100).toFixed(2))
+        : 0;
+    const resultadoAtualUnitario =
+      valorFechadoOrgao > 0 && precoData.precoUnitario > 0
+        ? Number((valorFechadoOrgao - precoData.precoUnitario).toFixed(4))
+        : 0;
+    const valorSugeridoReajuste =
+      precoData.valorVendaReajuste && precoData.valorVendaReajuste > 0
+        ? precoData.valorVendaReajuste
+        : precoData.precoUnitario > 0
+          ? Number(
+              (
+                precoData.precoUnitario + Math.max(0, lucroContratoUnitario)
+              ).toFixed(4),
+            )
+          : 0;
+
+    const valorVendaReajuste =
+      precoData.valorVendaReajuste !== undefined && precoData.valorVendaReajuste > 0
+        ? precoData.valorVendaReajuste
+        : existingEntry?.valorVendaReajuste && existingEntry.valorVendaReajuste > 0
+          ? existingEntry.valorVendaReajuste
+          : valorSugeridoReajuste;
+
+    const lucroPosReajusteUnitario =
+      valorVendaReajuste > 0 && precoData.precoUnitario > 0
+        ? Number((valorVendaReajuste - precoData.precoUnitario).toFixed(4))
+        : resultadoAtualUnitario;
+
+    const motivoContrato =
+      precoData.motivoContrato ||
+      existingEntry?.motivoContrato ||
+      'REAJUSTE_PRECO';
+
+    const informeGerado =
+      precoData.informeReajuste ||
+      existingEntry?.informeReajuste ||
+      (precoData.registrarReajuste
+        ? `No momento da assinatura do contrato${dataAssinaturaContrato ? ` (${dataAssinaturaContrato.toLocaleDateString('pt-BR')})` : ''}, o custo do produto ${item.descricaoItem} era R$ ${precoCustoContrato.toFixed(2).replace('.', ',')} e o valor celebrado com o órgão (${orgaoNome || 'Órgão'}) foi R$ ${valorFechadoOrgao.toFixed(2).replace('.', ',')}, com lucro de R$ ${lucroContratoUnitario.toFixed(2).replace('.', ',')} unitariamente (${percentualLucroContrato.toFixed(2).replace('.', ',')}%). Em ${dataAtualizacao.toLocaleDateString('pt-BR')}, o fornecedor atualizou o custo para R$ ${precoData.precoUnitario.toFixed(2).replace('.', ',')}, gerando ${resultadoAtualUnitario < 0 ? `prejuízo de R$ ${Math.abs(resultadoAtualUnitario).toFixed(2).replace('.', ',')} por unidade` : `resultado de R$ ${resultadoAtualUnitario.toFixed(2).replace('.', ',')} por unidade`} em vista do que foi acordado em contrato, solicitando-se reajuste para R$ ${valorSugeridoReajuste.toFixed(2).replace('.', ',')}.`
+        : undefined);
+
+    const novoRegistroHist = {
+      data: dataAtualizacao,
+      tipo:
+        precoData.registrarReajuste || precoData.precoUnitario > precoCustoContrato
+          ? 'REAJUSTE_MERCADO'
+          : 'COTACAO_INICIAL',
+      motivoContrato,
+      precoCustoContrato,
+      precoCustoAnterior,
+      precoCustoAtual: precoData.precoUnitario,
+      valorOfertadoOrgao,
+      valorFechadoOrgao,
+      valorVendaReajuste,
+      lucroContratoUnitario,
+      percentualLucroContrato,
+      resultadoAtualUnitario,
+      lucroPosReajusteUnitario,
+      valorSugeridoReajuste,
+      quantidadeEntregue:
+        precoData.quantidadeEntregue ?? existingEntry?.quantidadeEntregue,
+      dataAssinaturaContrato,
+      informe: informeGerado || precoData.observacao,
+      chatNegociacao:
+        precoData.chatNegociacao ?? existingEntry?.chatNegociacao,
+    };
+
+    if (fIdx >= 0 && precoData.limparReajuste) {
+      const custoBaseOriginal =
+        item.precosFornecedores[fIdx].precoCustoContrato &&
+        item.precosFornecedores[fIdx].precoCustoContrato > 0
+          ? item.precosFornecedores[fIdx].precoCustoContrato
+          : precoData.precoUnitario;
+      const fatorOriginal = item.precosFornecedores[fIdx].fatorEmbalagem || 1;
+      item.precosFornecedores[fIdx].precoUnitario = custoBaseOriginal;
+      item.precosFornecedores[fIdx].precoEmbalagem = parseFloat(
+        (custoBaseOriginal * fatorOriginal).toFixed(6),
+      );
+      item.precosFornecedores[fIdx].precoCustoContrato = undefined;
+      item.precosFornecedores[fIdx].valorVendaReajuste = undefined;
+      item.precosFornecedores[fIdx].motivoContrato = undefined;
+      item.precosFornecedores[fIdx].quantidadeEntregue = undefined;
+      item.precosFornecedores[fIdx].entregasContrato = [];
+      item.precosFornecedores[fIdx].informeReajuste = undefined;
+      item.precosFornecedores[fIdx].historicoNegociacao = [];
+    } else if (fIdx >= 0) {
       item.precosFornecedores[fIdx].precoUnitario = precoData.precoUnitario;
-      item.precosFornecedores[fIdx].fatorEmbalagem = precoData.fatorEmbalagem;
-      item.precosFornecedores[fIdx].precoEmbalagem = precoData.precoEmbalagem;
-      item.precosFornecedores[fIdx].nomeEmbalagem = precoData.nomeEmbalagem;
-      item.precosFornecedores[fIdx].freteIncluso = precoData.freteIncluso;
-      item.precosFornecedores[fIdx].prazoPagamento = precoData.prazoPagamento;
-      item.precosFornecedores[fIdx].permiteParcelamento =
-        precoData.permiteParcelamento;
-      item.precosFornecedores[fIdx].observacao = precoData.observacao;
-      item.precosFornecedores[fIdx].desclassificado =
-        precoData.desclassificado || false;
+      if (precoData.fatorEmbalagem !== undefined)
+        item.precosFornecedores[fIdx].fatorEmbalagem = precoData.fatorEmbalagem;
+      if (precoData.precoEmbalagem !== undefined)
+        item.precosFornecedores[fIdx].precoEmbalagem = precoData.precoEmbalagem;
+      if (precoData.nomeEmbalagem !== undefined)
+        item.precosFornecedores[fIdx].nomeEmbalagem = precoData.nomeEmbalagem;
+      if (precoData.freteIncluso !== undefined)
+        item.precosFornecedores[fIdx].freteIncluso = precoData.freteIncluso;
+      if (precoData.prazoPagamento !== undefined)
+        item.precosFornecedores[fIdx].prazoPagamento = precoData.prazoPagamento;
+      if (precoData.permiteParcelamento !== undefined)
+        item.precosFornecedores[fIdx].permiteParcelamento =
+          precoData.permiteParcelamento;
+      if (precoData.observacao !== undefined)
+        item.precosFornecedores[fIdx].observacao = precoData.observacao;
+      if (precoData.desclassificado !== undefined)
+        item.precosFornecedores[fIdx].desclassificado =
+          precoData.desclassificado || false;
+      if (precoData.justificativaDesclassificacao !== undefined)
+        item.precosFornecedores[fIdx].justificativaDesclassificacao =
+          precoData.justificativaDesclassificacao;
       if (precoData.linkProduto)
         item.precosFornecedores[fIdx].linkProduto = precoData.linkProduto;
+
+      item.precosFornecedores[fIdx].precoCustoContrato = precoCustoContrato;
+      if (dataAssinaturaContrato)
+        item.precosFornecedores[fIdx].dataAssinaturaContrato =
+          dataAssinaturaContrato;
+      if (valorOfertadoOrgao > 0)
+        item.precosFornecedores[fIdx].valorOfertadoOrgao = valorOfertadoOrgao;
+      if (valorFechadoOrgao > 0)
+        item.precosFornecedores[fIdx].valorFechadoOrgao = valorFechadoOrgao;
+      if (valorVendaReajuste > 0)
+        item.precosFornecedores[fIdx].valorVendaReajuste = valorVendaReajuste;
+      if (motivoContrato)
+        item.precosFornecedores[fIdx].motivoContrato = motivoContrato;
+      if (Array.isArray(precoData.entregasContrato)) {
+        item.precosFornecedores[fIdx].entregasContrato =
+          precoData.entregasContrato;
+        const somaEntregas = precoData.entregasContrato.reduce(
+          (acc, ent) => acc + (Number(ent.quantidade) || 0),
+          0,
+        );
+        item.precosFornecedores[fIdx].quantidadeEntregue =
+          somaEntregas > 0 ? somaEntregas : precoData.quantidadeEntregue;
+      } else if (precoData.quantidadeEntregue !== undefined) {
+        item.precosFornecedores[fIdx].quantidadeEntregue =
+          precoData.quantidadeEntregue;
+      }
+      item.precosFornecedores[fIdx].dataUltimaAtualizacaoCusto = dataAtualizacao;
+      if (informeGerado)
+        item.precosFornecedores[fIdx].informeReajuste = informeGerado;
+      if (precoData.chatNegociacao !== undefined)
+        item.precosFornecedores[fIdx].chatNegociacao = precoData.chatNegociacao;
+
+      if (Array.isArray(precoData.historicoNegociacaoOverride)) {
+        item.precosFornecedores[fIdx].historicoNegociacao =
+          precoData.historicoNegociacaoOverride;
+      } else {
+        if (!item.precosFornecedores[fIdx].historicoNegociacao) {
+          item.precosFornecedores[fIdx].historicoNegociacao = [];
+        }
+        const histArr = item.precosFornecedores[fIdx].historicoNegociacao;
+        const isPosReajuste =
+          Math.abs(precoData.precoUnitario - precoCustoContrato) > 0.0001 ||
+          Math.abs(valorVendaReajuste - valorFechadoOrgao) > 0.0001;
+
+        if (precoData.novaAlta) {
+          histArr.push(novoRegistroHist);
+        } else if (histArr.length === 0) {
+          histArr.push(novoRegistroHist);
+        } else if (precoData.registrarReajuste && isPosReajuste) {
+          // Procura se já existe um ajuste pós-contrato para atualizar in-place caso não seja "novaAlta"
+          const lastIdx = histArr.length - 1;
+          const lastEntry = histArr[lastIdx];
+          const lastIsAdjustment =
+            lastEntry &&
+            (Math.abs(Number(lastEntry.precoCustoAtual || 0) - precoCustoContrato) > 0.0001 ||
+              Math.abs(Number(lastEntry.valorVendaReajuste || lastEntry.valorFechadoOrgao || 0) - valorFechadoOrgao) > 0.0001);
+          if (lastIsAdjustment) {
+            histArr[lastIdx] = novoRegistroHist;
+          } else {
+            histArr.push(novoRegistroHist);
+          }
+        } else if (precoData.precoUnitario !== precoCustoAnterior) {
+          histArr.push(novoRegistroHist);
+        }
+      }
     } else {
+      const somaEntregas = Array.isArray(precoData.entregasContrato)
+        ? precoData.entregasContrato.reduce(
+            (acc, ent) => acc + (Number(ent.quantidade) || 0),
+            0,
+          )
+        : 0;
       item.precosFornecedores.push({
         fornecedorId: new mongoose.Types.ObjectId(precoData.fornecedorId),
         precoUnitario: precoData.precoUnitario,
@@ -364,8 +669,44 @@ export class CotacaoService {
         permiteParcelamento: precoData.permiteParcelamento,
         observacao: precoData.observacao,
         desclassificado: precoData.desclassificado || false,
+        justificativaDesclassificacao: precoData.justificativaDesclassificacao,
         linkProduto: precoData.linkProduto,
+        precoCustoContrato,
+        dataAssinaturaContrato,
+        valorOfertadoOrgao,
+        valorFechadoOrgao,
+        valorVendaReajuste,
+        motivoContrato,
+        quantidadeEntregue:
+          somaEntregas > 0 ? somaEntregas : precoData.quantidadeEntregue,
+        entregasContrato: precoData.entregasContrato || [],
+        dataUltimaAtualizacaoCusto: dataAtualizacao,
+        informeReajuste: informeGerado,
+        chatNegociacao: precoData.chatNegociacao,
+        historicoNegociacao: [novoRegistroHist],
       });
+    }
+
+    // If valorFechadoOrgao was provided, also sync to Produto
+    if (precoData.valorFechadoOrgao && precoData.valorFechadoOrgao > 0) {
+      try {
+        const pId = (item.produtoId as any)?._id || item.produtoId;
+        if (pId) {
+          await this.connection
+            .collection('produtos')
+            .updateOne(
+              { _id: new mongoose.Types.ObjectId(pId.toString()) },
+              {
+                $set: {
+                  valorNossoLance: precoData.valorFechadoOrgao,
+                  valorVencedor: precoData.valorFechadoOrgao,
+                },
+              },
+            );
+        }
+      } catch {
+        // ignore
+      }
     }
 
     // Recalculate melhorPreco for this item
@@ -417,6 +758,13 @@ export class CotacaoService {
 
     await doc.save();
 
+    let fornDoc: any = null;
+    try {
+      fornDoc = await this.fornecedorService.findOne(precoData.fornecedorId);
+    } catch {
+      // ignore
+    }
+
     // Gravar no historico do fornecedor
     await this.fornecedorService.registrarHistoricoPreco(
       precoData.fornecedorId,
@@ -429,8 +777,67 @@ export class CotacaoService {
         observacao: precoData.observacao,
         desclassificado: precoData.desclassificado,
         oportunidadeId: doc.oportunidadeId.toString(),
+        data: dataAtualizacao,
+        tipoRegistro: novoRegistroHist.tipo,
+        precoCustoContrato,
+        precoCustoAnterior,
+        valorOfertadoOrgao,
+        valorFechadoOrgao,
+        lucroContratoUnitario,
+        percentualLucroContrato,
+        resultadoAtualUnitario,
+        valorSugeridoReajuste,
+        quantidadeContratada: item.quantidade || 1,
+        quantidadeEntregue: precoData.quantidadeEntregue,
+        dataAssinaturaContrato,
+        orgaoNome,
+        uasg,
+        pregaoNumero,
+        numeroItem: item.numeroItem,
+        informe: informeGerado,
+        chatNegociacao: precoData.chatNegociacao,
       },
     );
+
+    // Sincronizar também na Base Geral de Produtos (ProdutoBase) quando for reajuste ou tiver dados de contrato
+    if (precoData.limparReajuste) {
+      await this.fornecedorService.updateProdutoBase(item.descricaoItem, {
+        numeroItem: item.numeroItem,
+        limparReajuste: true,
+      });
+    } else if (
+      precoData.registrarReajuste ||
+      precoData.precoCustoContrato !== undefined ||
+      precoData.valorFechadoOrgao !== undefined ||
+      valorFechadoOrgao > 0
+    ) {
+      const pfCurrent = fIdx >= 0 ? item.precosFornecedores[fIdx] : null;
+      await this.fornecedorService.updateProdutoBase(item.descricaoItem, {
+        nossoLanceOficial: valorFechadoOrgao > 0 ? valorFechadoOrgao : undefined,
+        precoCustoContrato,
+        precoCustoAtual: precoData.precoUnitario,
+        valorOfertadoOrgao: valorOfertadoOrgao > 0 ? valorOfertadoOrgao : undefined,
+        valorFechadoOrgao: valorFechadoOrgao > 0 ? valorFechadoOrgao : undefined,
+        valorVendaReajuste: valorVendaReajuste > 0 ? valorVendaReajuste : undefined,
+        motivoContrato,
+        dataAssinaturaContrato,
+        dataUltimoReajuste: dataAtualizacao,
+        orgaoNome,
+        uasg,
+        pregaoNumero,
+        numeroItem: item.numeroItem,
+        quantidadeContratada: item.quantidade || 1,
+        quantidadeEntregue: pfCurrent?.quantidadeEntregue ?? precoData.quantidadeEntregue,
+        entregasContrato: pfCurrent?.entregasContrato ?? precoData.entregasContrato,
+        fornecedorId: precoData.fornecedorId,
+        fornecedorNome: fornDoc?.razaoSocial,
+        fornecedorCnpj: fornDoc?.cnpj,
+        oportunidadeId: doc.oportunidadeId.toString(),
+        informe: informeGerado,
+        chatNegociacao: precoData.chatNegociacao,
+        registrarNoHistorico: true,
+      });
+    }
 
     await this.checkAndMoveKanban(doc);
 

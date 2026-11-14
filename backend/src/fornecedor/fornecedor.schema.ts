@@ -62,6 +62,24 @@ export class Fornecedor {
         desclassificado: Boolean,
         data: Date,
         oportunidadeId: String,
+        tipoRegistro: String,
+        precoCustoContrato: Number,
+        precoCustoAnterior: Number,
+        valorOfertadoOrgao: Number,
+        valorFechadoOrgao: Number,
+        lucroContratoUnitario: Number,
+        percentualLucroContrato: Number,
+        resultadoAtualUnitario: Number,
+        valorSugeridoReajuste: Number,
+        quantidadeContratada: Number,
+        quantidadeEntregue: Number,
+        dataAssinaturaContrato: Date,
+        orgaoNome: String,
+        uasg: String,
+        pregaoNumero: String,
+        numeroItem: Number,
+        informe: String,
+        chatNegociacao: String,
       },
     ],
   })
@@ -75,6 +93,24 @@ export class Fornecedor {
     desclassificado?: boolean;
     data: Date;
     oportunidadeId: string;
+    tipoRegistro?: string;
+    precoCustoContrato?: number;
+    precoCustoAnterior?: number;
+    valorOfertadoOrgao?: number;
+    valorFechadoOrgao?: number;
+    lucroContratoUnitario?: number;
+    percentualLucroContrato?: number;
+    resultadoAtualUnitario?: number;
+    valorSugeridoReajuste?: number;
+    quantidadeContratada?: number;
+    quantidadeEntregue?: number;
+    dataAssinaturaContrato?: Date;
+    orgaoNome?: string;
+    uasg?: string;
+    pregaoNumero?: string;
+    numeroItem?: number;
+    informe?: string;
+    chatNegociacao?: string;
   }[];
 }
 
@@ -84,7 +120,7 @@ export type ProdutoBaseDocument = HydratedDocument<ProdutoBase>;
 
 @Schema({ timestamps: true })
 export class ProdutoBase {
-  @Prop({ required: true, unique: true })
+  @Prop({ required: true })
   descricaoItem: string;
 
   @Prop()
@@ -92,6 +128,150 @@ export class ProdutoBase {
 
   @Prop()
   valorCampeaoLicitacao: number;
+
+  @Prop()
+  precoCustoContrato: number;
+
+  @Prop()
+  precoCustoAtual: number;
+
+  @Prop()
+  valorOfertadoOrgao: number;
+
+  @Prop()
+  valorFechadoOrgao: number;
+
+  @Prop()
+  valorVendaReajuste: number;
+
+  @Prop()
+  motivoContrato: string;
+
+  @Prop()
+  dataAssinaturaContrato: Date;
+
+  @Prop()
+  dataUltimoReajuste: Date;
+
+  @Prop()
+  orgaoNome: string;
+
+  @Prop()
+  uasg: string;
+
+  @Prop()
+  pregaoNumero: string;
+
+  @Prop()
+  numeroItem: number;
+
+  @Prop()
+  quantidadeContratada: number;
+
+  @Prop()
+  quantidadeEntregue: number;
+
+  @Prop({
+    type: [
+      {
+        dataEntrega: String,
+        comandoDestino: String,
+        notaEmpenho: String,
+        notaFiscal: String,
+        quantidade: Number,
+        regimeEntrega: String,
+        custoCompraUnitario: Number,
+        valorFaturadoUnitario: Number,
+        observacao: String,
+      },
+    ],
+  })
+  entregasContrato: {
+    dataEntrega?: string;
+    comandoDestino?: string;
+    notaEmpenho?: string;
+    notaFiscal?: string;
+    quantidade: number;
+    regimeEntrega?: string;
+    custoCompraUnitario?: number;
+    valorFaturadoUnitario?: number;
+    observacao?: string;
+  }[];
+
+  @Prop()
+  fornecedorNome: string;
+
+  @Prop()
+  fornecedorCnpj: string;
+
+  @Prop()
+  informeUltimoReajuste: string;
+
+  @Prop()
+  chatNegociacao: string;
+
+  @Prop({
+    type: [
+      {
+        data: { type: Date, default: Date.now },
+        tipo: String,
+        fornecedorId: String,
+        fornecedorNome: String,
+        fornecedorCnpj: String,
+        oportunidadeId: String,
+        orgaoNome: String,
+        uasg: String,
+        pregaoNumero: String,
+        numeroItem: Number,
+        quantidadeContratada: Number,
+        quantidadeEntregue: Number,
+        precoCustoContrato: Number,
+        precoCustoAnterior: Number,
+        precoCustoAtual: Number,
+        valorOfertadoOrgao: Number,
+        valorFechadoOrgao: Number,
+        valorVendaReajuste: Number,
+        motivoContrato: String,
+        lucroContratoUnitario: Number,
+        percentualLucroContrato: Number,
+        resultadoAtualUnitario: Number,
+        lucroPosReajusteUnitario: Number,
+        valorSugeridoReajuste: Number,
+        dataAssinaturaContrato: Date,
+        informe: String,
+        chatNegociacao: String,
+      },
+    ],
+  })
+  historicoReajustes: {
+    data: Date;
+    tipo?: string;
+    motivoContrato?: string;
+    fornecedorId?: string;
+    fornecedorNome?: string;
+    fornecedorCnpj?: string;
+    oportunidadeId?: string;
+    orgaoNome?: string;
+    uasg?: string;
+    pregaoNumero?: string;
+    numeroItem?: number;
+    quantidadeContratada?: number;
+    quantidadeEntregue?: number;
+    precoCustoContrato?: number;
+    precoCustoAnterior?: number;
+    precoCustoAtual?: number;
+    valorOfertadoOrgao?: number;
+    valorFechadoOrgao?: number;
+    valorVendaReajuste?: number;
+    lucroContratoUnitario?: number;
+    percentualLucroContrato?: number;
+    resultadoAtualUnitario?: number;
+    lucroPosReajusteUnitario?: number;
+    valorSugeridoReajuste?: number;
+    dataAssinaturaContrato?: Date;
+    informe?: string;
+    chatNegociacao?: string;
+  }[];
 }
 
 export const ProdutoBaseSchema = SchemaFactory.createForClass(ProdutoBase);

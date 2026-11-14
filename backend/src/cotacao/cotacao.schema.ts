@@ -40,6 +40,51 @@ export class Cotacao {
             desclassificado: { type: Boolean, default: false },
             justificativaDesclassificacao: String,
             linkProduto: String,
+            precoCustoContrato: Number,
+            dataAssinaturaContrato: Date,
+            valorOfertadoOrgao: Number,
+            valorFechadoOrgao: Number,
+            valorVendaReajuste: Number,
+            motivoContrato: String,
+            quantidadeEntregue: Number,
+            entregasContrato: [
+              {
+                dataEntrega: String,
+                comandoDestino: String,
+                notaEmpenho: String,
+                notaFiscal: String,
+                quantidade: Number,
+                regimeEntrega: String,
+                custoCompraUnitario: Number,
+                valorFaturadoUnitario: Number,
+                observacao: String,
+              },
+            ],
+            dataUltimaAtualizacaoCusto: Date,
+            informeReajuste: String,
+            chatNegociacao: String,
+            historicoNegociacao: [
+              {
+                data: { type: Date, default: Date.now },
+                tipo: { type: String, default: 'ATUALIZACAO_CUSTO' },
+                motivoContrato: String,
+                precoCustoContrato: Number,
+                precoCustoAnterior: Number,
+                precoCustoAtual: Number,
+                valorOfertadoOrgao: Number,
+                valorFechadoOrgao: Number,
+                valorVendaReajuste: Number,
+                lucroContratoUnitario: Number,
+                percentualLucroContrato: Number,
+                resultadoAtualUnitario: Number,
+                lucroPosReajusteUnitario: Number,
+                valorSugeridoReajuste: Number,
+                quantidadeEntregue: Number,
+                dataAssinaturaContrato: Date,
+                informe: String,
+                chatNegociacao: String,
+              },
+            ],
           },
         ],
         melhorPreco: {
@@ -74,6 +119,47 @@ export class Cotacao {
       desclassificado?: boolean;
       justificativaDesclassificacao?: string;
       linkProduto?: string;
+      precoCustoContrato?: number;
+      dataAssinaturaContrato?: Date;
+      valorOfertadoOrgao?: number;
+      valorFechadoOrgao?: number;
+      valorVendaReajuste?: number;
+      motivoContrato?: string;
+      quantidadeEntregue?: number;
+      entregasContrato?: {
+        dataEntrega?: string;
+        comandoDestino?: string;
+        notaEmpenho?: string;
+        notaFiscal?: string;
+        quantidade: number;
+        regimeEntrega?: string;
+        custoCompraUnitario?: number;
+        valorFaturadoUnitario?: number;
+        observacao?: string;
+      }[];
+      dataUltimaAtualizacaoCusto?: Date;
+      informeReajuste?: string;
+      chatNegociacao?: string;
+      historicoNegociacao?: {
+        data: Date;
+        tipo?: string;
+        motivoContrato?: string;
+        precoCustoContrato?: number;
+        precoCustoAnterior?: number;
+        precoCustoAtual: number;
+        valorOfertadoOrgao?: number;
+        valorFechadoOrgao?: number;
+        valorVendaReajuste?: number;
+        lucroContratoUnitario?: number;
+        percentualLucroContrato?: number;
+        resultadoAtualUnitario?: number;
+        lucroPosReajusteUnitario?: number;
+        valorSugeridoReajuste?: number;
+        quantidadeEntregue?: number;
+        dataAssinaturaContrato?: Date;
+        informe?: string;
+        chatNegociacao?: string;
+      }[];
     }[];
     melhorPreco?: {
       fornecedorId: mongoose.Types.ObjectId;

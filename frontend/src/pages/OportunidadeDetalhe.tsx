@@ -1,7 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Check, AlertCircle, Trash2, ChevronDown, ChevronUp, X, ExternalLink, Copy, XCircle, RotateCw, Search } from 'lucide-react';
+import { ArrowLeft, Check, AlertCircle, Trash2, ChevronDown, ChevronUp, X, ExternalLink, Copy, XCircle, RotateCw, Search, FileSpreadsheet, FileText, History } from 'lucide-react';
 import { io } from 'socket.io-client';
+import {
+  exportarRelatorioReajusteXLS,
+  exportarRelatorioReajusteDOC,
+  calcularMetricasReajuste,
+  type ProdutoRelatorioReajuste,
+  type EntregaContratoItem,
+} from '../utils/reajusteReportGenerator';
 
 function calcularAliquotaEfetivaSimples(rbt12: number): number {
   if (rbt12 <= 0) return 0.06;
@@ -58,9 +65,12 @@ function FornecedorPrecoInput({ item, f, pf, precoEmbalagemSalvo, handlePrecoCom
   }, [pf?.precoEmbalagem, precoEmbalagemSalvo]);
 
   const onBlurHandler = () => {
-    handlePrecoComFator(item._id, f.id, precoStr);
     const parsed = parseFloat(precoStr.replace(/\./g, '').replace(',', '.'));
-    if (!isNaN(parsed)) {
+    const savedVal = Number(pf?.precoEmbalagem ?? precoEmbalagemSalvo ?? 0);
+    if (!isNaN(parsed) && parsed > 0) {
+      if (Math.abs(parsed - savedVal) > 0.00001) {
+        handlePrecoComFator(item._id, f.id, precoStr);
+      }
       setPrecoStr(Number(parsed).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 }));
     }
   };
@@ -87,7 +97,2443 @@ const getProdutoId = (item: any) => {
   return item?._id ? item._id.toString() : '';
 };
 
-function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, handleRemovePreco, novoFornecedorId, setNovoFornecedorId, cotacaoId, setCotacao, onLiveValoresChange, aliquotaEfetivaGlobal, modeloEntrega, mesesContrato }: any) {
+function parsePtBrNumber(val: string | number | undefined | null): number {
+  if (val === undefined || val === null || val === '') return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  const cleaned = String(val).trim();
+  if (cleaned.includes(',')) {
+    const n = parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
+    return isNaN(n) ? 0 : n;
+  }
+  const n = parseFloat(cleaned);
+  return isNaN(n) ? 0 : n;
+}
+
+function formatInputDate(d: any, fallback = '2026-09-14'): string {
+  if (!d) return fallback;
+  try {
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return fallback;
+    return dt.toISOString().split('T')[0];
+  } catch {
+    return fallback;
+  }
+}
+
+function CaixinhaAtualizarPrecoNegociado({
+  item,
+  f,
+  pf,
+  cotacaoId,
+  setCotacao,
+  oportunidade,
+  fator,
+  nomeEmbalagem,
+  nossoLanceOficial,
+}: any) {
+  const [aberto, setAberto] = useState(false);
+
+  const pickPositive = (...vals: any[]): number => {
+    for (const v of vals) {
+      const n = Number(v);
+      if (v !== undefined && v !== null && !isNaN(n) && n > 0) return n;
+    }
+    return 0;
+  };
+
+  const defaultContratoCost = pickPositive(
+    pf?.precoCustoContrato,
+    pf?.precoUnitario,
+    item.melhorPreco?.precoUnitario,
+  );
+  const defaultAtualCost = pickPositive(
+    pf?.precoUnitario,
+    defaultContratoCost,
+  );
+  const defaultFechado = pickPositive(
+    pf?.valorFechadoOrgao,
+    nossoLanceOficial,
+    item.produtoId?.valorNossoLance,
+    item.valorNossoLance,
+    item.produtoId?.valorVencedor,
+    item.valorVencedor,
+  );
+  const defaultOfertado = pickPositive(
+    pf?.valorOfertadoOrgao,
+    defaultFechado,
+  );
+  const defaultVendaReajuste = pickPositive(
+    pf?.valorVendaReajuste,
+    defaultFechado,
+  );
+
+  const [motivoContrato, setMotivoContrato] = useState<string>(
+    pf?.motivoContrato || 'REAJUSTE_PRECO',
+  );
+  const [custoContratoStr, setCustoContratoStr] = useState(
+    defaultContratoCost > 0
+      ? Number(defaultContratoCost).toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 4,
+        })
+      : '',
+  );
+  const [custoAtualStr, setCustoAtualStr] = useState(
+    defaultAtualCost > 0
+      ? Number(defaultAtualCost).toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 4,
+        })
+      : '',
+  );
+  const [valorOfertadoStr, setValorOfertadoStr] = useState(
+    defaultOfertado > 0
+      ? Number(defaultOfertado).toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 4,
+        })
+      : '',
+  );
+  const [valorFechadoStr, setValorFechadoStr] = useState(
+    defaultFechado > 0
+      ? Number(defaultFechado).toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 4,
+        })
+      : '',
+  );
+  const [valorVendaReajusteStr, setValorVendaReajusteStr] = useState(
+    defaultVendaReajuste > 0
+      ? Number(defaultVendaReajuste).toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 4,
+        })
+      : '',
+  );
+  const [dataAssinatura, setDataAssinatura] = useState(() =>
+    formatInputDate(pf?.dataAssinaturaContrato, '2026-09-14'),
+  );
+  const [dataAtualizacao, setDataAtualizacao] = useState(() =>
+    formatInputDate(
+      pf?.dataUltimaAtualizacaoCusto,
+      new Date().toISOString().split('T')[0],
+    ),
+  );
+  const [qtdEntregueStr, setQtdEntregueStr] = useState(
+    pf?.quantidadeEntregue ? String(pf.quantidadeEntregue) : '',
+  );
+  const [informe, setInforme] = useState(pf?.informeReajuste || '');
+  const [chatNegociacao, setChatNegociacao] = useState(
+    pf?.chatNegociacao || '',
+  );
+  const [saving, setSaving] = useState(false);
+  const [showHistoricoLocal, setShowHistoricoLocal] = useState(false);
+  const [modoNovaAlta, setModoNovaAlta] = useState(false);
+  const [entregasContrato, setEntregasContrato] = useState<EntregaContratoItem[]>(
+    () => (Array.isArray(pf?.entregasContrato) ? pf.entregasContrato : []),
+  );
+  const [novaEntregaComando, setNovaEntregaComando] = useState('');
+  const [novaEntregaNF, setNovaEntregaNF] = useState('');
+  const [novaEntregaNE, setNovaEntregaNE] = useState('');
+  const [novaEntregaData, setNovaEntregaData] = useState(
+    () => new Date().toISOString().split('T')[0],
+  );
+  const [novaEntregaQtd, setNovaEntregaQtd] = useState('');
+  const [novaEntregaRegime, setNovaEntregaRegime] = useState<
+    'NORMAL_ASSINATURA' | 'CUSTO_SUPERIOR_VENDIDO_PRECO_ANTIGO'
+  >('NORMAL_ASSINATURA');
+  const [novaEntregaCustoCompraStr, setNovaEntregaCustoCompraStr] = useState('');
+  const [novaEntregaValorFaturadoStr, setNovaEntregaValorFaturadoStr] = useState('');
+
+  useEffect(() => {
+    if (Array.isArray(pf?.entregasContrato)) {
+      setEntregasContrato(pf.entregasContrato);
+    }
+  }, [pf?.entregasContrato]);
+
+  const custoContratoNum = parsePtBrNumber(custoContratoStr);
+  const custoAtualNum = parsePtBrNumber(custoAtualStr);
+  const valorOfertadoNum = parsePtBrNumber(valorOfertadoStr);
+  const valorFechadoNum = parsePtBrNumber(valorFechadoStr);
+  const valorVendaReajusteNum =
+    parsePtBrNumber(valorVendaReajusteStr) || valorFechadoNum;
+
+  // Filtra apenas os ajustes / altas reais ocorridos APÓS a assinatura do contrato (ignora o registro inicial da assinatura)
+  const altasRegistradas = (() => {
+    const raw = Array.isArray(pf?.historicoNegociacao) ? pf.historicoNegociacao : [];
+    const distintas: { item: any; rawIndex: number }[] = [];
+    raw.forEach((h: any, rawIndex: number) => {
+      const cAt = Number(h.precoCustoAtual || 0);
+      const cBase = Number(h.precoCustoContrato || custoContratoNum || 0);
+      const vFechBase = Number(h.valorFechadoOrgao || valorFechadoNum || 0);
+      const vReaj = Number(h.valorVendaReajuste || h.valorFechadoOrgao || vFechBase || 0);
+      if (cAt <= 0) return;
+
+      // Se o registro tem exatamente o mesmo custo e venda da assinatura (ou é COTACAO_INICIAL), é o valor negociado na assinatura, não um reajuste pós-contrato
+      const isAssinaturaInicial =
+        h.tipo === 'COTACAO_INICIAL' ||
+        (cBase > 0 &&
+          Math.abs(cAt - cBase) < 0.0001 &&
+          Math.abs(vReaj - vFechBase) < 0.0001);
+      if (isAssinaturaInicial) return;
+
+      const ultimo = distintas[distintas.length - 1];
+      if (
+        ultimo &&
+        Math.abs(Number(ultimo.item.precoCustoAtual || 0) - cAt) < 0.0001 &&
+        Math.abs(
+          Number(ultimo.item.valorVendaReajuste || ultimo.item.valorFechadoOrgao || 0) - vReaj,
+        ) < 0.0001
+      ) {
+        distintas[distintas.length - 1] = { item: h, rawIndex };
+      } else {
+        distintas.push({ item: h, rawIndex });
+      }
+    });
+    return distintas;
+  })();
+
+  const ultimaAltaAnterior =
+    altasRegistradas.length > 0
+      ? altasRegistradas[altasRegistradas.length - 1].item
+      : null;
+
+  useEffect(() => {
+    const cContr = pickPositive(
+      pf?.precoCustoContrato,
+      pf?.precoUnitario,
+      item.melhorPreco?.precoUnitario,
+    );
+    const cAtual = pickPositive(pf?.precoUnitario, cContr);
+    const vFech = pickPositive(
+      pf?.valorFechadoOrgao,
+      nossoLanceOficial,
+      item.produtoId?.valorNossoLance,
+      item.valorNossoLance,
+      item.produtoId?.valorVencedor,
+      item.valorVencedor,
+    );
+    const vOfert = pickPositive(pf?.valorOfertadoOrgao, vFech);
+    const vVendaReaj = pickPositive(pf?.valorVendaReajuste, vFech);
+
+    if (cContr > 0) {
+      setCustoContratoStr(
+        Number(cContr).toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 4,
+        }),
+      );
+    }
+    if (cAtual > 0) {
+      setCustoAtualStr(
+        Number(cAtual).toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 4,
+        }),
+      );
+    }
+    if (vFech > 0) {
+      setValorFechadoStr(
+        Number(vFech).toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 4,
+        }),
+      );
+    }
+    if (vOfert > 0) {
+      setValorOfertadoStr(
+        Number(vOfert).toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 4,
+        }),
+      );
+    }
+    if (vVendaReaj > 0) {
+      setValorVendaReajusteStr(
+        Number(vVendaReaj).toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 4,
+        }),
+      );
+    }
+    if (pf?.motivoContrato) {
+      setMotivoContrato(pf.motivoContrato);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    pf?.precoCustoContrato,
+    pf?.precoUnitario,
+    pf?.valorFechadoOrgao,
+    pf?.valorOfertadoOrgao,
+    pf?.valorVendaReajuste,
+    pf?.motivoContrato,
+    nossoLanceOficial,
+    item.produtoId?.valorVencedor,
+    item.produtoId?.valorNossoLance,
+    item.valorVencedor,
+    item.valorNossoLance,
+    item.melhorPreco?.precoUnitario,
+  ]);
+
+  const somaQtdEntregas = entregasContrato.reduce(
+    (acc, ent) => acc + (Number(ent.quantidade) || 0),
+    0,
+  );
+  const qtdEntregueNum =
+    somaQtdEntregas > 0
+      ? somaQtdEntregas
+      : parseInt(qtdEntregueStr, 10) || undefined;
+
+  const qtdEntregueNormalAssinatura = entregasContrato
+    .filter((e) => (e.regimeEntrega || 'NORMAL_ASSINATURA') === 'NORMAL_ASSINATURA')
+    .reduce((acc, e) => acc + (Number(e.quantidade) || 0), 0);
+
+  const qtdEntregueCustoSuperior = entregasContrato
+    .filter((e) => e.regimeEntrega === 'CUSTO_SUPERIOR_VENDIDO_PRECO_ANTIGO')
+    .reduce((acc, e) => acc + (Number(e.quantidade) || 0), 0);
+
+  const totalCompensarEntregas = entregasContrato
+    .filter((e) => e.regimeEntrega === 'CUSTO_SUPERIOR_VENDIDO_PRECO_ANTIGO')
+    .reduce((acc, e) => {
+      const cCompra = Number(e.custoCompraUnitario || custoAtualNum || custoContratoNum || 0);
+      const diffCusto = Math.max(0, cCompra - Number(custoContratoNum || 0));
+      return acc + diffCusto * (Number(e.quantidade) || 0);
+    }, 0);
+
+  const lucroAssinaturaNum = valorFechadoNum - custoContratoNum;
+  const lucroPosReajusteNum = valorVendaReajusteNum - custoAtualNum;
+
+  const orgaoNome =
+    oportunidade?.orgaoNome ||
+    'ÓRGÃO CONTRATANTE';
+  const orgaoPaiDisplay =
+    oportunidade?.orgaoCnpj && oportunidade?.orgaoNome
+      ? `${oportunidade.orgaoCnpj} - ${oportunidade.orgaoNome}`
+      : orgaoNome;
+  const chaveOrgaoPai = (
+    oportunidade?.orgaoCnpj ||
+    oportunidade?.unidadeCompradora ||
+    oportunidade?.orgaoNome ||
+    'ORGAO_GERAL'
+  )
+    .trim()
+    .toUpperCase();
+
+  const uasg =
+    oportunidade?.unidadeCompradora ||
+    oportunidade?.orgaoCnpj ||
+    '-';
+  const pregaoNumero =
+    oportunidade?.numeroCompraOrigem && oportunidade?.anoCompraOrigem
+      ? `${oportunidade.modalidadeNome || 'Pregão Eletrônico'} N° ${oportunidade.numeroCompraOrigem}/${oportunidade.anoCompraOrigem}`
+      : oportunidade?.numeroControlePNCP || 'Processo Licitatório Vigente';
+
+  // Gerencia a lista de Unidades Filhas (Comandos, Postos, Escritórios, Secretarias) vinculadas exclusivamente a este Órgão Pai
+  const lerUnidadesFilhasDoOrgao = (): string[] => {
+    try {
+      const rawMap = localStorage.getItem('sgl_unidades_filhas_por_orgao_v1');
+      const parsed: Record<string, string[]> = rawMap ? JSON.parse(rawMap) : {};
+      const salvas = Array.isArray(parsed[chaveOrgaoPai]) ? parsed[chaveOrgaoPai] : [];
+      const dasEntregas = entregasContrato
+        .map((e) => (e.comandoDestino || '').trim())
+        .filter(Boolean);
+      return Array.from(new Set([...salvas, ...dasEntregas]));
+    } catch {
+      return [];
+    }
+  };
+
+  const [unidadesFilhasOrgao, setUnidadesFilhasOrgao] = useState<string[]>(() =>
+    lerUnidadesFilhasDoOrgao(),
+  );
+
+  useEffect(() => {
+    const syncUnidades = () => setUnidadesFilhasOrgao(lerUnidadesFilhasDoOrgao());
+    syncUnidades();
+    window.addEventListener('sgl-unidades-filhas-updated', syncUnidades);
+    return () => window.removeEventListener('sgl-unidades-filhas-updated', syncUnidades);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chaveOrgaoPai, entregasContrato]);
+
+  const salvarUnidadeFilhaNoOrgaoPai = (nomeUnidadeRaw: string) => {
+    const nomeUnidade = nomeUnidadeRaw.trim();
+    if (!nomeUnidade) return;
+    try {
+      const rawMap = localStorage.getItem('sgl_unidades_filhas_por_orgao_v1');
+      const parsed: Record<string, string[]> = rawMap ? JSON.parse(rawMap) : {};
+      const atuais = Array.isArray(parsed[chaveOrgaoPai]) ? parsed[chaveOrgaoPai] : [];
+      if (!atuais.some((u) => u.toLowerCase() === nomeUnidade.toLowerCase())) {
+        parsed[chaveOrgaoPai] = [...atuais, nomeUnidade];
+        localStorage.setItem('sgl_unidades_filhas_por_orgao_v1', JSON.stringify(parsed));
+        window.dispatchEvent(new Event('sgl-unidades-filhas-updated'));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const removerUnidadeFilhaDoOrgaoPai = (nomeUnidade: string) => {
+    try {
+      const rawMap = localStorage.getItem('sgl_unidades_filhas_por_orgao_v1');
+      const parsed: Record<string, string[]> = rawMap ? JSON.parse(rawMap) : {};
+      const atuais = Array.isArray(parsed[chaveOrgaoPai]) ? parsed[chaveOrgaoPai] : [];
+      parsed[chaveOrgaoPai] = atuais.filter(
+        (u) => u.toLowerCase() !== nomeUnidade.toLowerCase(),
+      );
+      localStorage.setItem('sgl_unidades_filhas_por_orgao_v1', JSON.stringify(parsed));
+      window.dispatchEvent(new Event('sgl-unidades-filhas-updated'));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const prodRelatorioObj: ProdutoRelatorioReajuste = {
+    descricaoItem: item.descricaoItem || item.descricao || 'Produto',
+    numeroItem: item.numeroItem,
+    fornecedorNome: f.razaoSocial,
+    fornecedorCnpj: pf?.fornecedorId?.cnpj || '',
+    orgaoNome,
+    uasg,
+    pregaoNumero,
+    dataAssinaturaContrato: dataAssinatura,
+    dataUltimoReajuste: dataAtualizacao,
+    precoCustoContrato: custoContratoNum,
+    valorOfertadoOrgao: valorOfertadoNum || valorFechadoNum,
+    valorFechadoOrgao: valorFechadoNum,
+    valorVendaReajuste: valorVendaReajusteNum,
+    motivoContrato,
+    precoCustoAtual: custoAtualNum,
+    quantidadeContratada: item.quantidade || 1,
+    quantidadeEntregue: qtdEntregueNum,
+    entregasContrato,
+    informeUltimoReajuste: informe,
+    chatNegociacao,
+    historicoReajustes: pf?.historicoNegociacao || [],
+  };
+
+  const metricas = calcularMetricasReajuste(prodRelatorioObj);
+
+  const handleIniciarNovaAlta = () => {
+    setModoNovaAlta(true);
+    setDataAtualizacao(new Date().toISOString().split('T')[0]);
+    setCustoAtualStr('');
+    setValorVendaReajusteStr('');
+    setInforme('');
+  };
+
+  const handleCancelarNovaAlta = () => {
+    setModoNovaAlta(false);
+    const cAt = pickPositive(pf?.precoUnitario, custoContratoNum);
+    const vReaj = pickPositive(pf?.valorVendaReajuste, valorFechadoNum);
+    setCustoAtualStr(
+      cAt > 0
+        ? Number(cAt).toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 4,
+          })
+        : '',
+    );
+    setValorVendaReajusteStr(
+      vReaj > 0
+        ? Number(vReaj).toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 4,
+          })
+        : '',
+    );
+    setInforme(pf?.informeReajuste || '');
+  };
+
+  const handleGerarTextoPadrao = () => {
+    setInforme(metricas.textoExplicativo);
+    if (!chatNegociacao) {
+      setChatNegociacao(
+        `Pregão Eletrônico N° 51/2027 (SRP) (Lei 14.133/2021) - UASG ${uasg} - ${orgaoNome} | Adjudicada: GRUPO IRMAOS NASCIMENTO COMERCIO E SERVICOS DE ALIMENTACAO LTDA (CNPJ 48.262.939/0001-50 - ME/EPP - CE) | Valor ofertado: R$ ${(valorOfertadoNum || valorFechadoNum).toFixed(4).replace('.', ',')} | Valor negociado: R$ ${valorFechadoNum.toFixed(4).replace('.', ',')}`,
+      );
+    }
+  };
+
+  const persistirEntregasNoServidor = async (
+    novaLista: EntregaContratoItem[],
+    novaSoma: number,
+  ) => {
+    if (!f?.id) return;
+    try {
+      const fatorVal = Number(fator || 1);
+      const cAtu = custoAtualNum || custoContratoNum || Number(pf?.precoUnitario || 0);
+      const res = await fetch(
+        `${window.API_URL}/cotacoes/${cotacaoId}/itens/${item._id}/preco`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fornecedorId: f.id,
+            precoUnitario: cAtu,
+            fatorEmbalagem: fatorVal,
+            precoEmbalagem: parseFloat((cAtu * fatorVal).toFixed(6)),
+            nomeEmbalagem: nomeEmbalagem || 'unidade',
+            precoCustoContrato: custoContratoNum > 0 ? custoContratoNum : undefined,
+            valorFechadoOrgao: valorFechadoNum > 0 ? valorFechadoNum : undefined,
+            valorVendaReajuste: valorVendaReajusteNum > 0 ? valorVendaReajusteNum : undefined,
+            quantidadeEntregue: novaSoma,
+            entregasContrato: novaLista,
+          }),
+        },
+      );
+      if (res.ok) {
+        const updatedData = await res.json();
+        if (setCotacao) setCotacao(updatedData);
+      }
+
+      const descItem = item.descricaoItem || item.descricao || '';
+      if (descItem) {
+        await fetch(`${window.API_URL}/fornecedores/produtos/base`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            descricaoItem: descItem,
+            numeroItem: item.numeroItem,
+            oportunidadeId: oportunidade?._id || oportunidade?.id,
+            quantidadeContratada: item.quantidade || 1,
+            quantidadeEntregue: novaSoma,
+            entregasContrato: novaLista,
+            registrarNoHistorico: false,
+          }),
+        });
+      }
+    } catch (err) {
+      console.error('Erro ao sincronizar entregas:', err);
+    }
+  };
+
+  const handleAdicionarEntregaLista = async () => {
+    const qtd = parseInt(novaEntregaQtd, 10) || 0;
+    if (qtd <= 0) {
+      alert('Informe a quantidade entregue nesta Nota Fiscal / Pedido.');
+      return;
+    }
+    const cCompra =
+      novaEntregaRegime === 'CUSTO_SUPERIOR_VENDIDO_PRECO_ANTIGO'
+        ? parsePtBrNumber(novaEntregaCustoCompraStr) || custoAtualNum || custoContratoNum
+        : custoContratoNum;
+    const vFaturado =
+      parsePtBrNumber(novaEntregaValorFaturadoStr) || valorFechadoNum;
+
+    const destinoFinal =
+      novaEntregaComando.trim() ||
+      oportunidade?.orgaoNome ||
+      'Sede do Órgão Contratante';
+
+    if (novaEntregaComando.trim()) {
+      salvarUnidadeFilhaNoOrgaoPai(novaEntregaComando.trim());
+    }
+
+    const nova: EntregaContratoItem = {
+      dataEntrega: novaEntregaData || new Date().toISOString().split('T')[0],
+      comandoDestino: destinoFinal,
+      notaFiscal: novaEntregaNF.trim() || 'S/N',
+      notaEmpenho: novaEntregaNE.trim() || undefined,
+      quantidade: qtd,
+      regimeEntrega: novaEntregaRegime,
+      custoCompraUnitario: cCompra,
+      valorFaturadoUnitario: vFaturado,
+    };
+
+    const novaLista = [...entregasContrato, nova];
+    setEntregasContrato(novaLista);
+    const novaSoma = novaLista.reduce((acc, e) => acc + (Number(e.quantidade) || 0), 0);
+    setQtdEntregueStr(String(novaSoma));
+    setNovaEntregaQtd('');
+    setNovaEntregaNF('');
+    setNovaEntregaNE('');
+    await persistirEntregasNoServidor(novaLista, novaSoma);
+  };
+
+  const handleRemoverEntregaLista = async (idx: number) => {
+    const novaLista = entregasContrato.filter((_, i) => i !== idx);
+    setEntregasContrato(novaLista);
+    const novaSoma = novaLista.reduce((acc, e) => acc + (Number(e.quantidade) || 0), 0);
+    setQtdEntregueStr(novaSoma > 0 ? String(novaSoma) : '');
+    await persistirEntregasNoServidor(novaLista, novaSoma);
+  };
+
+  const handleRemoverAjusteHistorico = async (rawIndexToRemove: number) => {
+    if (!f?.id) return;
+    const raw = Array.isArray(pf?.historicoNegociacao) ? [...pf.historicoNegociacao] : [];
+    const novaHist = raw.filter((_, idx) => idx !== rawIndexToRemove);
+    // Descobre qual passa a ser o último preço vigente após remover este ajuste
+    const ultimoRestante = novaHist.length > 0 ? novaHist[novaHist.length - 1] : null;
+    const novoCustoVigente = ultimoRestante
+      ? Number(ultimoRestante.precoCustoAtual || custoContratoNum || pf?.precoUnitario || 0)
+      : custoContratoNum || Number(pf?.precoUnitario || 0);
+    const novaVendaVigente = ultimoRestante
+      ? Number(ultimoRestante.valorVendaReajuste || ultimoRestante.valorFechadoOrgao || valorFechadoNum || 0)
+      : valorFechadoNum;
+
+    setSaving(true);
+    try {
+      const fatorVal = Number(fator || 1);
+      const res = await fetch(
+        `${window.API_URL}/cotacoes/${cotacaoId}/itens/${item._id}/preco`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fornecedorId: f.id,
+            precoUnitario: novoCustoVigente,
+            fatorEmbalagem: fatorVal,
+            precoEmbalagem: parseFloat((novoCustoVigente * fatorVal).toFixed(6)),
+            nomeEmbalagem: nomeEmbalagem || 'unidade',
+            precoCustoContrato: custoContratoNum,
+            valorFechadoOrgao: valorFechadoNum,
+            valorVendaReajuste: novaVendaVigente,
+            historicoNegociacaoOverride: novaHist,
+          }),
+        },
+      );
+      if (res.ok) {
+        const updatedData = await res.json();
+        if (setCotacao) setCotacao(updatedData);
+        setCustoAtualStr(
+          novoCustoVigente.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 }),
+        );
+        setValorVendaReajusteStr(
+          novaVendaVigente.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 }),
+        );
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleLimparAlteracoesItem = async () => {
+    if (
+      !window.confirm(
+        'Deseja limpar todas as alterações de reajuste e entregas registradas neste item e restaurá-lo ao estado original?',
+      )
+    ) {
+      return;
+    }
+    setSaving(true);
+    try {
+      const cBase = custoContratoNum > 0 ? custoContratoNum : custoAtualNum;
+      const fatorVal = Number(fator || 1);
+      if (f?.id) {
+        const res = await fetch(
+          `${window.API_URL}/cotacoes/${cotacaoId}/itens/${item._id}/preco`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fornecedorId: f.id,
+              precoUnitario: cBase,
+              fatorEmbalagem: fatorVal,
+              precoEmbalagem: parseFloat((cBase * fatorVal).toFixed(6)),
+              nomeEmbalagem: nomeEmbalagem || 'unidade',
+              limparReajuste: true,
+            }),
+          },
+        );
+        if (res.ok) {
+          const updatedData = await res.json();
+          if (setCotacao) setCotacao(updatedData);
+        }
+      } else {
+        const desc = item.descricaoItem || item.descricao || 'Produto';
+        await fetch(`${window.API_URL}/fornecedores/produtos/base`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            descricaoItem: desc,
+            numeroItem: item.numeroItem,
+            limparReajuste: true,
+          }),
+        });
+      }
+      setCustoAtualStr(
+        cBase > 0
+          ? cBase.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+          : '',
+      );
+      setValorVendaReajusteStr(valorFechadoStr);
+      setEntregasContrato([]);
+      setQtdEntregueStr('');
+      setInforme('');
+      setModoNovaAlta(false);
+      alert('🧹 Alterações de reajuste deste item foram limpas e restauradas!');
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao limpar alterações deste item.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSalvarAtualizacao = async () => {
+    if (custoAtualNum <= 0) {
+      alert('Informe o Novo Custo (R$) válido (maior que zero).');
+      return;
+    }
+    setSaving(true);
+    try {
+      const fatorVal = Number(fator || 1);
+      const precoEmbalagemCalc = parseFloat(
+        (custoAtualNum * fatorVal).toFixed(6),
+      );
+      const textoInformeFinal =
+        !modoNovaAlta && informe.trim() !== ''
+          ? informe.trim()
+          : informe.trim() !== ''
+            ? informe.trim()
+            : metricas.textoExplicativo;
+
+      if (f?.id) {
+        const res = await fetch(
+          `${window.API_URL}/cotacoes/${cotacaoId}/itens/${item._id}/preco`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fornecedorId: f.id,
+              precoUnitario: custoAtualNum,
+              fatorEmbalagem: fatorVal,
+              precoEmbalagem: precoEmbalagemCalc,
+              nomeEmbalagem: nomeEmbalagem || 'unidade',
+              precoCustoContrato:
+                custoContratoNum > 0 ? custoContratoNum : custoAtualNum,
+              dataAssinaturaContrato: dataAssinatura,
+              valorOfertadoOrgao:
+                valorOfertadoNum > 0 ? valorOfertadoNum : valorFechadoNum,
+              valorFechadoOrgao: valorFechadoNum,
+              valorVendaReajuste: valorVendaReajusteNum,
+              motivoContrato,
+              quantidadeEntregue: qtdEntregueNum,
+              entregasContrato,
+              dataUltimaAtualizacaoCusto: dataAtualizacao,
+              informeReajuste: textoInformeFinal,
+              chatNegociacao: chatNegociacao.trim() || undefined,
+              registrarReajuste: true,
+              novaAlta: modoNovaAlta,
+            }),
+          },
+        );
+
+        if (!res.ok) {
+          throw new Error('Erro ao atualizar preço negociado');
+        }
+
+        const updatedData = await res.json();
+        if (setCotacao) {
+          setCotacao(updatedData);
+        }
+      } else {
+        const desc = item.descricaoItem || item.descricao || 'Produto';
+        const resBase = await fetch(`${window.API_URL}/fornecedores/produtos/base`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            descricaoItem: desc,
+            nossoLanceOficial: valorFechadoNum > 0 ? valorFechadoNum : undefined,
+            precoCustoContrato:
+              custoContratoNum > 0 ? custoContratoNum : custoAtualNum,
+            precoCustoAtual: custoAtualNum,
+            valorOfertadoOrgao:
+              valorOfertadoNum > 0 ? valorOfertadoNum : valorFechadoNum,
+            valorFechadoOrgao: valorFechadoNum,
+            valorVendaReajuste: valorVendaReajusteNum,
+            motivoContrato,
+            dataAssinaturaContrato: dataAssinatura,
+            dataUltimoReajuste: dataAtualizacao,
+            orgaoNome,
+            uasg,
+            pregaoNumero,
+            numeroItem: item.numeroItem,
+            quantidadeContratada: item.quantidade || 1,
+            quantidadeEntregue: qtdEntregueNum,
+            entregasContrato,
+            oportunidadeId: oportunidade?._id,
+            informe: textoInformeFinal,
+            chatNegociacao: chatNegociacao.trim() || undefined,
+            registrarNoHistorico: true,
+          }),
+        });
+        if (!resBase.ok) {
+          throw new Error('Erro ao salvar na base de produtos');
+        }
+      }
+      if (!informe.trim()) {
+        setInforme(textoInformeFinal);
+      }
+      setModoNovaAlta(false);
+      alert(
+        '✅ Preço negociado e custo atualizados com sucesso! O histórico completo já está disponível na aba Base de Produtos para consulta e impressão (.XLS e .DOC).',
+      );
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao salvar atualização de preço negociado.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        marginTop: '0.75rem',
+        background: '#fffbeb',
+        border: '1px solid #f59e0b',
+        borderRadius: '6px',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Cabeçalho / Caixinha clicável para expandir ou recolher */}
+      <label
+        onClick={(e) => {
+          e.preventDefault();
+          setAberto((prev) => !prev);
+        }}
+        style={{
+          padding: '0.55rem 0.7rem',
+          fontSize: '0.75rem',
+          fontWeight: 700,
+          color: '#92400e',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '0.4rem',
+          cursor: 'pointer',
+          userSelect: 'none',
+          background: aberto ? '#fef3c7' : '#fffbeb',
+          borderBottom: aberto ? '1px solid #f59e0b' : 'none',
+        }}
+        title="Clique na caixinha para exibir os campos de atualização de preços negociados / reajuste / substituição do contrato (12 meses)"
+      >
+        <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+          <input
+            type="checkbox"
+            checked={aberto}
+            readOnly
+            style={{ cursor: 'pointer', width: '14px', height: '14px', accentColor: '#d97706' }}
+          />
+          <span>📋 Atualizar Preços Negociados / Reajuste (Contrato x Atual)</span>
+        </span>
+        {aberto ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+      </label>
+
+      {aberto && (
+        <div style={{ padding: '0.75rem' }}>
+          {/* Motivo da Atualização no Contrato (12 meses) + Botão Limpar Alterações */}
+          <div style={{ marginBottom: '0.55rem' }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '0.35rem',
+                marginBottom: '0.25rem',
+                flexWrap: 'wrap',
+              }}
+            >
+              <label
+                style={{
+                  fontSize: '0.68rem',
+                  color: '#78350f',
+                  fontWeight: 700,
+                }}
+              >
+                Situação / Motivo no Contrato (Vigência 12 meses):
+              </label>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={handleLimparAlteracoesItem}
+                title="Clicou no item errado ou deseja apagar os valores de reajuste inseridos neste item? Clique aqui para limpar tudo e restaurar ao preço original da assinatura"
+                style={{
+                  fontSize: '0.63rem',
+                  background: '#fee2e2',
+                  color: '#b91c1c',
+                  border: '1px solid #fca5a5',
+                  borderRadius: '4px',
+                  padding: '0.15rem 0.45rem',
+                  fontWeight: 700,
+                  cursor: saving ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.2rem',
+                }}
+              >
+                🧹 Limpar Alterações deste Item
+              </button>
+            </div>
+            <select
+              className="form-control"
+              value={motivoContrato}
+              onChange={(e) => setMotivoContrato(e.target.value)}
+              style={{
+                width: '100%',
+                fontSize: '0.75rem',
+                padding: '0.3rem 0.4rem',
+                background: '#fff',
+                borderColor: '#f59e0b',
+                fontWeight: 600,
+                color: '#78350f',
+              }}
+            >
+              <option value="REAJUSTE_PRECO">
+                📈 Reajuste de Preço (Atualização de Custo x Novo Preço de Venda)
+              </option>
+              <option value="INVIABILIDADE_OPERACIONAL">
+                ⚠️ Inviabilidade Operacional (Lucro residual não cobre logística e pessoal)
+              </option>
+              <option value="DESCONTINUIDADE_PRODUTO">
+                🏭 Produto não mais fabricado / Desistência ou Falência da empresa
+              </option>
+            </select>
+          </div>
+
+          {/* BLOCO 1: NA ASSINATURA DE CONTRATO */}
+          <div
+            style={{
+              padding: '0.5rem',
+              background: '#f0fdf4',
+              border: '1px solid #86efac',
+              borderRadius: '5px',
+              marginBottom: '0.55rem',
+            }}
+          >
+            <div
+              style={{
+                fontSize: '0.7rem',
+                fontWeight: 800,
+                color: '#166534',
+                marginBottom: '0.4rem',
+                textTransform: 'uppercase',
+              }}
+            >
+              1️⃣ NA ASSINATURA DE CONTRATO
+            </div>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '0.4rem',
+              }}
+            >
+              <div>
+                <label
+                  style={{
+                    fontSize: '0.66rem',
+                    color: '#14532d',
+                    display: 'block',
+                    fontWeight: 600,
+                    marginBottom: '0.1rem',
+                  }}
+                >
+                  Custo na Assinatura (R$)
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Ex: 0,99 ou 3,25"
+                  value={custoContratoStr}
+                  onChange={(e) => setCustoContratoStr(e.target.value)}
+                  style={{
+                    width: '100%',
+                    fontSize: '0.78rem',
+                    padding: '0.28rem 0.4rem',
+                    background: '#fff',
+                    borderColor: '#86efac',
+                    fontWeight: 700,
+                  }}
+                />
+              </div>
+              <div>
+                <label
+                  style={{
+                    fontSize: '0.66rem',
+                    color: '#14532d',
+                    display: 'block',
+                    fontWeight: 600,
+                    marginBottom: '0.1rem',
+                  }}
+                >
+                  Preço de Venda Contrato (R$)
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Ex: 1,14 ou 3,75"
+                  value={valorFechadoStr}
+                  onChange={(e) => setValorFechadoStr(e.target.value)}
+                  style={{
+                    width: '100%',
+                    fontSize: '0.78rem',
+                    padding: '0.28rem 0.4rem',
+                    background: '#fff',
+                    borderColor: '#86efac',
+                    fontWeight: 700,
+                  }}
+                />
+              </div>
+              <div>
+                <label
+                  style={{
+                    fontSize: '0.65rem',
+                    color: '#14532d',
+                    display: 'block',
+                    fontWeight: 600,
+                    marginBottom: '0.1rem',
+                  }}
+                >
+                  Data da Assinatura
+                </label>
+                <input
+                  type="date"
+                  className="form-control"
+                  value={dataAssinatura}
+                  onChange={(e) => setDataAssinatura(e.target.value)}
+                  style={{
+                    width: '100%',
+                    fontSize: '0.72rem',
+                    padding: '0.25rem 0.35rem',
+                    background: '#fff',
+                  }}
+                />
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  background: '#dcfce7',
+                  borderRadius: '4px',
+                  padding: '0.25rem 0.4rem',
+                  border: '1px solid #86efac',
+                }}
+              >
+                <span style={{ fontSize: '0.63rem', color: '#166534', fontWeight: 600 }}>
+                  Lucro na Assinatura:
+                </span>
+                <strong style={{ fontSize: '0.82rem', color: '#15803d' }}>
+                  R${' '}
+                  {lucroAssinaturaNum.toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 4,
+                  })}
+                </strong>
+              </div>
+            </div>
+          </div>
+
+          {/* HISTÓRICO DE AJUSTES PÓS-CONTRATO (IGNORANDO O PREÇO INICIAL DA ASSINATURA) */}
+          {altasRegistradas.length > 0 && (
+            <div
+              style={{
+                padding: '0.45rem 0.55rem',
+                background: '#f8fafc',
+                border: '1px solid #cbd5e1',
+                borderRadius: '5px',
+                marginBottom: '0.55rem',
+                fontSize: '0.68rem',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '0.3rem',
+                  flexWrap: 'wrap',
+                  gap: '0.25rem',
+                }}
+              >
+                <strong style={{ color: '#334155', fontSize: '0.69rem' }}>
+                  📈 Histórico de Reajustes Pós-Assinatura ({altasRegistradas.length} ajuste
+                  {altasRegistradas.length > 1 ? 's' : ''} após o contrato):
+                </strong>
+                <span style={{ fontSize: '0.61rem', color: '#64748b' }}>
+                  (O 1º preço foi o negociado na assinatura: R${' '}
+                  {custoContratoNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                {altasRegistradas.map(({ item: h, rawIndex }, idxAlta: number) => {
+                  const cAt = Number(h.precoCustoAtual || 0);
+                  const vVenda = Number(
+                    h.valorVendaReajuste || h.valorFechadoOrgao || valorFechadoNum || 0,
+                  );
+                  const lucAlta = vVenda - cAt;
+                  const dtStr = h.data
+                    ? new Date(h.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+                    : '-';
+                  const isUltima = idxAlta === altasRegistradas.length - 1;
+                  return (
+                    <div
+                      key={idxAlta}
+                      onClick={() => {
+                        setModoNovaAlta(false);
+                        setCustoAtualStr(
+                          cAt.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 4,
+                          }),
+                        );
+                        setValorVendaReajusteStr(
+                          vVenda.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 4,
+                          }),
+                        );
+                        if (h.data) {
+                          setDataAtualizacao(formatInputDate(h.data, dataAtualizacao));
+                        }
+                        if (h.informe) {
+                          setInforme(h.informe);
+                        }
+                      }}
+                      title="Clique para carregar os valores deste ajuste nos campos abaixo"
+                      style={{
+                        padding: '0.28rem 0.45rem',
+                        borderRadius: '4px',
+                        background: isUltima && !modoNovaAlta ? '#eff6ff' : '#ffffff',
+                        border: `1px solid ${isUltima && !modoNovaAlta ? '#93c5fd' : '#e2e8f0'}`,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        cursor: 'pointer',
+                        gap: '0.3rem',
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <span style={{ color: '#1e293b', fontWeight: isUltima ? 700 : 600 }}>
+                        {idxAlta + 1}º Ajuste Pós-Contrato ({dtStr}): Custo{' '}
+                        <strong style={{ color: '#b91c1c' }}>
+                          R${' '}
+                          {cAt.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 4,
+                          })}
+                        </strong>{' '}
+                        | Venda{' '}
+                        <strong style={{ color: '#1e40af' }}>
+                          R${' '}
+                          {vVenda.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 4,
+                          })}
+                        </strong>{' '}
+                        | Lucro:{' '}
+                        <strong style={{ color: lucAlta < 0 ? '#dc2626' : '#15803d' }}>
+                          R${' '}
+                          {lucAlta.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 4,
+                          })}
+                        </strong>
+                      </span>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                        {isUltima && !modoNovaAlta && (
+                          <span
+                            style={{
+                              fontSize: '0.6rem',
+                              background: '#dbeafe',
+                              color: '#1d4ed8',
+                              padding: '0.08rem 0.35rem',
+                              borderRadius: '3px',
+                              fontWeight: 700,
+                            }}
+                          >
+                            Vigente
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoverAjusteHistorico(rawIndex);
+                          }}
+                          title="Excluir este registro de ajuste do histórico"
+                          style={{
+                            border: '1px solid #fecaca',
+                            background: '#fef2f2',
+                            color: '#b91c1c',
+                            borderRadius: '3px',
+                            padding: '0.05rem 0.28rem',
+                            fontSize: '0.62rem',
+                            cursor: 'pointer',
+                            fontWeight: 700,
+                          }}
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* BLOCO 2: APÓS ASSINATURA DE CONTRATO - REAJUSTE NOVOS VALORES */}
+          <div
+            style={{
+              padding: '0.5rem',
+              background: modoNovaAlta ? '#eff6ff' : '#fef2f2',
+              border: `1px solid ${modoNovaAlta ? '#60a5fa' : '#fca5a5'}`,
+              borderRadius: '5px',
+              marginBottom: '0.55rem',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '0.4rem',
+                marginBottom: '0.4rem',
+                flexWrap: 'wrap',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '0.7rem',
+                  fontWeight: 800,
+                  color: modoNovaAlta ? '#1e40af' : '#991b1b',
+                  textTransform: 'uppercase',
+                }}
+              >
+                {modoNovaAlta
+                  ? `2️⃣ INSERIR NOVA ALTA (${altasRegistradas.length + 1}º AJUSTE PÓS-CONTRATO)`
+                  : '2️⃣ APÓS ASSINATURA DE CONTRATO — REAJUSTE / NOVOS VALORES'}
+              </div>
+              {!modoNovaAlta ? (
+                <button
+                  type="button"
+                  onClick={handleIniciarNovaAlta}
+                  style={{
+                    fontSize: '0.65rem',
+                    background: '#1d4ed8',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '0.2rem 0.45rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.2rem',
+                  }}
+                  title="Registrar uma nova alta de preço sofrida neste mesmo produto dentro do prazo do contrato"
+                >
+                  ➕ Inserir Nova Alta
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleCancelarNovaAlta}
+                  style={{
+                    fontSize: '0.64rem',
+                    background: '#f1f5f9',
+                    color: '#475569',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '4px',
+                    padding: '0.18rem 0.4rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  ✖ Cancelar Nova Alta
+                </button>
+              )}
+            </div>
+
+            {modoNovaAlta && ultimaAltaAnterior && (
+              <div
+                style={{
+                  fontSize: '0.67rem',
+                  background: '#dbeafe',
+                  color: '#1e3a8a',
+                  padding: '0.3rem 0.45rem',
+                  borderRadius: '4px',
+                  marginBottom: '0.4rem',
+                  fontWeight: 600,
+                }}
+              >
+                📌 Último ajuste anterior: Custo{' '}
+                <strong>
+                  R${' '}
+                  {Number(ultimaAltaAnterior.precoCustoAtual || 0).toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                  })}
+                </strong>{' '}
+                | Venda{' '}
+                <strong>
+                  R${' '}
+                  {Number(
+                    ultimaAltaAnterior.valorVendaReajuste ||
+                      ultimaAltaAnterior.valorFechadoOrgao ||
+                      valorFechadoNum ||
+                      0,
+                  ).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </strong>
+                . Digite abaixo os valores do{' '}
+                <strong>{altasRegistradas.length + 1}º Ajuste Pós-Contrato</strong> e clique em
+                Salvar:
+              </div>
+            )}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '0.4rem',
+              }}
+            >
+              <div>
+                <label
+                  style={{
+                    fontSize: '0.66rem',
+                    color: '#991b1b',
+                    display: 'block',
+                    fontWeight: 700,
+                    marginBottom: '0.1rem',
+                  }}
+                >
+                  Novo Custo (R$)
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Ex: 1,07 ou 3,67"
+                  value={custoAtualStr}
+                  onChange={(e) => setCustoAtualStr(e.target.value)}
+                  style={{
+                    width: '100%',
+                    fontSize: '0.8rem',
+                    padding: '0.28rem 0.4rem',
+                    background: '#fff',
+                    borderColor: '#f87171',
+                    fontWeight: 700,
+                    color: '#991b1b',
+                  }}
+                />
+              </div>
+              <div>
+                <label
+                  style={{
+                    fontSize: '0.66rem',
+                    color: '#1e40af',
+                    display: 'block',
+                    fontWeight: 700,
+                    marginBottom: '0.1rem',
+                  }}
+                >
+                  Novo Preço de Venda (R$)
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Ex: 1,28 ou 3,75"
+                  value={valorVendaReajusteStr}
+                  onChange={(e) => setValorVendaReajusteStr(e.target.value)}
+                  style={{
+                    width: '100%',
+                    fontSize: '0.8rem',
+                    padding: '0.28rem 0.4rem',
+                    background: '#fff',
+                    borderColor: '#60a5fa',
+                    fontWeight: 700,
+                    color: '#1e3a8a',
+                  }}
+                />
+              </div>
+              <div>
+                <label
+                  style={{
+                    fontSize: '0.65rem',
+                    color: '#991b1b',
+                    display: 'block',
+                    fontWeight: 600,
+                    marginBottom: '0.1rem',
+                  }}
+                >
+                  Data da Atualização
+                </label>
+                <input
+                  type="date"
+                  className="form-control"
+                  value={dataAtualizacao}
+                  onChange={(e) => setDataAtualizacao(e.target.value)}
+                  style={{
+                    width: '100%',
+                    fontSize: '0.72rem',
+                    padding: '0.25rem 0.35rem',
+                    background: '#fff',
+                  }}
+                />
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  background:
+                    lucroPosReajusteNum < 0 || metricas.ficaInviavelOperacional
+                      ? '#fee2e2'
+                      : '#e0f2fe',
+                  borderRadius: '4px',
+                  padding: '0.25rem 0.4rem',
+                  border: `1px solid ${
+                    lucroPosReajusteNum < 0 || metricas.ficaInviavelOperacional
+                      ? '#f87171'
+                      : '#7dd3fc'
+                  }`,
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: '0.63rem',
+                    color:
+                      lucroPosReajusteNum < 0 || metricas.ficaInviavelOperacional
+                        ? '#991b1b'
+                        : '#0369a1',
+                    fontWeight: 600,
+                  }}
+                >
+                  Novo Lucro:
+                </span>
+                <strong
+                  style={{
+                    fontSize: '0.82rem',
+                    color:
+                      lucroPosReajusteNum < 0 || metricas.ficaInviavelOperacional
+                        ? '#b91c1c'
+                        : '#0284c7',
+                  }}
+                >
+                  R${' '}
+                  {lucroPosReajusteNum.toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 4,
+                  })}
+                </strong>
+              </div>
+            </div>
+          </div>
+
+          {/* BLOCO 3: CONTROLE DE ENTREGAS FRACIONADAS POR COMANDO (OM), NOTA FISCAL, EMPENHO E COMPENSAÇÃO */}
+          <div
+            style={{
+              padding: '0.55rem',
+              background: '#f8fafc',
+              border: '1px solid #cbd5e1',
+              borderRadius: '6px',
+              marginBottom: '0.55rem',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '0.35rem',
+                flexWrap: 'wrap',
+                marginBottom: '0.35rem',
+              }}
+            >
+              <strong style={{ fontSize: '0.7rem', color: '#0f172a' }}>
+                🚚 Entregas Fracionadas por Comando / NF / Empenho & Compensação
+              </strong>
+              <span
+                style={{
+                  fontSize: '0.63rem',
+                  background: '#e2e8f0',
+                  color: '#1e293b',
+                  padding: '0.1rem 0.4rem',
+                  borderRadius: '4px',
+                  fontWeight: 700,
+                }}
+              >
+                Total Entregue:{' '}
+                {(qtdEntregueNum || somaQtdEntregas || 0).toLocaleString('pt-BR')} un. | Saldo:{' '}
+                {Math.max(
+                  0,
+                  (Number(item.quantidade) || 0) - (qtdEntregueNum || somaQtdEntregas || 0),
+                ).toLocaleString('pt-BR')}{' '}
+                un.
+              </span>
+            </div>
+
+            {/* Resumo das entregas normais vs entregas c/ custo superior antes do pedido de reajuste */}
+            {entregasContrato.length > 0 && (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '0.35rem',
+                  marginBottom: '0.45rem',
+                  fontSize: '0.64rem',
+                }}
+              >
+                <div
+                  style={{
+                    background: '#f0fdf4',
+                    border: '1px solid #bbf7d0',
+                    borderRadius: '4px',
+                    padding: '0.3rem 0.4rem',
+                    color: '#166534',
+                  }}
+                >
+                  <div>✅ Preço Igual à Assinatura:</div>
+                  <strong>
+                    {qtdEntregueNormalAssinatura.toLocaleString('pt-BR')} un.
+                  </strong>{' '}
+                  (
+                  {
+                    entregasContrato.filter(
+                      (e) => (e.regimeEntrega || 'NORMAL_ASSINATURA') === 'NORMAL_ASSINATURA',
+                    ).length
+                  }{' '}
+                  remessa(s))
+                </div>
+                <div
+                  style={{
+                    background: totalCompensarEntregas > 0 ? '#fffbeb' : '#f8fafc',
+                    border: `1px solid ${totalCompensarEntregas > 0 ? '#fde68a' : '#e2e8f0'}`,
+                    borderRadius: '4px',
+                    padding: '0.3rem 0.4rem',
+                    color: totalCompensarEntregas > 0 ? '#92400e' : '#475569',
+                  }}
+                >
+                  <div>⚠️ Comprado c/ Custo Superior (NF Preço Antigo):</div>
+                  <strong>
+                    {qtdEntregueCustoSuperior.toLocaleString('pt-BR')} un.
+                  </strong>{' '}
+                  | Compensar:{' '}
+                  <strong style={{ color: '#b91c1c' }}>
+                    R${' '}
+                    {totalCompensarEntregas.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </strong>
+                </div>
+              </div>
+            )}
+
+            {/* Lista de entregas já lançadas */}
+            {entregasContrato.length > 0 && (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.25rem',
+                  marginBottom: '0.45rem',
+                  maxHeight: '165px',
+                  overflowY: 'auto',
+                }}
+              >
+                {entregasContrato.map((ent, idxEnt) => {
+                  const isComp = ent.regimeEntrega === 'CUSTO_SUPERIOR_VENDIDO_PRECO_ANTIGO';
+                  const dtFormatada = ent.dataEntrega
+                    ? new Date(ent.dataEntrega).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+                    : '-';
+                  const cCompra = Number(
+                    ent.custoCompraUnitario ||
+                      (isComp ? custoAtualNum : custoContratoNum) ||
+                      0,
+                  );
+                  const vNf = Number(ent.valorFaturadoUnitario || valorFechadoNum || 0);
+                  const compItem = isComp
+                    ? Math.max(0, cCompra - Number(custoContratoNum || 0)) *
+                      (Number(ent.quantidade) || 0)
+                    : 0;
+                  return (
+                    <div
+                      key={idxEnt}
+                      style={{
+                        padding: '0.28rem 0.4rem',
+                        borderRadius: '4px',
+                        background: isComp ? '#fffbeb' : '#ffffff',
+                        border: `1px solid ${isComp ? '#fcd34d' : '#e2e8f0'}`,
+                        fontSize: '0.64rem',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                      }}
+                    >
+                      <div style={{ lineHeight: 1.35 }}>
+                        <div style={{ fontWeight: 700, color: '#0f172a' }}>
+                          📍 {ent.comandoDestino || 'Comando / OM'} —{' '}
+                          <span style={{ color: '#1d4ed8' }}>
+                            {Number(ent.quantidade || 0).toLocaleString('pt-BR')} un.
+                          </span>{' '}
+                          ({dtFormatada})
+                          {ent.notaFiscal ? ` | NF: ${ent.notaFiscal}` : ''}
+                          {ent.notaEmpenho ? ` | NE: ${ent.notaEmpenho}` : ''}
+                        </div>
+                        <div style={{ color: isComp ? '#92400e' : '#15803d', fontWeight: 600 }}>
+                          {isComp ? (
+                            <>
+                              ⚠️ Comprado a R${' '}
+                              {cCompra.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} e
+                              faturado na NF antiga a R${' '}
+                              {vNf.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} →{' '}
+                              <strong style={{ color: '#b91c1c' }}>
+                                Compensar R${' '}
+                                {compItem.toLocaleString('pt-BR', {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </strong>
+                            </>
+                          ) : (
+                            <>
+                              ✅ Entregue no preço original da assinatura (Custo R${' '}
+                              {cCompra.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | NF
+                              R$ {vNf.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoverEntregaLista(idxEnt)}
+                        title="Remover esta entrega"
+                        style={{
+                          border: '1px solid #fecaca',
+                          background: '#fef2f2',
+                          color: '#b91c1c',
+                          borderRadius: '3px',
+                          padding: '0.1rem 0.3rem',
+                          fontSize: '0.62rem',
+                          cursor: 'pointer',
+                          fontWeight: 700,
+                        }}
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Formulário para adicionar nova entrega fracionada vinculada ao Órgão Pai */}
+            <div
+              style={{
+                background: '#ffffff',
+                border: '1px dashed #94a3b8',
+                borderRadius: '5px',
+                padding: '0.45rem',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '0.65rem',
+                  fontWeight: 700,
+                  color: '#334155',
+                  marginBottom: '0.25rem',
+                }}
+              >
+                ➕ Registrar Entrega / Nota de Empenho (Fracionada por Unidade Filha / Comando / Posto):
+              </div>
+
+              {/* Identificação do Órgão Pai atual */}
+              <div
+                style={{
+                  fontSize: '0.62rem',
+                  background: '#f1f5f9',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '4px',
+                  padding: '0.22rem 0.4rem',
+                  color: '#1e293b',
+                  marginBottom: '0.35rem',
+                  lineHeight: 1.35,
+                }}
+              >
+                🏛️ <strong>Órgão Pai:</strong> {orgaoPaiDisplay}
+              </div>
+
+              {/* Atalhos rápidos das Unidades Filhas / Comandos / Postos salvos EXCLUSIVAMENTE para este Órgão Pai */}
+              {unidadesFilhasOrgao.length > 0 ? (
+                <div style={{ marginBottom: '0.35rem' }}>
+                  <div
+                    style={{
+                      fontSize: '0.6rem',
+                      color: '#475569',
+                      fontWeight: 600,
+                      marginBottom: '0.18rem',
+                    }}
+                  >
+                    📍 Locais / Unidades Filhas cadastradas para este Órgão Pai (clique para selecionar):
+                  </div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: '0.25rem',
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    {unidadesFilhasOrgao.map((cmdPreset) => (
+                      <div
+                        key={cmdPreset}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          borderRadius: '3px',
+                          border:
+                            novaEntregaComando === cmdPreset
+                              ? '1px solid #2563eb'
+                              : '1px solid #cbd5e1',
+                          background: novaEntregaComando === cmdPreset ? '#dbeafe' : '#f8fafc',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setNovaEntregaComando(cmdPreset)}
+                          style={{
+                            fontSize: '0.6rem',
+                            padding: '0.1rem 0.35rem',
+                            border: 'none',
+                            background: 'transparent',
+                            color: novaEntregaComando === cmdPreset ? '#1e40af' : '#334155',
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                          }}
+                        >
+                          📍 {cmdPreset}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removerUnidadeFilhaDoOrgaoPai(cmdPreset);
+                            if (novaEntregaComando === cmdPreset) {
+                              setNovaEntregaComando('');
+                            }
+                          }}
+                          title={`Remover "${cmdPreset}" da lista deste Órgão Pai`}
+                          style={{
+                            fontSize: '0.58rem',
+                            padding: '0.1rem 0.25rem',
+                            border: 'none',
+                            borderLeft: '1px solid #cbd5e1',
+                            background: 'transparent',
+                            color: '#dc2626',
+                            cursor: 'pointer',
+                            fontWeight: 700,
+                          }}
+                        >
+                          ✖
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    fontSize: '0.6rem',
+                    color: '#64748b',
+                    marginBottom: '0.3rem',
+                    fontStyle: 'italic',
+                  }}
+                >
+                  💡 Digite abaixo o Comando, Posto, Secretaria ou Escritório filho deste órgão (ex: Comando A, Posto B) para vinculá-lo a este Órgão Pai.
+                </div>
+              )}
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1.35fr 0.65fr',
+                  gap: '0.35rem',
+                  marginBottom: '0.3rem',
+                }}
+              >
+                <div>
+                  <label
+                    style={{
+                      fontSize: '0.62rem',
+                      color: '#475569',
+                      display: 'block',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Unidade Filha / Comando / Posto / Escritório
+                  </label>
+                  <div style={{ display: 'flex', gap: '0.2rem' }}>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Ex: Comando A, Posto B, Escritório..."
+                      value={novaEntregaComando}
+                      onChange={(e) => setNovaEntregaComando(e.target.value)}
+                      style={{
+                        width: '100%',
+                        fontSize: '0.72rem',
+                        padding: '0.22rem 0.35rem',
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!novaEntregaComando.trim()) {
+                          alert(
+                            'Digite o nome do Comando, Posto ou Escritório filho para salvar neste Órgão Pai.',
+                          );
+                          return;
+                        }
+                        salvarUnidadeFilhaNoOrgaoPai(novaEntregaComando.trim());
+                      }}
+                      title="Salvar este Comando / Posto / Escritório como atalho fixo deste Órgão Pai"
+                      style={{
+                        fontSize: '0.62rem',
+                        padding: '0.18rem 0.38rem',
+                        background: '#eff6ff',
+                        color: '#1d4ed8',
+                        border: '1px solid #93c5fd',
+                        borderRadius: '4px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      📌 Fixar
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label
+                    style={{
+                      fontSize: '0.62rem',
+                      color: '#475569',
+                      display: 'block',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Qtd. Entregue (un.)
+                  </label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    placeholder="Ex: 2450"
+                    value={novaEntregaQtd}
+                    onChange={(e) => setNovaEntregaQtd(e.target.value)}
+                    style={{
+                      width: '100%',
+                      fontSize: '0.72rem',
+                      padding: '0.22rem 0.35rem',
+                      fontWeight: 700,
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr 1fr',
+                  gap: '0.35rem',
+                  marginBottom: '0.35rem',
+                }}
+              >
+                <div>
+                  <label
+                    style={{
+                      fontSize: '0.62rem',
+                      color: '#475569',
+                      display: 'block',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Nº Nota Fiscal (NF)
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Ex: NF 001452"
+                    value={novaEntregaNF}
+                    onChange={(e) => setNovaEntregaNF(e.target.value)}
+                    style={{
+                      width: '100%',
+                      fontSize: '0.7rem',
+                      padding: '0.2rem 0.35rem',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label
+                    style={{
+                      fontSize: '0.62rem',
+                      color: '#475569',
+                      display: 'block',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Nº Empenho (NE)
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Ex: 2026NE000312"
+                    value={novaEntregaNE}
+                    onChange={(e) => setNovaEntregaNE(e.target.value)}
+                    style={{
+                      width: '100%',
+                      fontSize: '0.7rem',
+                      padding: '0.2rem 0.35rem',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label
+                    style={{
+                      fontSize: '0.62rem',
+                      color: '#475569',
+                      display: 'block',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Data da Entrega
+                  </label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={novaEntregaData}
+                    onChange={(e) => setNovaEntregaData(e.target.value)}
+                    style={{
+                      width: '100%',
+                      fontSize: '0.68rem',
+                      padding: '0.2rem 0.3rem',
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '0.35rem' }}>
+                <label
+                  style={{
+                    fontSize: '0.62rem',
+                    color: '#475569',
+                    display: 'block',
+                    fontWeight: 700,
+                    marginBottom: '0.1rem',
+                  }}
+                >
+                  Situação de Custo / Preço quando esta Nota Fiscal foi Entregue:
+                </label>
+                <select
+                  className="form-control"
+                  value={novaEntregaRegime}
+                  onChange={(e) =>
+                    setNovaEntregaRegime(
+                      e.target.value as
+                        | 'NORMAL_ASSINATURA'
+                        | 'CUSTO_SUPERIOR_VENDIDO_PRECO_ANTIGO',
+                    )
+                  }
+                  style={{
+                    width: '100%',
+                    fontSize: '0.69rem',
+                    padding: '0.24rem 0.35rem',
+                    fontWeight: 600,
+                    background:
+                      novaEntregaRegime === 'CUSTO_SUPERIOR_VENDIDO_PRECO_ANTIGO'
+                        ? '#fffbeb'
+                        : '#f0fdf4',
+                    borderColor:
+                      novaEntregaRegime === 'CUSTO_SUPERIOR_VENDIDO_PRECO_ANTIGO'
+                        ? '#f59e0b'
+                        : '#86efac',
+                    color:
+                      novaEntregaRegime === 'CUSTO_SUPERIOR_VENDIDO_PRECO_ANTIGO'
+                        ? '#92400e'
+                        : '#166534',
+                  }}
+                >
+                  <option value="NORMAL_ASSINATURA">
+                    ✅ Preços seguiam iguais aos da assinatura do 1º contrato (Sem compensação)
+                  </option>
+                  <option value="CUSTO_SUPERIOR_VENDIDO_PRECO_ANTIGO">
+                    ⚠️ Entregue ANTES de solicitar reajuste: Nota Fiscal c/ preço antigo, mas compramos c/ custo superior (Registrar p/ Compensação)
+                  </option>
+                </select>
+              </div>
+
+              {novaEntregaRegime === 'CUSTO_SUPERIOR_VENDIDO_PRECO_ANTIGO' && (
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '0.35rem',
+                    marginBottom: '0.35rem',
+                    padding: '0.35rem',
+                    background: '#fffbeb',
+                    border: '1px solid #fde68a',
+                    borderRadius: '4px',
+                  }}
+                >
+                  <div>
+                    <label
+                      style={{
+                        fontSize: '0.61rem',
+                        color: '#92400e',
+                        display: 'block',
+                        fontWeight: 700,
+                      }}
+                    >
+                      Custo Superior Pago na Compra (R$)
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder={`Ex: ${custoAtualStr || '1,07'}`}
+                      value={novaEntregaCustoCompraStr}
+                      onChange={(e) => setNovaEntregaCustoCompraStr(e.target.value)}
+                      style={{
+                        width: '100%',
+                        fontSize: '0.72rem',
+                        padding: '0.2rem 0.35rem',
+                        background: '#fff',
+                        borderColor: '#f59e0b',
+                        fontWeight: 700,
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        fontSize: '0.61rem',
+                        color: '#92400e',
+                        display: 'block',
+                        fontWeight: 700,
+                      }}
+                    >
+                      Preço Antigo Faturado na NF (R$)
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder={`Ex: ${valorFechadoStr || '1,14'}`}
+                      value={novaEntregaValorFaturadoStr}
+                      onChange={(e) => setNovaEntregaValorFaturadoStr(e.target.value)}
+                      style={{
+                        width: '100%',
+                        fontSize: '0.72rem',
+                        padding: '0.2rem 0.35rem',
+                        background: '#fff',
+                        borderColor: '#f59e0b',
+                        fontWeight: 700,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleAdicionarEntregaLista}
+                style={{
+                  width: '100%',
+                  padding: '0.28rem 0.5rem',
+                  background: '#0f172a',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontSize: '0.68rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                ➕ Incluir Entrega na Lista deste Item (Lembre-se de Salvar Abaixo)
+              </button>
+            </div>
+          </div>
+
+          {/* Resumo comparativo no formato exato solicitado */}
+          {(custoContratoNum > 0 || valorFechadoNum > 0 || custoAtualNum > 0) && (
+            <div
+              style={{
+                padding: '0.55rem',
+                background:
+                  metricas.temPrejuizoPosReajuste || metricas.ficaInviavelOperacional
+                    ? '#fef2f2'
+                    : metricas.reajusteRecomposMargem
+                      ? '#f0fdf4'
+                      : '#f8fafc',
+                border: `1px solid ${
+                  metricas.temPrejuizoPosReajuste || metricas.ficaInviavelOperacional
+                    ? '#f87171'
+                    : metricas.reajusteRecomposMargem
+                      ? '#86efac'
+                      : '#cbd5e1'
+                }`,
+                borderRadius: '5px',
+                marginBottom: '0.5rem',
+                fontSize: '0.71rem',
+                lineHeight: 1.45,
+              }}
+            >
+              <div style={{ color: '#166534', fontWeight: 700 }}>
+                📌 NA ASSINATURA DE CONTRATO:
+                <br />
+                custo R${' '}
+                {custoContratoNum.toLocaleString('pt-BR', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 4,
+                })}{' '}
+                | preço de venda: R${' '}
+                {valorFechadoNum.toLocaleString('pt-BR', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 4,
+                })}{' '}
+                | lucro:{' '}
+                <strong>
+                  R${' '}
+                  {lucroAssinaturaNum.toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 4,
+                  })}
+                </strong>
+              </div>
+
+              {custoAtualNum > 0 && (
+                <div
+                  style={{
+                    marginTop: '0.35rem',
+                    paddingTop: '0.35rem',
+                    borderTop: '1px dashed #cbd5e1',
+                    color:
+                      metricas.temPrejuizoPosReajuste || metricas.ficaInviavelOperacional
+                        ? '#b91c1c'
+                        : '#0f172a',
+                    fontWeight: 700,
+                  }}
+                >
+                  🔄 APÓS ASSINATURA DE CONTRATO REAJUSTE NOVOS VALORES SÃO:
+                  <br />
+                  custo R${' '}
+                  {custoAtualNum.toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 4,
+                  })}{' '}
+                  | preço de venda: R${' '}
+                  {valorVendaReajusteNum.toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 4,
+                  })}{' '}
+                  | lucro:{' '}
+                  <strong
+                    style={{
+                      color:
+                        lucroPosReajusteNum < 0 || metricas.ficaInviavelOperacional
+                          ? '#b91c1c'
+                          : '#15803d',
+                    }}
+                  >
+                    R${' '}
+                    {lucroPosReajusteNum.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 4,
+                    })}
+                  </strong>
+                </div>
+              )}
+
+              {metricas.reajusteRecomposMargem && (
+                <div
+                  style={{
+                    marginTop: '0.35rem',
+                    padding: '0.35rem',
+                    background: '#dcfce7',
+                    border: '1px solid #86efac',
+                    borderRadius: '4px',
+                    color: '#166534',
+                    fontWeight: 700,
+                  }}
+                >
+                  ✅ Com a Nova Proposta de Venda (R${' '}
+                  {valorVendaReajusteNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}), NÃO há prejuízo: você garante{' '}
+                  <strong>
+                    R$ {lucroPosReajusteNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/un. de lucro
+                  </strong>
+                  !
+                  {(metricas.temPrejuizoDireto || metricas.ficaInviavelSemReajuste) && (
+                    <div style={{ fontWeight: 600, fontSize: '0.66rem', color: '#14532d', marginTop: '0.15rem' }}>
+                      (Obs: o {metricas.temPrejuizoDireto ? `prejuízo de R$ ${metricas.prejuizoUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/un.` : `lucro reduzido de R$ ${metricas.resultadoAtualUnit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/un.`} ocorreria somente se mantivesse o preço antigo de R${' '}
+                      {valorFechadoNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} sem reajuste).
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {metricas.ficaInviavelOperacional && (
+                <div
+                  style={{
+                    marginTop: '0.35rem',
+                    padding: '0.35rem',
+                    background: '#fee2e2',
+                    borderRadius: '4px',
+                    color: '#991b1b',
+                    fontWeight: 700,
+                  }}
+                >
+                  ⚠️ Projeção Inviável: saímos do patamar de R${' '}
+                  {lucroAssinaturaNum.toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}{' '}
+                  de lucro para R${' '}
+                  {lucroPosReajusteNum.toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}{' '}
+                  e isso não cobre os custos operacionais da logística e pessoal!
+                </div>
+              )}
+
+              {motivoContrato === 'DESCONTINUIDADE_PRODUTO' && (
+                <div
+                  style={{
+                    marginTop: '0.35rem',
+                    padding: '0.35rem',
+                    background: '#fef3c7',
+                    borderRadius: '4px',
+                    color: '#92400e',
+                    fontWeight: 700,
+                  }}
+                >
+                  🏭 Produto descontinuado / não fabricado mais por desistência ou falência da empresa durante os 12 meses de contrato.
+                </div>
+              )}
+            </div>
+          )}
+
+          <div style={{ marginBottom: '0.45rem' }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '0.15rem',
+              }}
+            >
+              <label
+                style={{
+                  fontSize: '0.68rem',
+                  color: '#78350f',
+                  fontWeight: 600,
+                }}
+              >
+                Informe / Projeção e Justificativa do Reajuste
+              </label>
+              <button
+                type="button"
+                onClick={handleGerarTextoPadrao}
+                style={{
+                  fontSize: '0.65rem',
+                  background: '#fef3c7',
+                  color: '#92400e',
+                  border: '1px solid #f59e0b',
+                  borderRadius: '4px',
+                  padding: '0.1rem 0.35rem',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                }}
+              >
+                ✨ Gerar Projeção Automática
+              </button>
+            </div>
+            <textarea
+              className="form-control"
+              rows={3}
+              placeholder="Ex: NA ASSINATURA DE CONTRATO: custo R$ 3,25 | venda R$ 3,75 | lucro R$ 0,50. APÓS ASSINATURA: custo R$ 3,67 | venda R$ 3,75 | lucro R$ 0,08 (inviável p/ logística e pessoal)..."
+              value={informe}
+              onChange={(e) => setInforme(e.target.value)}
+              style={{
+                width: '100%',
+                fontSize: '0.73rem',
+                padding: '0.3rem',
+                background: '#fff',
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '0.5rem' }}>
+            <label
+              style={{
+                fontSize: '0.68rem',
+                color: '#475569',
+                display: 'block',
+                fontWeight: 600,
+                marginBottom: '0.15rem',
+              }}
+            >
+              Chat / Histórico da Negociação no Portal (Opcional)
+            </label>
+            <textarea
+              className="form-control"
+              rows={2}
+              placeholder="Cole aqui o texto do chat de negociação / adjudicação do pregão..."
+              value={chatNegociacao}
+              onChange={(e) => setChatNegociacao(e.target.value)}
+              style={{
+                width: '100%',
+                fontSize: '0.72rem',
+                padding: '0.3rem',
+                background: '#fff',
+              }}
+            />
+          </div>
+
+          <button
+            type="button"
+            disabled={saving}
+            onClick={handleSalvarAtualizacao}
+            style={{
+              width: '100%',
+              padding: '0.45rem 0.6rem',
+              background: saving ? '#94a3b8' : '#d97706',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '5px',
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              cursor: saving ? 'not-allowed' : 'pointer',
+              marginBottom: '0.4rem',
+            }}
+          >
+            {saving
+              ? 'Salvando atualização...'
+              : '💾 Atualizar Custo no Sistema e Registrar Histórico'}
+          </button>
+
+          <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => exportarRelatorioReajusteXLS([prodRelatorioObj])}
+              style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.25rem',
+                padding: '0.35rem 0.4rem',
+                background: '#10b981',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+              title="Imprimir / Baixar Relatório em Excel (.XLS)"
+            >
+              <FileSpreadsheet size={13} /> Relatório .XLS
+            </button>
+            <button
+              type="button"
+              onClick={() => exportarRelatorioReajusteDOC([prodRelatorioObj])}
+              style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.25rem',
+                padding: '0.35rem 0.4rem',
+                background: '#2563eb',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+              title="Imprimir / Baixar Relatório e Pedido de Reajuste em Word (.DOC)"
+            >
+              <FileText size={13} /> Relatório .DOC
+            </button>
+            {pf?.historicoNegociacao && pf.historicoNegociacao.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowHistoricoLocal(!showHistoricoLocal)}
+                style={{
+                  padding: '0.35rem 0.5rem',
+                  background: '#f1f5f9',
+                  color: '#334155',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '4px',
+                  fontSize: '0.7rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.2rem',
+                }}
+              >
+                <History size={13} /> ({pf.historicoNegociacao.length})
+              </button>
+            )}
+          </div>
+
+          {showHistoricoLocal &&
+            pf?.historicoNegociacao &&
+            pf.historicoNegociacao.length > 0 && (
+              <div
+                style={{
+                  marginTop: '0.5rem',
+                  padding: '0.45rem',
+                  background: '#fff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '4px',
+                  maxHeight: '180px',
+                  overflowY: 'auto',
+                  fontSize: '0.68rem',
+                }}
+              >
+                <strong style={{ display: 'block', marginBottom: '0.3rem', color: '#0f172a' }}>
+                  Histórico de Atualizações deste Item:
+                </strong>
+                {[...pf.historicoNegociacao].reverse().map((h: any, idx: number) => (
+                  <div
+                    key={idx}
+                    style={{
+                      borderBottom: '1px solid #f1f5f9',
+                      paddingBottom: '0.35rem',
+                      marginBottom: '0.35rem',
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, color: '#334155' }}>
+                      📅 {new Date(h.data).toLocaleDateString('pt-BR')} — Custo Atual:{' '}
+                      <span style={{ color: '#b91c1c' }}>
+                        R$ {Number(h.precoCustoAtual || 0).toFixed(2).replace('.', ',')}
+                      </span>{' '}
+                      | Contrato: R${' '}
+                      {Number(h.precoCustoContrato || 0).toFixed(2).replace('.', ',')}{' '}
+                      | Órgão: R${' '}
+                      {Number(h.valorFechadoOrgao || 0).toFixed(2).replace('.', ',')}
+                    </div>
+                    {h.informe && (
+                      <div style={{ color: '#64748b', marginTop: '0.15rem' }}>
+                        {h.informe}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, handleRemovePreco, novoFornecedorId, setNovoFornecedorId, cotacaoId, setCotacao, onLiveValoresChange, aliquotaEfetivaGlobal, modeloEntrega, mesesContrato, oportunidade }: any) {
   const [open, setOpen] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isIntelligenceLoading, setIsIntelligenceLoading] = useState(false);
@@ -134,12 +2580,42 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
   const divisorTempo = modeloEntrega === 'FRACIONADO' ? (mesesContrato || 1) : 1;
   const labelTempo = modeloEntrega === 'FRACIONADO' ? ' (Mensal)' : '';
 
-  // Sugere cobrir a oferta por 1 centavo (0.0100)
+  // Identifica se o item possui atualização de preços pós-contrato (1º Contrato x Após as Novas Alterações)
+  const pfReajuste = (() => {
+    const lista = item.precosFornecedores || [];
+    if (!lista.length) return null;
+    const melhorFornId = item.melhorPreco?.fornecedorId?._id || item.melhorPreco?.fornecedorId;
+    return (
+      lista.find((p: any) => Number(p.precoCustoContrato || 0) > 0 && melhorFornId && (p.fornecedorId?._id === melhorFornId || p.fornecedorId === melhorFornId)) ||
+      lista.find((p: any) => Number(p.precoCustoContrato || 0) > 0 || Number(p.valorVendaReajuste || 0) > 0 || (p.historicoNegociacao && p.historicoNegociacao.length > 0)) ||
+      (melhorFornId ? lista.find((p: any) => p.fornecedorId?._id === melhorFornId || p.fornecedorId === melhorFornId) : lista[0])
+    );
+  })();
+
+  const custo1Contrato = Number(pfReajuste?.precoCustoContrato || 0) > 0 ? Number(pfReajuste.precoCustoContrato) : nossoCusto;
+  const venda1Contrato = Number(pfReajuste?.valorFechadoOrgao || 0) > 0
+    ? Number(pfReajuste.valorFechadoOrgao)
+    : (nossoLanceVal > 0 ? nossoLanceVal : Number(item.valorVencedor || item.produtoId?.valorVencedor || 0));
+  const custoPosAlteracao = nossoCusto > 0 ? nossoCusto : Number(pfReajuste?.precoUnitario || custo1Contrato || 0);
+  const vendaPosAlteracao = Number(pfReajuste?.valorVendaReajuste || 0) > 0 ? Number(pfReajuste.valorVendaReajuste) : venda1Contrato;
+
+  const temAlteracaoPosContrato = Boolean(
+    custo1Contrato > 0 &&
+    venda1Contrato > 0 &&
+    (Math.abs(custoPosAlteracao - custo1Contrato) > 0.0001 ||
+      Math.abs(vendaPosAlteracao - venda1Contrato) > 0.0001)
+  );
+
+  // Preços vigentes (se houver reajuste pós-contrato, assume automaticamente os preços ajustados)
+  const lanceVigente = temAlteracaoPosContrato && vendaPosAlteracao > 0 ? vendaPosAlteracao : nossoLanceVal;
+  const custoVigente = temAlteracaoPosContrato && custoPosAlteracao > 0 ? custoPosAlteracao : nossoCusto;
+
+  //Sugere cobrir a oferta por 1 centavo (0.0100)
   const sugestaoLance = precoConcorrente > 0 ? precoConcorrente - 0.01 : 0;
   const impostoSugestaoUnit = sugestaoLance * (aliquotaEfetivaGlobal);
-  const lucroSugestao = sugestaoLance - nossoCusto - impostoSugestaoUnit;
+  const lucroSugestao = sugestaoLance - custoVigente - impostoSugestaoUnit;
   const lucroSugestaoMensal = (lucroSugestao * (item.quantidade || 1)) / divisorTempo;
-  const margemSugestao = nossoCusto > 0 ? (lucroSugestao / nossoCusto) * 100 : 0;
+  const margemSugestao = custoVigente > 0 ? (lucroSugestao / custoVigente) * 100 : 0;
   const isViable = margemSugestao >= 11;
 
   const [cenarios, setCenarios] = useState<{a: number, b: number, c: number}>(() => {
@@ -159,10 +2635,10 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
 
   useEffect(() => {
     if (onLiveValoresChange) {
-      onLiveValoresChange(item._id, precoConcorrente, nossoLanceVal);
+      onLiveValoresChange(item._id, precoConcorrente, lanceVigente);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [precoConcorrente, nossoLanceVal]);
+  }, [precoConcorrente, lanceVigente]);
 
   const getFator = (fornecedorId: string) => {
     if (fatores[fornecedorId]) return fatores[fornecedorId];
@@ -292,17 +2768,23 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                 const vencNomeNorm = vencNome.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
                 
                 const isNosso = vencCnpj.includes('48262939') || vencNomeNorm.includes('IRMAOS NASCIMENTO') || (vencNomeNorm.includes('IRMAOS') && vencNomeNorm.includes('NASCIMENTO'));
-                const valVenc = item.valorVencedor || item.produtoId?.valorVencedor || 0;
+                const valVencRaw = item.valorVencedor || item.produtoId?.valorVencedor || 0;
+                const valVencExibido = temAlteracaoPosContrato && lanceVigente > 0 ? lanceVigente : valVencRaw;
                 
                 return (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
                     {isNosso ? (
-                      <span style={{ fontSize: '0.72rem', background: '#dcfce7', color: '#15803d', padding: '0.2rem 0.5rem', borderRadius: '4px', fontWeight: 700, border: '1px solid #86efac', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
-                        🏆 HOMOLOGADO A SEU FAVOR {valVenc > 0 ? `(R$ ${valVenc.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })})` : ''}
+                      <span style={{ fontSize: '0.72rem', background: '#dcfce7', color: '#15803d', padding: '0.2rem 0.5rem', borderRadius: '4px', fontWeight: 700, border: '1px solid #86efac', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                        🏆 HOMOLOGADO A SEU FAVOR {valVencExibido > 0 ? `(R$ ${valVencExibido.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })})` : ''}
+                        {temAlteracaoPosContrato && Math.abs(vendaPosAlteracao - venda1Contrato) > 0.0001 && (
+                          <span style={{ fontWeight: 500, color: '#166534', opacity: 0.85, textTransform: 'none' }}>
+                            • 1º Contrato: R$ {venda1Contrato.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        )}
                       </span>
                     ) : vencNome ? (
                       <span style={{ fontSize: '0.72rem', background: '#fef2f2', color: '#991b1b', padding: '0.2rem 0.5rem', borderRadius: '4px', fontWeight: 600, border: '1px solid #fca5a5' }}>
-                        ❌ Vencido por: {vencNome} {valVenc > 0 ? `(R$ ${valVenc.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })})` : ''}
+                        ❌ Vencido por: {vencNome} {valVencExibido > 0 ? `(R$ ${valVencExibido.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })})` : ''}
                       </span>
                     ) : null}
 
@@ -314,7 +2796,7 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                           const pId = getProdutoId(item);
                           const newNome = isNosso ? '' : 'IRMÃOS NASCIMENTO LTDA';
                           const newCnpj = isNosso ? '' : '48262939000100';
-                          const newValor = item.produtoId?.valorNossoLance || item.valorNossoLance || item.valorUnitarioEstimado || 0;
+                          const newValor = lanceVigente || item.produtoId?.valorNossoLance || item.valorNossoLance || item.valorUnitarioEstimado || 0;
 
                           try {
                             await fetch(`${window.API_URL}/produto/${pId}`, {
@@ -386,10 +2868,17 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
               <span style={{ fontSize: '0.75rem', color: '#64748b', width: '150px' }}>Valor estimado (unitário)</span>
               <span style={{ fontSize: '0.85rem', color: '#334155', fontWeight: 500 }}>{isSigiloso ? 'Sigiloso' : `R$ ${item.valorUnitarioEstimado.toLocaleString('pt-BR')}`}</span>
             </div>
-            {nossoLanceVal > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'flex-start', gap: '4rem' }}>
+            {lanceVigente > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'flex-start', gap: '4rem', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.75rem', color: '#4338ca', width: '150px', fontWeight: 600 }}>Nosso Lance (Unitário)</span>
-                <span style={{ fontSize: '0.85rem', color: '#4338ca', fontWeight: 600 }}>R$ {nossoLanceVal.toLocaleString('pt-BR', {minimumFractionDigits: 4, maximumFractionDigits: 4})}</span>
+                <span style={{ fontSize: '0.85rem', color: '#4338ca', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                  R$ {lanceVigente.toLocaleString('pt-BR', {minimumFractionDigits: 4, maximumFractionDigits: 4})}
+                  {temAlteracaoPosContrato && Math.abs(vendaPosAlteracao - venda1Contrato) > 0.0001 && (
+                    <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 500, background: '#f1f5f9', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>
+                      Reajustado (1º Contrato: R$ {venda1Contrato.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                    </span>
+                  )}
+                </span>
               </div>
             )}
             {precoConcorrente > 0 && (
@@ -401,16 +2890,16 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          {item.melhorPreco && (
+          {custoVigente > 0 && (
             <span style={{ fontSize: '0.85rem', color: '#166534', background: '#f0fdf4', padding: '0.2rem 0.5rem', borderRadius: '4px', fontWeight: 'bold' }}>
-              Melhor Oferta: R$ {item.melhorPreco.precoUnitario.toLocaleString('pt-BR')}
+              Melhor Oferta: R$ {custoVigente.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
             </span>
           )}
           {(() => {
-            if (nossoLanceVal <= 0) return null;
-            const subtotal = Number(nossoLanceVal) * Number(item.quantidade || 1);
+            if (lanceVigente <= 0) return null;
+            const subtotal = Number(lanceVigente) * Number(item.quantidade || 1);
             const imposto = subtotal * aliquotaEfetivaGlobal;
-            const custo = nossoCusto * Number(item.quantidade || 1);
+            const custo = custoVigente * Number(item.quantidade || 1);
             const lucroTotal = subtotal - custo - imposto;
             
             return (
@@ -741,7 +3230,7 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                 return (
                   <div key={f.id} style={{ 
                     padding: '1rem', border: '1px solid', borderColor: isMelhor ? '#10b981' : isDesclassificado ? '#f87171' : '#e2e8f0', 
-                    borderRadius: '6px', background: isMelhor ? '#f0fdf4' : isDesclassificado ? '#fef2f2' : '#f8fafc', minWidth: '200px', maxWidth: '260px', flex: '1 1 200px',
+                    borderRadius: '6px', background: isMelhor ? '#f0fdf4' : isDesclassificado ? '#fef2f2' : '#f8fafc', minWidth: '280px', maxWidth: '380px', flex: '1 1 300px',
                     opacity: isDesclassificado ? 0.75 : 1
                   }}>
                     {/* Header */}
@@ -952,11 +3441,42 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                         🔗 Ver Oferta na Web
                       </a>
                     )}
+
+                    {/* Caixinha para atualizar os preços negociados / reajuste de contrato */}
+                    <CaixinhaAtualizarPrecoNegociado
+                      item={item}
+                      f={f}
+                      pf={pf}
+                      cotacaoId={cotacaoId}
+                      setCotacao={setCotacao}
+                      oportunidade={oportunidade}
+                      fator={fator}
+                      nomeEmbalagem={getNomeEmbalagem(f.id)}
+                      nossoLanceOficial={nossoLanceVal}
+                    />
                   </div>
                 );
               })}
-              {columnsFornecedores.length === 0 && (
-                <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Adicione fornecedores à disputa no seletor acima para lançar preços.</div>
+              {columnsFornecedores.filter((f: any) => {
+                const pf = item.precosFornecedores?.find((p:any) => p.fornecedorId?._id === f.id || p.fornecedorId === f.id);
+                return pf || f.id === novoFornecedorId;
+              }).length === 0 && (
+                <div style={{ width: '100%', maxWidth: '480px' }}>
+                  <div style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: '0.5rem' }}>
+                    Adicione fornecedores à disputa no seletor acima ou utilize a caixa abaixo para atualizar diretamente o preço negociado / custo do contrato deste item:
+                  </div>
+                  <CaixinhaAtualizarPrecoNegociado
+                    item={item}
+                    f={{ id: '', razaoSocial: 'Fornecedor do Contrato' }}
+                    pf={null}
+                    cotacaoId={cotacaoId}
+                    setCotacao={setCotacao}
+                    oportunidade={oportunidade}
+                    fator={1}
+                    nomeEmbalagem="unidade"
+                    nossoLanceOficial={nossoLanceVal}
+                  />
+                </div>
               )}
             </div>
           </div>
@@ -1208,13 +3728,19 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                           body: JSON.stringify({ valorNossoLance: val })
                         });
 
-                        // Sync to ProdutoBase for Market Intelligence globally
-                        const desc = item.descricaoItem || item.descricao;
+                        // Sync to ProdutoBase & Cotacao so Preço de Venda Contrato e Base de Produtos fiquem 100% sincronizados
+                        const desc = item.descricaoItem || item.descricao || item.produtoId?.descricao;
                         if (desc) {
                           await fetch(`${window.API_URL}/fornecedores/produtos/base`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ descricaoItem: desc, nossoLanceOficial: val })
+                            body: JSON.stringify({
+                              descricaoItem: desc,
+                              numeroItem: item.numeroItem || item.produtoId?.numeroItem,
+                              nossoLanceOficial: val,
+                              valorFechadoOrgao: val,
+                              oportunidadeId: oportunidade?._id,
+                            })
                           });
                         }
 
@@ -1222,7 +3748,7 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
                           const resCotFull = await fetch(`${window.API_URL}/cotacoes/${cotacaoId}`);
                           setCotacao(await resCotFull.json());
                         }
-                        alert('Valor oficial salvo com sucesso!');
+                        alert('Valor oficial salvo e sincronizado com o Preço de Venda do Contrato e Base de Produtos!');
                       } catch (err) {
                         console.error('Falha ao salvar nosso lance', err);
                         alert('Erro ao salvar lance!');
@@ -1236,7 +3762,7 @@ function AccordionItem({ item, index, columnsFornecedores, handlePrecoBlur, hand
               </div>
             </div>
 
-            {nossoLanceVal > 0 && precoConcorrente > 0 && (
+            {lanceVigente > 0 && precoConcorrente > 0 && (
               <div style={{ 
                 padding: '1rem', 
                 background: nossoLanceVal < precoConcorrente ? '#f0fdf4' : '#fef2f2', 
@@ -1750,18 +4276,170 @@ export default function OportunidadeDetalhe() {
 
       {aba === 'cotacao' && cotacao && (
         <div style={{ background: 'var(--bg-card)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
             <h3 style={{ margin: 0, fontSize: '1.25rem' }}>Matriz de Preços e Melhores Ofertas</h3>
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
               <button 
                 onClick={handleExportCSV}
                 style={{
-                  background: '#10b981', color: 'white', border: 'none', padding: '0.6rem 1rem', 
-                  borderRadius: '6px', cursor: 'pointer', fontWeight: 600, display: 'flex', gap: '0.5rem', alignItems: 'center',
-                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                  background: '#10b981', color: 'white', border: 'none', padding: '0.55rem 0.9rem', 
+                  borderRadius: '6px', cursor: 'pointer', fontWeight: 600, display: 'flex', gap: '0.4rem', alignItems: 'center',
+                  fontSize: '0.85rem', boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                 }}
               >
-                📊 Exportar Mapa de Preços (CSV)
+                📊 Mapa de Preços (CSV)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const ehItemSelecionadoNoContrato = (it: any) => {
+                    const vencedorNome = String(it.produtoId?.fornecedorVencedorNome || it.fornecedorVencedorNome || '').toUpperCase();
+                    const vencedorCnpj = String(it.produtoId?.fornecedorVencedorCnpj || it.fornecedorVencedorCnpj || '').replace(/\D/g, '');
+                    const isNossoHomologado =
+                      Boolean(it.homologadoManualmente || it.produtoId?.homologadoManualmente) ||
+                      vencedorNome.includes('IRMAOS NASCIMENTO') ||
+                      vencedorNome.includes('IRMÃOS NASCIMENTO') ||
+                      vencedorCnpj.includes('48262939');
+                    const temContratoAssinado = (it.precosFornecedores || []).some(
+                      (p: any) =>
+                        Number(p.valorFechadoOrgao || 0) > 0 ||
+                        Number(p.valorVendaReajuste || 0) > 0 ||
+                        (Array.isArray(p.entregasContrato) && p.entregasContrato.length > 0),
+                    );
+                    return isNossoHomologado || temContratoAssinado;
+                  };
+
+                  const itensRelatorio: ProdutoRelatorioReajuste[] = (cotacao.itens || [])
+                    .filter(ehItemSelecionadoNoContrato)
+                    .map((it: any) => {
+                      const pfs = it.precosFornecedores || [];
+                      const pf = pfs.find((p: any) => p.precoCustoContrato > 0 || p.valorFechadoOrgao > 0) || pfs.find((p: any) => p.precoUnitario > 0) || pfs[0];
+                      const fornObj = typeof pf?.fornecedorId === 'object' ? pf.fornecedorId : null;
+                      const cContrato = pf?.precoCustoContrato || pf?.precoUnitario || it.melhorPreco?.precoUnitario || 0;
+                      const cAtual = pf?.precoUnitario || cContrato || 0;
+                      const vFechado = pf?.valorFechadoOrgao || it.produtoId?.valorNossoLance || it.valorNossoLance || it.produtoId?.valorVencedor || it.valorVencedor || 0;
+                      const vOfertado = pf?.valorOfertadoOrgao || vFechado || 0;
+                      const vVendaReaj = pf?.valorVendaReajuste || vFechado || 0;
+                      const entregas = Array.isArray(pf?.entregasContrato) ? pf.entregasContrato : [];
+                      const qtdEntregueTotal = entregas.length > 0
+                        ? entregas.reduce((acc: number, e: any) => acc + (Number(e.quantidade) || 0), 0)
+                        : pf?.quantidadeEntregue;
+                      return {
+                        descricaoItem: it.descricaoItem || it.produtoId?.descricao || `Item ${it.numeroItem}`,
+                        numeroItem: it.numeroItem || it.produtoId?.numeroItem,
+                        fornecedorNome: fornObj?.razaoSocial || it.melhorPreco?.razaoSocial || 'Fornecedor Homologado',
+                        fornecedorCnpj: fornObj?.cnpj || '',
+                        orgaoNome: oportunidade?.orgaoNome || 'ESCOLA DE APRENDIZES MARINHEIROS DO CEARA',
+                        uasg: oportunidade?.unidadeCompradora || '783601',
+                        pregaoNumero: oportunidade?.numeroCompraOrigem && oportunidade?.anoCompraOrigem
+                          ? `Pregão Eletrônico N° ${oportunidade.numeroCompraOrigem}/${oportunidade.anoCompraOrigem} (SRP) (Lei 14.133/2021)`
+                          : 'Pregão Eletrônico N° 51/2027 (SRP) (Lei 14.133/2021)',
+                        dataAssinaturaContrato: pf?.dataAssinaturaContrato || '2026-09-14',
+                        dataUltimoReajuste: pf?.dataUltimaAtualizacaoCusto || pf?.dataCotacao || new Date(),
+                        precoCustoContrato: Number(cContrato),
+                        valorOfertadoOrgao: Number(vOfertado),
+                        valorFechadoOrgao: Number(vFechado),
+                        valorVendaReajuste: Number(vVendaReaj),
+                        motivoContrato: pf?.motivoContrato || 'REAJUSTE_PRECO',
+                        precoCustoAtual: Number(cAtual),
+                        quantidadeContratada: it.quantidade || it.produtoId?.quantidade,
+                        quantidadeEntregue: qtdEntregueTotal,
+                        entregasContrato: entregas,
+                        historicoReajustes: Array.isArray(pf?.historicoNegociacao) ? pf.historicoNegociacao : [],
+                        informeUltimoReajuste: pf?.informeReajuste,
+                        chatNegociacao: pf?.chatNegociacao,
+                      };
+                    });
+                  if (itensRelatorio.length === 0) {
+                    alert('Nenhum item selecionado/homologado com contrato assinado para exportar.');
+                    return;
+                  }
+                  exportarRelatorioReajusteXLS(itensRelatorio, 'Planilha_Reajuste_Contrato_Itens');
+                }}
+                style={{
+                  background: '#059669', color: 'white', border: 'none', padding: '0.55rem 0.9rem',
+                  borderRadius: '6px', cursor: 'pointer', fontWeight: 700, display: 'flex', gap: '0.4rem', alignItems: 'center',
+                  fontSize: '0.85rem', boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                }}
+                title="Exporta somente os itens em que fomos selecionados e assinamos contrato em planilha .XLS"
+              >
+                <FileSpreadsheet size={16} /> Relatório Reajuste (.XLS)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const ehItemSelecionadoNoContrato = (it: any) => {
+                    const vencedorNome = String(it.produtoId?.fornecedorVencedorNome || it.fornecedorVencedorNome || '').toUpperCase();
+                    const vencedorCnpj = String(it.produtoId?.fornecedorVencedorCnpj || it.fornecedorVencedorCnpj || '').replace(/\D/g, '');
+                    const isNossoHomologado =
+                      Boolean(it.homologadoManualmente || it.produtoId?.homologadoManualmente) ||
+                      vencedorNome.includes('IRMAOS NASCIMENTO') ||
+                      vencedorNome.includes('IRMÃOS NASCIMENTO') ||
+                      vencedorCnpj.includes('48262939');
+                    const temContratoAssinado = (it.precosFornecedores || []).some(
+                      (p: any) =>
+                        Number(p.valorFechadoOrgao || 0) > 0 ||
+                        Number(p.valorVendaReajuste || 0) > 0 ||
+                        (Array.isArray(p.entregasContrato) && p.entregasContrato.length > 0),
+                    );
+                    return isNossoHomologado || temContratoAssinado;
+                  };
+
+                  const itensRelatorio: ProdutoRelatorioReajuste[] = (cotacao.itens || [])
+                    .filter(ehItemSelecionadoNoContrato)
+                    .map((it: any) => {
+                      const pfs = it.precosFornecedores || [];
+                      const pf = pfs.find((p: any) => p.precoCustoContrato > 0 || p.valorFechadoOrgao > 0) || pfs.find((p: any) => p.precoUnitario > 0) || pfs[0];
+                      const fornObj = typeof pf?.fornecedorId === 'object' ? pf.fornecedorId : null;
+                      const cContrato = pf?.precoCustoContrato || pf?.precoUnitario || it.melhorPreco?.precoUnitario || 0;
+                      const cAtual = pf?.precoUnitario || cContrato || 0;
+                      const vFechado = pf?.valorFechadoOrgao || it.produtoId?.valorNossoLance || it.valorNossoLance || it.produtoId?.valorVencedor || it.valorVencedor || 0;
+                      const vOfertado = pf?.valorOfertadoOrgao || vFechado || 0;
+                      const vVendaReaj = pf?.valorVendaReajuste || vFechado || 0;
+                      const entregas = Array.isArray(pf?.entregasContrato) ? pf.entregasContrato : [];
+                      const qtdEntregueTotal = entregas.length > 0
+                        ? entregas.reduce((acc: number, e: any) => acc + (Number(e.quantidade) || 0), 0)
+                        : pf?.quantidadeEntregue;
+                      return {
+                        descricaoItem: it.descricaoItem || it.produtoId?.descricao || `Item ${it.numeroItem}`,
+                        numeroItem: it.numeroItem || it.produtoId?.numeroItem,
+                        fornecedorNome: fornObj?.razaoSocial || it.melhorPreco?.razaoSocial || 'Fornecedor Homologado',
+                        fornecedorCnpj: fornObj?.cnpj || '',
+                        orgaoNome: oportunidade?.orgaoNome || 'ESCOLA DE APRENDIZES MARINHEIROS DO CEARA',
+                        uasg: oportunidade?.unidadeCompradora || '783601',
+                        pregaoNumero: oportunidade?.numeroCompraOrigem && oportunidade?.anoCompraOrigem
+                          ? `Pregão Eletrônico N° ${oportunidade.numeroCompraOrigem}/${oportunidade.anoCompraOrigem} (SRP) (Lei 14.133/2021)`
+                          : 'Pregão Eletrônico N° 51/2027 (SRP) (Lei 14.133/2021)',
+                        dataAssinaturaContrato: pf?.dataAssinaturaContrato || '2026-09-14',
+                        dataUltimoReajuste: pf?.dataUltimaAtualizacaoCusto || pf?.dataCotacao || new Date(),
+                        precoCustoContrato: Number(cContrato),
+                        valorOfertadoOrgao: Number(vOfertado),
+                        valorFechadoOrgao: Number(vFechado),
+                        valorVendaReajuste: Number(vVendaReaj),
+                        motivoContrato: pf?.motivoContrato || 'REAJUSTE_PRECO',
+                        precoCustoAtual: Number(cAtual),
+                        quantidadeContratada: it.quantidade || it.produtoId?.quantidade,
+                        quantidadeEntregue: qtdEntregueTotal,
+                        entregasContrato: entregas,
+                        historicoReajustes: Array.isArray(pf?.historicoNegociacao) ? pf.historicoNegociacao : [],
+                        informeUltimoReajuste: pf?.informeReajuste,
+                        chatNegociacao: pf?.chatNegociacao,
+                      };
+                    });
+                  if (itensRelatorio.length === 0) {
+                    alert('Nenhum item selecionado/homologado com contrato assinado para exportar.');
+                    return;
+                  }
+                  exportarRelatorioReajusteDOC(itensRelatorio, 'Pedido_Reajuste_Contrato_Itens');
+                }}
+                style={{
+                  background: '#2563eb', color: 'white', border: 'none', padding: '0.55rem 0.9rem',
+                  borderRadius: '6px', cursor: 'pointer', fontWeight: 700, display: 'flex', gap: '0.4rem', alignItems: 'center',
+                  fontSize: '0.85rem', boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                }}
+                title="Exporta somente os itens em que fomos selecionados e assinamos contrato em documento .DOC"
+              >
+                <FileText size={16} /> Pedido Reajuste (.DOC)
               </button>
               <div>
                 <input 
@@ -1775,7 +4453,7 @@ export default function OportunidadeDetalhe() {
                       e.target.value = ''; // limpa após selecionar
                     }
                   }}
-                  style={{ minWidth: '300px', width: '100%' }}
+                  style={{ minWidth: '280px', width: '100%' }}
                 />
                 <datalist id="fornecedores-list">
                   {fornecedoresDisponiveis.map(f => (
@@ -1967,6 +4645,7 @@ export default function OportunidadeDetalhe() {
                   aliquotaEfetivaGlobal={aliquotaEfetivaGlobal}
                   modeloEntrega={modeloEntrega}
                   mesesContrato={mesesContrato}
+                  oportunidade={oportunidade}
                 />
               ))
             )}
