@@ -11,6 +11,9 @@ spec:
       labels:
         app: sgl-market-intelligence
     spec:
+      securityContext:
+        appArmorProfile:
+          type: Unconfined
       containers:
       - name: market-intelligence
         image: hobson007breno/sgl-market-intelligence:9a15bc3

@@ -11,6 +11,9 @@ spec:
       labels:
         app: sgl-backend
     spec:
+      securityContext:
+        appArmorProfile:
+          type: Unconfined
       containers:
       - name: backend
         image: hobson007breno/sgl-backend:9a15bc3

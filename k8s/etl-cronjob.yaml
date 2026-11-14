@@ -2,17 +2,22 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: sgl-etl-cronjob
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true,Replace=true
 spec:
   # Roda às 02:00 da manhã do dia 10 de cada mês
   schedule: "0 2 10 * *"
   successfulJobsHistoryLimit: 1
-  failedJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 0
   jobTemplate:
     spec:
       backoffLimit: 2
       ttlSecondsAfterFinished: 86400
       template:
         spec:
+          securityContext:
+            appArmorProfile:
+              type: Unconfined
           containers:
           - name: sgl-etl
             image: hobson007breno/sgl-backend:9a15bc3

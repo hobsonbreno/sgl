@@ -11,6 +11,9 @@ spec:
       labels:
         app: sgl-frontend
     spec:
+      securityContext:
+        appArmorProfile:
+          type: Unconfined
       containers:
       - name: frontend
         image: hobson007breno/sgl-frontend:9a15bc3
