@@ -1,10 +1,27 @@
 import { Injectable, Logger } from '@nestjs/common';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { Browser } from 'puppeteer';
 import { PuppeteerQueueService } from '../puppeteer-queue/puppeteer-queue.service';
 
 puppeteer.use(StealthPlugin());
+
+function resolveBrowserExecutablePath(): string | undefined {
+  const candidates = [
+    process.env.PUPPETEER_EXECUTABLE_PATH,
+    '/usr/bin/chromium-browser',
+    '/usr/bin/chromium',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/google-chrome',
+  ].filter(Boolean) as string[];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  return undefined;
+}
 
 @Injectable()
 export class ComprasnetPublicService {
@@ -39,9 +56,7 @@ export class ComprasnetPublicService {
 
       try {
         browser = await puppeteer.launch({
-          executablePath:
-            process.env.PUPPETEER_EXECUTABLE_PATH ||
-            '/usr/bin/chromium-browser',
+          executablePath: resolveBrowserExecutablePath(),
           headless: true,
           timeout: 90000,
           protocolTimeout: 120000,
@@ -71,13 +86,16 @@ export class ComprasnetPublicService {
         // Wait for the app to render the main content
         await new Promise((r) => setTimeout(r, 12000));
 
+        const screenshotDir = fs.existsSync('/app') ? '/app' : os.tmpdir();
+        const screenshotPath = path.join(
+          screenshotDir,
+          `screenshot_${pIdFormated}.png`,
+        );
         await page.screenshot({
-          path: `/app/screenshot_${pIdFormated}.png`,
+          path: screenshotPath,
           fullPage: true,
         });
-        this.logger.log(
-          `Screenshot salva em /app/screenshot_${pIdFormated}.png`,
-        );
+        this.logger.log(`Screenshot salva em ${screenshotPath}`);
 
         const data = await page.evaluate(() => {
           // Extrai o chat

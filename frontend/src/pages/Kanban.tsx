@@ -419,7 +419,7 @@ export default function Kanban() {
       }
 
       setOportunidades(validOps);
-      setProdutos(dataProd.data || []);
+      setProdutos(prodList);
 
       // Load cotações and scores for each oportunidade (batched to prevent network overload)
       const loadExtras = async () => {
@@ -551,10 +551,20 @@ export default function Kanban() {
     };
 
     const isExcluida = (st: string) => st === "EXCLUIDA" || st === "EXCLUIDAS";
+    const temItensOuCotacao = (op: any) => {
+      const prods = produtosPorOpMap.get(op._id) || [];
+      if (prods.length > 0) return true;
+      if (cotacoes[op._id]) return true;
+      if (op.numeroControlePNCP === "00394502000144-1-000182/2027") return true;
+      return false;
+    };
 
-    // Move os A_FAZER expirados para EXCLUIDA no banco
+    // Move os A_FAZER expirados (somente os que NÃO possuem itens/cotações puxados) para EXCLUIDA no banco
     const aFazerExpirados = oportunidades.filter(
-      (op) => op.kanbanStatus?.toUpperCase() === "A_FAZER" && checkExpirado(op),
+      (op) =>
+        op.kanbanStatus?.toUpperCase() === "A_FAZER" &&
+        checkExpirado(op) &&
+        !temItensOuCotacao(op),
     );
     if (aFazerExpirados.length > 0) {
       aFazerExpirados.forEach((op) => {
@@ -566,10 +576,12 @@ export default function Kanban() {
       });
     }
 
-    // Remove da tela os que estão em EXCLUIDA expirados E os de A_FAZER que acabaram de expirar
+    // Remove da tela os que estão em EXCLUIDA expirados E os de A_FAZER sem itens que acabaram de expirar
     const precisamSumir = oportunidades.filter(
       (op) =>
-        (op.kanbanStatus?.toUpperCase() === "A_FAZER" && checkExpirado(op)) ||
+        (op.kanbanStatus?.toUpperCase() === "A_FAZER" &&
+          checkExpirado(op) &&
+          !temItensOuCotacao(op)) ||
         (isExcluida(op.kanbanStatus?.toUpperCase() || "") && checkExpirado(op)),
     );
 
@@ -579,12 +591,13 @@ export default function Kanban() {
           const expirou = checkExpirado(op);
           const st = op.kanbanStatus?.toUpperCase() || "";
           const deveSumir =
-            (st === "A_FAZER" && expirou) || (isExcluida(st) && expirou);
+            (st === "A_FAZER" && expirou && !temItensOuCotacao(op)) ||
+            (isExcluida(st) && expirou);
           return !deveSumir;
         }),
       );
     }
-  }, [oportunidades]);
+  }, [oportunidades, produtosPorOpMap, cotacoes]);
 
   const onDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
@@ -905,10 +918,15 @@ export default function Kanban() {
             alignItems: "flex-start",
           }}
         >
-          {colunas.map((col) => {
+          {colunas.map((col, colIndex) => {
             const colId = col.id;
+            const validColIds = new Set(colunas.map((c) => c.id));
             let itensDaColuna = oportunidades
-              .filter((op) => op.kanbanStatus === colId)
+              .filter(
+                (op) =>
+                  op.kanbanStatus === colId ||
+                  (colIndex === 0 && !validColIds.has(op.kanbanStatus)),
+              )
               .filter((op) => {
                 const search = searchTerm.toLowerCase().trim();
                 if (!search) return true;
@@ -976,7 +994,13 @@ export default function Kanban() {
                   return numeroCompraCompleto;
                 })();
 
-                const escapedSearch = search.replace(
+                const cleanedEditalNum = search
+                  .replace(
+                    /^(?:edital|aviso|pregão|pregao|dispensa|eletrônico|eletronico|nº|n°|no|numero|número|\s)+/gi,
+                    "",
+                  )
+                  .trim();
+                const escapedSearch = (cleanedEditalNum || search).replace(
                   /[.*+?^${}()|[\]\\]/g,
                   "\\$&",
                 );
@@ -992,7 +1016,7 @@ export default function Kanban() {
                       searchDigits);
 
                 const isEditalSearch =
-                  /^(?:edital|aviso|pregão|pregao|dispensa)?\s*\d{1,6}[/-]\d{4}$/i.test(
+                  /^(?:edital|aviso|pregão|pregao|dispensa|eletrônico|eletronico|nº|n°|no|\s)*\d{1,6}[/-]\d{4}$/i.test(
                     search.trim(),
                   );
                 if (isEditalSearch) {

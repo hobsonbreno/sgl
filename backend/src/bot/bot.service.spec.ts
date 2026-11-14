@@ -18,6 +18,7 @@ describe('BotService', () => {
       {} as any,
       {} as any,
       {} as any,
+      {} as any,
     );
   });
 

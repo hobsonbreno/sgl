@@ -55,13 +55,37 @@ export class FornecedorController {
   }
 
   @Put('produtos/base')
-  @ApiOperation({ summary: 'Atualizar inteligência de um produto na base' })
+  @ApiOperation({
+    summary:
+      'Atualizar inteligência, contrato e histórico de reajuste de um produto na base',
+  })
   updateProdutoBase(
     @Body()
     data: {
       descricaoItem: string;
       nossoLanceOficial?: number;
       valorCampeaoLicitacao?: number;
+      precoCustoContrato?: number;
+      precoCustoAtual?: number;
+      valorOfertadoOrgao?: number;
+      valorFechadoOrgao?: number;
+      valorVendaReajuste?: number;
+      motivoContrato?: string;
+      dataAssinaturaContrato?: string;
+      dataUltimoReajuste?: string;
+      orgaoNome?: string;
+      uasg?: string;
+      pregaoNumero?: string;
+      numeroItem?: number;
+      quantidadeContratada?: number;
+      quantidadeEntregue?: number;
+      fornecedorId?: string;
+      fornecedorNome?: string;
+      fornecedorCnpj?: string;
+      oportunidadeId?: string;
+      informe?: string;
+      chatNegociacao?: string;
+      registrarNoHistorico?: boolean;
     },
   ) {
     return this.service.updateProdutoBase(data.descricaoItem, data);

@@ -1,9 +1,24 @@
 import { Injectable, Logger } from '@nestjs/common';
+import * as fs from 'fs';
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { Browser, Page } from 'puppeteer-core';
 
 puppeteer.use(StealthPlugin());
+
+function resolveBrowserExecutablePath(): string | undefined {
+  const candidates = [
+    process.env.PUPPETEER_EXECUTABLE_PATH,
+    '/usr/bin/chromium-browser',
+    '/usr/bin/chromium',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/google-chrome',
+  ].filter(Boolean) as string[];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  return undefined;
+}
 
 export interface PropostaScrapedData {
   uasg?: string;
@@ -22,8 +37,7 @@ export class ComprasGovScraperService {
   constructor() {}
 
   private async launchBrowser(): Promise<Browser> {
-    const executablePath =
-      process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser';
+    const executablePath = resolveBrowserExecutablePath();
     return await puppeteer.launch({
       executablePath,
       headless: true,

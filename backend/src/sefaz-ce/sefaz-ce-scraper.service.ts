@@ -1,6 +1,21 @@
 import { Injectable, Logger } from '@nestjs/common';
+import * as fs from 'fs';
 import puppeteer from 'puppeteer-core';
 import { PuppeteerQueueService } from '../puppeteer-queue/puppeteer-queue.service';
+
+function resolveBrowserExecutablePath(): string {
+  const candidates = [
+    process.env.PUPPETEER_EXECUTABLE_PATH,
+    '/usr/bin/chromium-browser',
+    '/usr/bin/chromium',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/google-chrome',
+  ].filter(Boolean) as string[];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  return '/usr/bin/chromium-browser';
+}
 
 @Injectable()
 export class SefazCeScraperService {
@@ -39,8 +54,7 @@ export class SefazCeScraperService {
         `Iniciando raspagem de dados no Sefaz CE via Puppeteer para a CoEP: ${numeroCoep}`,
       );
 
-      const executablePath =
-        process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser';
+      const executablePath = resolveBrowserExecutablePath();
       let browser;
       try {
         // Usamos puppeteer-core e apontamos para o Chromium instalado no Alpine (ou no host)

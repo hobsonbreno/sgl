@@ -12,16 +12,18 @@ export default function MarketIntelligence() {
     setLoading(true);
     try {
       const [resStats, resModel, resBot, resOps] = await Promise.all([
-        fetch(`${window.MARKET_URL}/market/stats`),
-        fetch(`${window.MARKET_URL}/market/model-info`),
-        fetch(`${window.API_URL}/bot/execucoes?limit=50`),
-        fetch(`${window.API_URL}/oportunidades?limit=1000`)
+        fetch(`${window.MARKET_URL}/market/stats`).catch(() => null),
+        fetch(`${window.MARKET_URL}/market/model-info`).catch(() => null),
+        fetch(`${window.API_URL}/bot/execucoes?limit=50`).catch(() => null),
+        fetch(`${window.API_URL}/oportunidades?limit=1000`).catch(() => null)
       ]);
-      setStats(await resStats.json());
-      setModelInfo(await resModel.json());
+      const statsData = resStats && resStats.ok ? await resStats.json() : { vencedoras: 0, perdidas: 0, ticketMedio: 0, topOrgaos: [] };
+      const modelData = resModel && resModel.ok ? await resModel.json() : { treinado: false, mensagem: 'Serviço de ML em espera ou sem amostras suficientes.', amostras_treino: 0 };
+      setStats(statsData);
+      setModelInfo(modelData);
       
-      const botData = await resBot.json();
-      const opsData = await resOps.json();
+      const botData = resBot && resBot.ok ? await resBot.json() : [];
+      const opsData = resOps && resOps.ok ? await resOps.json() : { data: [] };
 
       // Bot Performance
       const captadas = botData.reduce((acc: number, curr: any) => acc + (curr.totalNovos || 0), 0);
